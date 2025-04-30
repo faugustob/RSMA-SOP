@@ -1,6 +1,5 @@
 clear
 
-UE_count = 2;
 % location coordinates
 w_U_r = [0, 0, 0]; % location of U_r
 w_U_t = [100, 0, 0]; % location of U_t
@@ -22,14 +21,17 @@ G_E_dB = 160; % receiving gain at Eve, in dB
 G_E = 10^(G_E_dB/10); % receiving gain at Eve, linear
 epsilon_p = 1; % RIS efficiency
 d_SR = norm(w_S-w_R); % distance from LEO to STAR-RIS
+d_SE = norm(w_S-w_E); % distance from LEO to Eve
 d_U_r = norm(w_R-w_U_r); % distance from STAR-RIS to reflect UE
 d_U_t = norm(w_R-w_U_t); % distance from STAR-RIS to transmit UE
 d_E = norm(w_R-w_E);
 % path loss experienced by the signal reaching reflect/transmit UE
 P_L_r = (lambda/(4*pi))^4*G_S*G_U_r/(d_SR^2*d_U_r^2)*epsilon_p;
 P_L_t = (lambda/(4*pi))^4*G_S*G_U_t/(d_SR^2*d_U_t^2)*epsilon_p;
-% path loss experienced by the signal reaching Eve
-P_L_E = (lambda/(4*pi))^4*G_S*G_E/(d_SR^2*d_E^2)*epsilon_p;
+% path loss experienced by the signal reaching Eve, direct path from satellite
+P_L_E_1 = (lambda/(4*pi))^4*G_S*G_E/(d_SE^2)*epsilon_p;
+% path loss experienced by the signal reaching Eve, path via STAR-RIS
+P_L_E_2 = (lambda/(4*pi))^4*G_S*G_E/(d_SR^2*d_E^2)*epsilon_p;
 sigma_r = 1; % standard deviation for gaussian noise at reflect UE
 sigma_t = 1; % standard deviation for gaussian noise at transmit UE
 sigma_e = 1; % standard deviation for gaussian noise at Eve
@@ -52,7 +54,7 @@ omega_SE = 10; % spread parameter; direct channel from LEO satellite to Eve
 alpha_c = 1/3; % power allocation factor for common message
 alpha_p_r = 1/3; % power allocation factor for private message of reflecting user
 alpha_p_t = 1/3; % power allocation factor for private message of transmitting user
-epsilon = 1; % error factor associated with imperfect SIC; not used yet
+eta = 0; % error factor associated with imperfect SIC; not used yet
 
 % spatial correlation
 % not implemented yet
@@ -79,22 +81,35 @@ zeta_r_k = rand(N,M); % reflection coefficients
 zeta_t_k = 1-zeta_r_k; % transmission (refraction) coefficients
 ris_angle_r = random(uniform_dist,N,M); % angle of RIS elements for reflection
 ris_angle_t = random(uniform_dist,N,M); % angle of RIS elements for transmission
+ris_angle_E = random(uniform_dist,N,M); % angle of RIS elements for Eve
 % Element-wise RIS magnitude and phase shift for each element and sample
-theta_r = sqrt(zeta_r_k).*exp(1j.*ris_angle_r); % [N x M]
-theta_t = sqrt(zeta_t_k).*exp(1j.*ris_angle_t); % [N x M]
+phi_r = sqrt(zeta_r_k).*exp(1j.*ris_angle_r); % [N x M]
+phi_t = sqrt(zeta_t_k).*exp(1j.*ris_angle_t); % [N x M]
+phi_E = sqrt(zeta_r_k).*exp(1j.*ris_angle_E); % [N x M]; on the reflecting side so takes reflection coefficient
 
 gamma_r_bar = P_S/sigma_r^2;
 gamma_t_bar = P_S/sigma_t^2;
-% channel and RIS coefficient and phases
-channel_r = abs(sum(conj(h_r).*theta_r.*h,1)).^2;
-channel_t = abs(sum(conj(h_t).*theta_t.*h,1)).^2;
+% channel coefficients and RIS coefficients and phases for users
+channel_r = abs(sum(conj(h_r).*phi_r.*h,1)).^2;
+channel_t = abs(sum(conj(h_t).*phi_t.*h,1)).^2;
 % SINR of the common signal part at the reflecting user
 gamma_c_r = alpha_c.*P_L_r.*channel_r.*gamma_r_bar./(gamma_r_bar.*channel_r.*P_L_r.*(alpha_p_r+alpha_p_t)+1);
 % SINR of the common signal part at the transmitting user
 gamma_c_t = alpha_c.*P_L_t.*channel_t.*gamma_t_bar./(gamma_t_bar.*channel_t.*P_L_t.*(alpha_p_r+alpha_p_t)+1);
 
+% SINR of the private signal part at the reflecting user
+gamma_p_r = alpha_p_r.*P_L_r.*channel_r.*gamma_r_bar./(gamma_r_bar.*channel_r.*P_L_r.*(alpha_p_t+eta.*alpha_c)+1);
+% SINR of the private signal part at the transmitting user
+gamma_p_t = alpha_p_t.*P_L_t.*channel_t.*gamma_t_bar./(gamma_t_bar.*channel_t.*P_L_t.*(alpha_p_r+eta.*alpha_c)+1);
 
-secrecy_rate = log2(1+gamma_xi)-log2(1+gamma_E);
-R_s = 0.5; % secrecy rate threshold
-SOP = mean(secrecy_rate<R_s,UE_count);
-SOP_mean = mean(SOP);
+gamma_E_bar = P_S/sigma_E^2;
+% channel coefficients and RIS coefficients and phases, including path loss, for Eve
+channel_E = abs(sum(sqrt(P_L_E_2).*conj(g_2).*phi_E.*h,1)+sqrt(P_L_E_1).*g_1).^2;
+
+% SINR of the common signal part at Eve
+gamma_c_E = alpha_c.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
+
+% SINR of the reflecting user's private signal part at Eve
+gamma_p_E_r = alpha_p_r.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
+% SINR of the transmitting user's private signal part at Eve
+gamma_p_E_t = alpha_p_t.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
