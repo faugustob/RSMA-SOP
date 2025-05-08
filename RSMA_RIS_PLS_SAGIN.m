@@ -34,9 +34,15 @@ P_L_E_1 = (lambda/(4*pi))^4*G_S*G_E/(d_SE^2)*epsilon_p;
 P_L_E_2 = (lambda/(4*pi))^4*G_S*G_E/(d_SR^2*d_E^2)*epsilon_p;
 sigma_r = 1; % standard deviation for gaussian noise at reflect UE
 sigma_t = 1; % standard deviation for gaussian noise at transmit UE
-sigma_e = 1; % standard deviation for gaussian noise at Eve
+sigma_E = 1; % standard deviation for gaussian noise at Eve
 
-M = 10000; % number of samples
+M = 1e4; % number of samples
+
+% RSMA parameters
+alpha_c = 1/3; % power allocation factor for common message
+alpha_p_r = 1/3; % power allocation factor for private message of reflecting user
+alpha_p_t = 1/3; % power allocation factor for private message of transmitting user
+eta = 0; % error factor associated with imperfect SIC; not used yet
 
 % nakagami parameters
 m_SR = 1; % shape parameter; from LEO satellite to STAR-RIS
@@ -50,32 +56,64 @@ omega_E = 1; % spread parameter; from STAR-RIS to Eve
 m_SE = 1; % shape parameter; direct channel from LEO satellite to Eve
 omega_SE = 10; % spread parameter; direct channel from LEO satellite to Eve
 
-% RSMA parameters
-alpha_c = 1/3; % power allocation factor for common message
-alpha_p_r = 1/3; % power allocation factor for private message of reflecting user
-alpha_p_t = 1/3; % power allocation factor for private message of transmitting user
-eta = 0; % error factor associated with imperfect SIC; not used yet
+% parameters for correlation matrix
+kappa = 0.4; % exponential correlation coefficient
+% derived gamma distribution scales
+theta_SR = omega_SR / m_SR;
+theta_r = omega_r / m_r;
+theta_t = omega_t / m_t;
+theta_E = omega_E / m_E;
 
-% spatial correlation
-% not implemented yet
+% Use vectorized indexing to build |i-j| matrix
+i = (1:N)'; j = 1:N;
+R = kappa .^ abs(i - j);      % Exponential correlation: R(i,j) = epsilon^|i-j|
 
-% generate random samples
+% Ensure symmetry and unit diagonal
+R = (R + R') / 2;               % force symmetry
+R(1:N+1:end) = 1;               % set diagonal elements to 1
+
+% Enforce positive definiteness if needed
+minEig = min(eig(R));
+if minEig <= 0
+    warning('Adjusting correlation matrix to nearest SPD (min eig = %.3e)...', minEig);
+    R = nearestSPD(R);
+    % normalize diagonals
+    D = sqrt(diag(R));
+    R = R ./ (D * D');
+end
+
+% Generate Correlated Samples via Gaussian Copula
+% Generate correlated uniforms without loops
+U_h = copularnd('Gaussian', R, M); % LEO to i-th STAR-RIS element
+U_h_r = copularnd('Gaussian', R, M); % i-th RIS element to reflect UE
+U_h_t = copularnd('Gaussian', R, M); % i-th RIS element to transmit UE
+U_g = copularnd('Gaussian', R, M); % i-th STAR-RIS element to Eve
+
+% Transform uniforms to gamma variates (|h|^2 and |g|^2); (nakagami-m
+% variables squared)
+H2 = gaminv(U_h, m_SR, theta_SR);   % size: [M x N]
+H_r2 = gaminv(U_h_r, m_r, theta_r);
+H_t2 = gaminv(U_h_t, m_t, theta_t);
+G2 = gaminv(U_g, m_E, theta_E);
+
+% Form Nakagami-m Variables
+H = sqrt(H2); % magnitude for channel from LEO to i-th STAR-RIS element
+H_r = sqrt(H_r2); % magnitude for channel from i-th RIS element to reflect UE
+H_t = sqrt(H_t2); % magnitude for channel from i-th RIS element to transmit UE
+G = sqrt(G2); % magnitude for channel from i-th STAR-RIS element to Eve
+
 uniform_dist = makedist('Uniform','lower',0,'upper',2*pi);
-nakagami_dist_SR = makedist('Nakagami','mu',m_SR,'omega',omega_SR);
-nakagami_dist_E = makedist('Nakagami','mu',m_E,'omega',omega_E);
 nakagami_dist_SE = makedist('Nakagami','mu',m_SE,'omega',omega_SE);
-% channel from LEO to i-th STAR-RIS element
-h = random(nakagami_dist_SR,N,M).*exp(1j.*random(uniform_dist,N,M));
-% direct channel from LEO satellite to Eve
+
+% direct channel from LEO satellite to Eve (no correlation matrix because
+% no RIS elements; size: [1 x M])
 g_1 = random(nakagami_dist_SE,1,M).*exp(1j.*random(uniform_dist,1,M));
-% channel from i-th STAR-RIS element to Eve
-g_2 = random(nakagami_dist_E,N,M).*exp(1j.*random(uniform_dist,N,M));
-% channel from i-th RIS element to reflect UE
-nakagami_dist_r = makedist('Nakagami','mu',m_r,'omega',omega_r);
-h_r = random(nakagami_dist_r,N,M).*exp(1j.*random(uniform_dist,N,M));
-% channel from i-th RIS element to transmit UE
-nakagami_dist_t = makedist('Nakagami','mu',m_t,'omega',omega_t);
-h_t = random(nakagami_dist_t,N,M).*exp(1j.*random(uniform_dist,N,M));
+
+% add random uniform phase (0 to 2*pi)
+h = H'.*exp(1j.*random(uniform_dist,N,M)); % size: [N x M]
+h_r = H_r'.*exp(1j.*random(uniform_dist,N,M));
+h_t = H_t'.*exp(1j.*random(uniform_dist,N,M));
+g_2 = G'.*exp(1j.*random(uniform_dist,N,M));
 
 zeta_r_k = rand(N,M); % reflection coefficients
 zeta_t_k = 1-zeta_r_k; % transmission (refraction) coefficients
