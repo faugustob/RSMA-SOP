@@ -119,7 +119,7 @@ zeta_r_k = rand(N,M); % reflection coefficients
 zeta_t_k = 1-zeta_r_k; % transmission (refraction) coefficients
 ris_angle_r = random(uniform_dist,N,M); % angle of RIS elements for reflection
 ris_angle_t = random(uniform_dist,N,M); % angle of RIS elements for transmission
-ris_angle_E = random(uniform_dist,N,M); % angle of RIS elements for Eve
+ris_angle_E = -angle(g_1)-angle(conj(g_2).*h); % angle of RIS elements for Eve (optimal for PLS?)
 % Element-wise RIS magnitude and phase shift for each element and sample
 phi_r = sqrt(zeta_r_k).*exp(1j.*ris_angle_r); % [N x M]
 phi_t = sqrt(zeta_t_k).*exp(1j.*ris_angle_t); % [N x M]
@@ -148,6 +148,24 @@ channel_E = abs(sum(sqrt(P_L_E_2).*conj(g_2).*phi_E.*h,1)+sqrt(P_L_E_1).*g_1).^2
 gamma_c_E = alpha_c.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
 
 % SINR of the reflecting user's private signal part at Eve
-gamma_p_E_r = alpha_p_r.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
+gamma_p_r_E = alpha_p_r.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
 % SINR of the transmitting user's private signal part at Eve
-gamma_p_E_t = alpha_p_t.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
+gamma_p_t_E = alpha_p_t.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
+
+C_c_r = max(log2(1+gamma_c_r)-log2(1+gamma_c_E), 0); % secrecy capacity of common message vs reflecting user?
+C_p_r = max(log2(1+gamma_p_r)-log2(1+gamma_p_r_E), 0); % secrecy capacity for private message of reflecting user?
+
+C_c_t = max(log2(1+gamma_c_t)-log2(1+gamma_c_E), 0); % secrecy capacity of common message vs transmitting user?
+C_p_t = max(log2(1+gamma_p_t)-log2(1+gamma_p_t_E), 0); % secrecy capacity for private message of transmitting user?
+
+% secrecy capacity thresholds
+R_c_r = 1; % for common signal vs reflecting user
+R_p_r = 1; % for private signal vs reflecting user
+R_c_t = 1; % for common signal vs transimitting user
+R_p_t = 1; % for private signal vs transmitting user
+
+% secrecy outage only happens if BOTH common and private signal fall below
+% threshold (or does a secrecy outage happen if only one of the two fall
+% below threshold?)
+P_SOP_r = mean((C_c_r<R_c_r)&(C_p_r<R_p_r));
+P_SOP_t = mean((C_c_t<R_c_t)&(C_p_t<R_p_t));
