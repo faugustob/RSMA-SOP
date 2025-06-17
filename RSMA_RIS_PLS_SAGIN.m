@@ -3,35 +3,54 @@ clear
 % location coordinates
 w_U_r = [0, 0, 0]; % location of U_r
 w_U_t = [100, 0, 0]; % location of U_t
-w_R = [50, 0, 100]; % location of STAR-RIS
+w_R = [50, -50, 100]; % location of STAR-RIS
 w_S = [50, 100, 400000]; % location of LEO satellite
 w_E = [100, 50, 100]; % location of Eve
+% need to add a parameter for orientation of RIS surface. currently
+% assuming fixed
 
 % parameters
 N = 100; % number of passive reflecting elements
-P_S = 50; % transmit power, in watts
+P_S = 1000; % transmit power, in watts
 lambda = 0.1; % wavelength
-G_S_dB = 30; % transmit gain, in dB
-G_S = 10^(G_S_dB/10); % transmit gain, linear
-G_U_r_dB = 160; % receiving gains for U_r, in dB
-G_U_t_dB = 160; % receiving gains for U_t, in dB
-G_U_r = 10^(G_U_r_dB/10); % receiving gains for U_r, linear
-G_U_t = 10^(G_U_t_dB/10); % receiving gains for U_t, linear
-G_E_dB = 160; % receiving gain at Eve, in dB
-G_E = 10^(G_E_dB/10); % receiving gain at Eve, linear
-epsilon_p = 1; % RIS efficiency
-d_SR = norm(w_S-w_R); % distance from LEO to STAR-RIS
-d_SE = norm(w_S-w_E); % distance from LEO to Eve
-d_U_r = norm(w_R-w_U_r); % distance from STAR-RIS to reflect UE
-d_U_t = norm(w_R-w_U_t); % distance from STAR-RIS to transmit UE
-d_E = norm(w_R-w_E);
+
+% additional path loss parameters from J. Jeong et al. paper
+d_t_c = norm(w_S-w_R); % distance from LEO to STAR-RIS
+d_r_c_r = norm(w_R-w_U_r); % distance from STAR-RIS to reflect UE
+d_r_c_t = norm(w_R-w_U_t); % distance from STAR-RIS to transmit UE
+d_r_c_e = norm(w_R-w_E); % distance from STAR-RIS to Eve
+d_SE = norm(w_S-w_E); % distance from LEO to Eve; not part of J. Jeong et al. path loss model
+L_P_E = 1; % phase-error loss due to quantization
+L_S_R = 1; % specular reflection loss
+G_t_a_dB = 30; % average Tx antenna gain, in dB
+G_t_a = 10^(G_t_a_dB/10); % average Tx antenna gain
+G_r_a_r_dB = 160; % average Rx antenna gain - reflecting user, in dB
+G_r_a_r = 10^(G_r_a_r_dB/10); % average Rx antenna gain - reflecting user
+G_r_a_t_dB = 160; % average Rx antenna gain - transmitting user, in dB
+G_r_a_t = 10^(G_r_a_t_dB/10); % average Rx antenna gain - transmitting user
+G_r_a_e_dB = 160; % average Rx antenna gain - eavesdropper, in dB
+G_r_a_e = 10^(G_r_a_e_dB/10); % average Rx antenna gain - eavesdropper
+A_p = 5; % % physical aperture (surface area of RIS I assume)
+RIS_normal = [0, 1, 0]; % normal of the RIS surface
+
+incident_wave = w_R - w_S;
+reflected_wave_r = w_U_r - w_R;
+reflected_wave_t = w_U_t - w_R;
+reflected_wave_e = w_E - w_R;
+
+theta_i_c = acos(norm(dot(incident_wave,RIS_normal))/(norm(RIS_normal)*norm(incident_wave))); % angle between incident wave and the normal of surface (wave points to center of surface)
+theta_r_c_r = acos(norm(dot(reflected_wave_r,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_r))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
+theta_r_c_t = acos(norm(dot(reflected_wave_t,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_t))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
+theta_r_c_e = acos(norm(dot(reflected_wave_e,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_e))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
+
 % path loss experienced by the signal reaching reflect/transmit UE
-P_L_r = (lambda/(4*pi))^4*G_S*G_U_r/(d_SR^2*d_U_r^2)*epsilon_p;
-P_L_t = (lambda/(4*pi))^4*G_S*G_U_t/(d_SR^2*d_U_t^2)*epsilon_p;
+P_L_r = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_r)*G_t_a*G_r_a_r*A_p^2/(d_t_c^2*d_r_c_r^2*16*pi^2);
+P_L_t = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_t)*G_t_a*G_r_a_t*A_p^2/(d_t_c^2*d_r_c_t^2*16*pi^2);
 % path loss experienced by the signal reaching Eve, direct path from satellite
-P_L_E_1 = (lambda/(4*pi))^4*G_S*G_E/(d_SE^2)*epsilon_p;
+P_L_E_1 = (lambda/(4*pi))^4*G_t_a*G_r_a_e/(d_SE^2); % still using the old path loss model
 % path loss experienced by the signal reaching Eve, path via STAR-RIS
-P_L_E_2 = (lambda/(4*pi))^4*G_S*G_E/(d_SR^2*d_E^2)*epsilon_p;
+P_L_E_2 = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_e)*G_t_a*G_r_a_e*A_p^2/(d_t_c^2*d_r_c_e^2*16*pi^2);
+
 sigma_r = 1; % standard deviation for gaussian noise at reflect UE
 sigma_t = 1; % standard deviation for gaussian noise at transmit UE
 sigma_E = 1; % standard deviation for gaussian noise at Eve
@@ -39,9 +58,9 @@ sigma_E = 1; % standard deviation for gaussian noise at Eve
 M = 1e4; % number of samples
 
 % RSMA parameters
-alpha_c = 1/3; % power allocation factor for common message
-alpha_p_r = 1/3; % power allocation factor for private message of reflecting user
-alpha_p_t = 1/3; % power allocation factor for private message of transmitting user
+alpha_c = 2/3; % power allocation factor for common message
+alpha_p_r = 1/6; % power allocation factor for private message of reflecting user
+alpha_p_t = 1/6; % power allocation factor for private message of transmitting user
 eta = 0; % error factor associated with imperfect SIC; not used yet
 
 % nakagami parameters
@@ -120,6 +139,11 @@ zeta_t_k = 1-zeta_r_k; % transmission (refraction) coefficients
 ris_angle_r = random(uniform_dist,N,M); % angle of RIS elements for reflection
 ris_angle_t = random(uniform_dist,N,M); % angle of RIS elements for transmission
 ris_angle_E = -angle(g_1)-angle(conj(g_2).*h); % angle of RIS elements for Eve (optimal for PLS?)
+% notes: g_1 has size [1xM] and conj(g_2).*h has size [NxM];
+% in channel calculation, conj(g_2).*phi_E.*h gets summed along the all the
+% first dimension (N RIS elements), yet angle(sum(conj(g_2).*phi_E.*h,1))
+% still equal -angle(g_1), which is good.
+
 % Element-wise RIS magnitude and phase shift for each element and sample
 phi_r = sqrt(zeta_r_k).*exp(1j.*ris_angle_r); % [N x M]
 phi_t = sqrt(zeta_t_k).*exp(1j.*ris_angle_t); % [N x M]
@@ -129,6 +153,7 @@ gamma_r_bar = P_S/sigma_r^2;
 gamma_t_bar = P_S/sigma_t^2;
 % channel coefficients and RIS coefficients and phases for users
 channel_r = abs(sum(conj(h_r).*phi_r.*h,1)).^2;
+
 channel_t = abs(sum(conj(h_t).*phi_t.*h,1)).^2;
 % SINR of the common signal part at the reflecting user
 gamma_c_r = alpha_c.*P_L_r.*channel_r.*gamma_r_bar./(gamma_r_bar.*channel_r.*P_L_r.*(alpha_p_r+alpha_p_t)+1);
@@ -140,7 +165,7 @@ gamma_p_r = alpha_p_r.*P_L_r.*channel_r.*gamma_r_bar./(gamma_r_bar.*channel_r.*P
 % SINR of the private signal part at the transmitting user
 gamma_p_t = alpha_p_t.*P_L_t.*channel_t.*gamma_t_bar./(gamma_t_bar.*channel_t.*P_L_t.*(alpha_p_r+eta.*alpha_c)+1);
 
-gamma_E_bar = P_S/sigma_E^2;
+gamma_E_bar = 1; % P_S/sigma_E^2;
 % channel coefficients and RIS coefficients and phases, including path loss, for Eve
 channel_E = abs(sum(sqrt(P_L_E_2).*conj(g_2).*phi_E.*h,1)+sqrt(P_L_E_1).*g_1).^2;
 
@@ -161,6 +186,8 @@ C_p_t = max(log2(1+gamma_p_t)-log2(1+gamma_p_t_E), 0); % secrecy capacity for pr
 % secrecy capacity thresholds
 R_c_r = 1; % for common signal vs reflecting user
 R_p_r = 1; % for private signal vs reflecting user
+R_c_r_list = linspace(0.4,0.45,100); % for common signal vs reflecting user
+R_p_r_list = linspace(0.4,0.45,100); % for private signal vs reflecting user
 R_c_t = 1; % for common signal vs transimitting user
 R_p_t = 1; % for private signal vs transmitting user
 
@@ -169,3 +196,11 @@ R_p_t = 1; % for private signal vs transmitting user
 % below threshold?)
 P_SOP_r = mean((C_c_r<R_c_r)&(C_p_r<R_p_r));
 P_SOP_t = mean((C_c_t<R_c_t)&(C_p_t<R_p_t));
+
+P_SOP_r_list = false(size(R_c_r_list));
+% Iterate over each element
+for i = 1:length(R_c_r_list)
+    P_SOP_r_list(i) = mean((C_c_r < R_c_r_list(i)) & (C_p_r < R_p_r_list(i)));
+end
+
+plot(R_c_r_list,P_SOP_r_list)
