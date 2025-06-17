@@ -184,8 +184,6 @@ C_p_t = max(log2(1+gamma_p_t)-log2(1+gamma_p_t_E), 0); % secrecy capacity for pr
 % secrecy capacity thresholds
 R_c_r = 1; % for common signal vs reflecting user
 R_p_r = 1; % for private signal vs reflecting user
-R_c_r_list = linspace(0.4,0.45,100); % for common signal vs reflecting user
-R_p_r_list = linspace(0.4,0.45,100); % for private signal vs reflecting user
 R_c_t = 1; % for common signal vs transimitting user
 R_p_t = 1; % for private signal vs transmitting user
 
@@ -194,11 +192,3 @@ R_p_t = 1; % for private signal vs transmitting user
 % below threshold?)
 P_SOP_r = mean((C_c_r<R_c_r)&(C_p_r<R_p_r));
 P_SOP_t = mean((C_c_t<R_c_t)&(C_p_t<R_p_t));
-
-P_SOP_r_list = false(size(R_c_r_list));
-% Iterate over each element
-for i = 1:length(R_c_r_list)
-    P_SOP_r_list(i) = mean((C_c_r < R_c_r_list(i)) & (C_p_r < R_p_r_list(i)));
-end
-
-plot(R_c_r_list,P_SOP_r_list)
