@@ -120,10 +120,10 @@ for n=1:N
 
     G_r_a_e_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_e(n)))/(norm(reflected_wave_e)-norm(rn_vec{n})*cos(theta_r_n_e(n)))))^rt; % average Rx antenna gain - eavesdropper
 end
-G_t_a = mean(G_t_a_n); % average Tx antenna gain
-G_r_a_r = mean(G_r_a_r_n); % average Rx antenna gain - reflecting user
-G_r_a_t = mean(G_r_a_t_n); % average Rx antenna gain - transmitting user
-G_r_a_e = mean(G_r_a_e_n); % average Rx antenna gain - transmitting user
+G_t_a = mean(G_t_a_n)*(r_d*2*pi/lambda)^2; % average Tx antenna gain
+G_r_a_r = mean(G_r_a_r_n)*(r_d*2*pi/lambda)^2; % average Rx antenna gain - reflecting user
+G_r_a_t = mean(G_r_a_t_n)*(r_d*2*pi/lambda)^2; % average Rx antenna gain - transmitting user
+G_r_a_e = mean(G_r_a_e_n)*(r_d*2*pi/lambda)^2; % average Rx antenna gain - transmitting user
 
 G_a_e = (r_d*2*pi/lambda)^2; % average Rx antenna gain - eavesdropper direct path
 
