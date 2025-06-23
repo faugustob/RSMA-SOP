@@ -2,8 +2,10 @@ clear;
 % Parameters
 
 Light_speed = physconst('LightSpeed');
-freq=29e9;
-P_S = 1000; % transmit power, in watts
+freq=30e9;
+
+P_S_dB = 120;%dB
+P_S = 10^(P_S_dB/10); % transmit power, in watts
 
 lambda = Light_speed/freq; % Compute the wavelength based on the frequency
 half_wave_length = lambda/2; % Compute the half_wave_length
@@ -48,14 +50,14 @@ RIS_normal = [0, 0, 1]; % normal of the RIS surface
 % location coordinates
 
 UAV_altitude = 300;
-LEO_altitude = 200000;
+LEO_altitude = 150e3;
 
 
 w_U_r = [-50, -UAV_altitude,50]; % location of U_r
 w_U_t = [50, -UAV_altitude, -50]; % location of U_t
 w_R = [0, 0, 0]; % location of STAR-RIS x-y plane
 w_S = [50, LEO_altitude-UAV_altitude, 200]; % location of LEO satellite
-w_E = [20, -10, 100]; % location of Eve
+w_E = [10, -10, 20]; % location of Eve
 % need to add a parameter for orientation of RIS surface. currently
 % assuming fixed
 
@@ -67,10 +69,15 @@ d_r_c_r = norm(w_U_r-w_R); % distance from STAR-RIS to reflect UE
 d_r_c_t = norm(w_U_t-w_R); % distance from STAR-RIS to transmit UE
 d_r_c_e = norm(w_E-w_R); % distance from STAR-RIS to Eve
 d_SE = norm(w_S-w_E); % distance from LEO to Eve; not part of J. Jeong et al. path loss model
+L_S_R_dB=-2; % specular reflection loss - 2dB
+L_S_R = 10^(L_S_R_dB/10); % specular reflection loss
+
+Gamma_av = 0.9;
+
 L_P_E = 1; % phase-error loss due to quantization
-L_S_R = 1; % specular reflection loss
-r_t = 0.2; % transmitter antenna's effective radius
-r_d = 0.2; % receiver antenna's effective radius
+
+r_t = 0.25; % transmitter antenna's effective radius
+r_d = 0.25; % receiver antenna's effective radius
 
 
 
@@ -120,22 +127,25 @@ for n=1:N
 
     G_r_a_e_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_e(n)))/(norm(reflected_wave_e)-norm(rn_vec{n})*cos(theta_r_n_e(n)))))^rt; % average Rx antenna gain - eavesdropper
 end
-G_t_a = mean(G_t_a_n)*(r_d*2*pi/lambda)^2; % average Tx antenna gain
-G_r_a_r = mean(G_r_a_r_n)*(r_d*2*pi/lambda)^2; % average Rx antenna gain - reflecting user
-G_r_a_t = mean(G_r_a_t_n)*(r_d*2*pi/lambda)^2; % average Rx antenna gain - transmitting user
-G_r_a_e = mean(G_r_a_e_n)*(r_d*2*pi/lambda)^2; % average Rx antenna gain - transmitting user
+TX_RX_gain = (r_d*2*pi/lambda)^2;
+
+
+G_t_a = mean(G_t_a_n)*TX_RX_gain; % average Tx antenna gain
+G_r_a_r = mean(G_r_a_r_n)*TX_RX_gain; % average Rx antenna gain - reflecting user
+G_r_a_t = mean(G_r_a_t_n)*TX_RX_gain; % average Rx antenna gain - transmitting user
+G_r_a_e = mean(G_r_a_e_n)*TX_RX_gain; % average Rx antenna gain - transmitting user
 
 G_a_e = (r_d*2*pi/lambda)^2; % average Rx antenna gain - eavesdropper direct path
 
 % path loss experienced by the signal reaching reflect/transmit UE
-P_L_r = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_r)*G_t_a*G_r_a_r*A_p^2/(d_t_c^2*d_r_c_r^2*16*pi^2);
-P_L_t = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_t)*G_t_a*G_r_a_t*A_p^2/(d_t_c^2*d_r_c_t^2*16*pi^2);
+P_L_r = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_r)*G_t_a*G_r_a_r*A_p^2*Gamma_av^2/(d_t_c^2*d_r_c_r^2*16*pi^2);
+P_L_t = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_t)*G_t_a*G_r_a_t*A_p^2*Gamma_av^2/(d_t_c^2*d_r_c_t^2*16*pi^2);
 % path loss experienced by the signal reaching Eve, direct path from satellite
 
 P_L_E_1 = (lambda/(4*pi))^4*G_t_a*G_a_e/(d_SE^2); % still using the old path loss model
 % path loss experienced by the signal reaching Eve, path via STAR-RIS
 
-P_L_E_2 = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_e)*G_t_a*G_r_a_e*A_p^2/(d_t_c^2*d_r_c_e^2*16*pi^2);
+P_L_E_2 = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_e)*G_t_a*G_r_a_e*A_p^2*Gamma_av^2/(d_t_c^2*d_r_c_e^2*16*pi^2);
 
 sigma_r = 1; % standard deviation for gaussian noise at reflect UE
 sigma_t = 1; % standard deviation for gaussian noise at transmit UE
@@ -270,10 +280,10 @@ C_c_t = max(log2(1+gamma_c_t)-log2(1+gamma_c_E), 0); % secrecy capacity of commo
 C_p_t = max(log2(1+gamma_p_t)-log2(1+gamma_p_t_E), 0); % secrecy capacity for private message of transmitting user?
 
 % secrecy capacity thresholds
-R_c_r = 1; % for common signal vs reflecting user
-R_p_r = 1; % for private signal vs reflecting user
-R_c_t = 1; % for common signal vs transimitting user
-R_p_t = 1; % for private signal vs transmitting user
+R_c_r = 1e-3; % for common signal vs reflecting user
+R_p_r = 1e-3; % for private signal vs reflecting user
+R_c_t = 1e-3; % for common signal vs transimitting user
+R_p_t = 1e-3; % for private signal vs transmitting user
 
 % secrecy outage only happens if BOTH common and private signal fall below
 % threshold (or does a secrecy outage happen if only one of the two fall
