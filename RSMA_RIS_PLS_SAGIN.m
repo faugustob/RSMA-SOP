@@ -1,52 +1,140 @@
-clear
+clear;
+% Parameters
+
+Light_speed = physconst('LightSpeed');
+freq=29e9;
+P_S = 1000; % transmit power, in watts
+
+lambda = Light_speed/freq; % Compute the wavelength based on the frequency
+half_wave_length = lambda/2; % Compute the half_wave_length
+
+%RIS_geometry
+
+Ny = 12;
+Nx = 11;
+N = Nx * Ny;
+
+RIS_element_size = floor(half_wave_length * 1000) / 1000;
+padding_x = RIS_element_size + RIS_element_size * 0.2;
+padding_y = padding_x;
+
+RIS_block_size_x = 2 * padding_x + RIS_element_size;
+RIS_block_size_y = RIS_block_size_x;
+
+RIS_size_x = RIS_block_size_x * Nx;
+RIS_size_y = RIS_block_size_y * Ny;
+
+rn = cell(Ny, Nx);
+distances = zeros(Ny, Nx);
+
+for j = 1:Ny
+    for i = 1:Nx
+        x = -RIS_size_x / 2 + (i - 0.5) * RIS_block_size_x;
+        y = -RIS_size_y / 2 + (j - 0.5) * RIS_block_size_y;
+        z = 0;
+        
+        % Store position vector
+        rn{j, i} = [x; y; z];
+        % Compute distance
+        distances(j,i) = sqrt(x^2 + y^2); % or norm(rn{j,i})
+    end
+end
+
+rn_vec = reshape(rn, [], 1);  % Stack column-wise into N×1 cell array
+
+A_p = RIS_element_size^2; % % physical aperture (surface area of a unit cell) m^2
+RIS_normal = [0, 0, 1]; % normal of the RIS surface
 
 % location coordinates
-w_U_r = [0, 0, 0]; % location of U_r
-w_U_t = [100, 0, 0]; % location of U_t
-w_R = [50, -50, 100]; % location of STAR-RIS
-w_S = [50, 100, 400000]; % location of LEO satellite
-w_E = [100, 50, 100]; % location of Eve
+
+UAV_altitude = 300;
+LEO_altitude = 200000;
+
+
+w_U_r = [-50, -UAV_altitude,50]; % location of U_r
+w_U_t = [50, -UAV_altitude, -50]; % location of U_t
+w_R = [0, 0, 0]; % location of STAR-RIS x-y plane
+w_S = [50, LEO_altitude-UAV_altitude, 200]; % location of LEO satellite
+w_E = [20, -10, 100]; % location of Eve
 % need to add a parameter for orientation of RIS surface. currently
 % assuming fixed
 
-% parameters
-N = 100; % number of passive reflecting elements
-P_S = 1000; % transmit power, in watts
-lambda = 0.1; % wavelength
+
 
 % additional path loss parameters from J. Jeong et al. paper
 d_t_c = norm(w_S-w_R); % distance from LEO to STAR-RIS
-d_r_c_r = norm(w_R-w_U_r); % distance from STAR-RIS to reflect UE
-d_r_c_t = norm(w_R-w_U_t); % distance from STAR-RIS to transmit UE
-d_r_c_e = norm(w_R-w_E); % distance from STAR-RIS to Eve
+d_r_c_r = norm(w_U_r-w_R); % distance from STAR-RIS to reflect UE
+d_r_c_t = norm(w_U_t-w_R); % distance from STAR-RIS to transmit UE
+d_r_c_e = norm(w_E-w_R); % distance from STAR-RIS to Eve
 d_SE = norm(w_S-w_E); % distance from LEO to Eve; not part of J. Jeong et al. path loss model
 L_P_E = 1; % phase-error loss due to quantization
 L_S_R = 1; % specular reflection loss
 r_t = 0.2; % transmitter antenna's effective radius
 r_d = 0.2; % receiver antenna's effective radius
-G_t_a = (r_t*2*pi/lambda)^2; % average Tx antenna gain
-G_r_a_r = (r_d*2*pi/lambda)^2; % average Rx antenna gain - reflecting user
-G_r_a_t = (r_d*2*pi/lambda)^2; % average Rx antenna gain - transmitting user
-G_r_a_e = (r_d*2*pi/lambda)^2; % average Rx antenna gain - eavesdropper
-A_p = 5; % % physical aperture (surface area of RIS I assume)
-RIS_normal = [0, 1, 0]; % normal of the RIS surface
 
-incident_wave = w_R - w_S;
+
+
+
+
+
+incident_wave = w_S-w_R;
 reflected_wave_r = w_U_r - w_R;
 reflected_wave_t = w_U_t - w_R;
 reflected_wave_e = w_E - w_R;
 
-theta_i_c = acos(norm(dot(incident_wave,RIS_normal))/(norm(RIS_normal)*norm(incident_wave))); % angle between incident wave and the normal of surface (wave points to center of surface)
-theta_r_c_r = acos(norm(dot(reflected_wave_r,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_r))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
-theta_r_c_t = acos(norm(dot(reflected_wave_t,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_t))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
-theta_r_c_e = acos(norm(dot(reflected_wave_e,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_e))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
+theta_i_n=zeros(N,1);
+theta_r_n_r=zeros(N,1);
+theta_r_n_t=zeros(N,1);
+theta_r_n_e=zeros(N,1);
+
+
+for n=1:N
+    theta_i_n(n) = acos(norm(dot(incident_wave,rn_vec{n}))/(norm(rn_vec{n})*norm(incident_wave))); % angle between incident wave and the normal of surface (wave points to n-th RIS element)
+    theta_r_n_r(n) = acos(norm(dot(reflected_wave_r,rn_vec{n}))/(norm(rn_vec{n})*norm(reflected_wave_r))); % angle between reflected wave to reflecting user and the n-th RIS element (wave points to n-th RIS element)
+    theta_r_n_t(n) = acos(norm(dot(reflected_wave_t,rn_vec{n}))/(norm(rn_vec{n})*norm(reflected_wave_t))); % angle between reflected wave to reflecting user and the n-th RIS element (wave points to n-th RIS element)
+    theta_r_n_e(n) = acos(norm(dot(reflected_wave_e,rn_vec{n}))/(norm(rn_vec{n})*norm(reflected_wave_e))); % angle between reflected wave to reflecting user and the n-th RIS element(wave points to n-th RIS element)
+end
+
+    theta_i_c = acos(norm(dot(incident_wave,RIS_normal))/(norm(RIS_normal)*norm(incident_wave))); % angle between incident wave and the normal of surface (wave points to center of surface)
+    theta_r_c_r = acos(norm(dot(reflected_wave_r,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_r))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
+    theta_r_c_t = acos(norm(dot(reflected_wave_t,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_t))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
+    theta_r_c_e = acos(norm(dot(reflected_wave_e,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_e))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
+
+%Average gain
+
+pt=1;
+rt=1;
+
+G_t_a_n = zeros(N,1);
+
+G_r_a_r_n = zeros(N,1);
+G_r_a_t_n = zeros(N,1);
+
+G_r_a_e_n(n) = zeros(N,1);
+
+for n=1:N
+    G_t_a_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_i_n(n)))/(norm(incident_wave)-norm(rn_vec{n})*cos(theta_i_n(n)))))^pt; % Tx antenna gain
+
+    G_r_a_r_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_r(n)))/(norm(reflected_wave_r)-norm(rn_vec{n})*cos(theta_r_n_r(n)))))^rt; %  Rx antenna gain - reflecting user
+    G_r_a_t_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_t(n)))/(norm(reflected_wave_t)-norm(rn_vec{n})*cos(theta_r_n_t(n)))))^rt; % Rx antenna gain - transmitting user
+
+    G_r_a_e_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_e(n)))/(norm(reflected_wave_e)-norm(rn_vec{n})*cos(theta_r_n_e(n)))))^rt; % average Rx antenna gain - eavesdropper
+end
+G_t_a = mean(G_t_a_n); % average Tx antenna gain
+G_r_a_r = mean(G_r_a_r_n); % average Rx antenna gain - reflecting user
+G_r_a_t = mean(G_r_a_t_n); % average Rx antenna gain - transmitting user
+G_r_a_e = mean(G_r_a_e_n); % average Rx antenna gain - transmitting user
+
+G_a_e = (r_d*2*pi/lambda)^2; % average Rx antenna gain - eavesdropper direct path
 
 % path loss experienced by the signal reaching reflect/transmit UE
 P_L_r = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_r)*G_t_a*G_r_a_r*A_p^2/(d_t_c^2*d_r_c_r^2*16*pi^2);
 P_L_t = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_t)*G_t_a*G_r_a_t*A_p^2/(d_t_c^2*d_r_c_t^2*16*pi^2);
 % path loss experienced by the signal reaching Eve, direct path from satellite
-P_L_E_1 = (lambda/(4*pi))^4*G_t_a*G_r_a_e/(d_SE^2); % still using the old path loss model
+
+P_L_E_1 = (lambda/(4*pi))^4*G_t_a*G_a_e/(d_SE^2); % still using the old path loss model
 % path loss experienced by the signal reaching Eve, path via STAR-RIS
+
 P_L_E_2 = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_e)*G_t_a*G_r_a_e*A_p^2/(d_t_c^2*d_r_c_e^2*16*pi^2);
 
 sigma_r = 1; % standard deviation for gaussian noise at reflect UE
