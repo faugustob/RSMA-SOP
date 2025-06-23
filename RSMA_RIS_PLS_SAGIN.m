@@ -110,7 +110,7 @@ G_t_a_n = zeros(N,1);
 G_r_a_r_n = zeros(N,1);
 G_r_a_t_n = zeros(N,1);
 
-G_r_a_e_n(n) = zeros(N,1);
+G_r_a_e_n = zeros(N,1);
 
 for n=1:N
     G_t_a_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_i_n(n)))/(norm(incident_wave)-norm(rn_vec{n})*cos(theta_i_n(n)))))^pt; % Tx antenna gain
