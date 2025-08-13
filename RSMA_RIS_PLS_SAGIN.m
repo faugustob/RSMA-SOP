@@ -1,8 +1,12 @@
 clear;
+
+% Simulation parameters
+M = 1e4; % number of samples
+
 % Parameters
 
 Light_speed = physconst('LightSpeed');
-freq=30e9;
+freq=10.5e9;
 
 P_S_dB = 120;%dB
 P_S = 10^(P_S_dB/10); % transmit power, in watts
@@ -10,10 +14,23 @@ P_S = 10^(P_S_dB/10); % transmit power, in watts
 lambda = Light_speed/freq; % Compute the wavelength based on the frequency
 half_wave_length = lambda/2; % Compute the half_wave_length
 
+% location coordinates
+
+UAV_altitude = 300;
+LEO_altitude = 150e3;
+
+w_R = [0, 0, 0]; % location of STAR-RIS; code assumes this to be origin;
+% note: surface is on x-y plane; surface normal points in z-axis direction
+w_U_r = [-50, -UAV_altitude,50]; % location of U_r; z value should be same polarity as z value of satellite (reflecting user)
+w_U_t = [50, -UAV_altitude, -50]; % location of U_t; z value should be opposite polarity as z value of satellite (transmitting user)
+w_S = [50, LEO_altitude-UAV_altitude, 200]; % location of LEO satellite
+w_E = [10, -10, 20]; % location of Eve (assuming UAV_altitude > 10); on the reflecting side if z value is positive
+w_E = [5, 0, 5];
+
 %RIS_geometry
 
-Ny = 12;
-Nx = 11;
+Ny = 50;
+Nx = 34;
 N = Nx * Ny;
 
 RIS_element_size = floor(half_wave_length * 1000) / 1000;
@@ -27,131 +44,195 @@ RIS_size_x = RIS_block_size_x * Nx;
 RIS_size_y = RIS_block_size_y * Ny;
 
 rn = cell(Ny, Nx);
+
+r_S = cell(Ny, Nx);
+r_U_r = cell(Ny, Nx);
+r_U_t = cell(Ny, Nx);
+r_E = cell(Ny, Nx);
+
+r_t_nm_S = zeros(Ny, Nx);
+r_r_nm_U_r = zeros(Ny, Nx);
+r_r_nm_U_t = zeros(Ny, Nx);
+r_r_nm_E = zeros(Ny, Nx);
+
+theta_t_nm_S = zeros(Ny, Nx);
+theta_r_nm_U_r = zeros(Ny, Nx);
+theta_r_nm_U_t = zeros(Ny, Nx);
+theta_r_nm_E = zeros(Ny, Nx);
+
+phi_t_nm_S = zeros(Ny, Nx);
+phi_r_nm_U_r = zeros(Ny, Nx);
+phi_r_nm_U_t = zeros(Ny, Nx);
+phi_r_nm_E = zeros(Ny, Nx);
+
+theta_tx_nm_S = zeros(Ny, Nx);
+theta_rx_nm_U_r = zeros(Ny, Nx);
+theta_rx_nm_U_t = zeros(Ny, Nx);
+theta_rx_nm_E = zeros(Ny, Nx);
+
+phi_tx_nm_S = zeros(Ny, Nx);
+phi_rx_nm_U_r = zeros(Ny, Nx);
+phi_rx_nm_U_t = zeros(Ny, Nx);
+phi_rx_nm_E = zeros(Ny, Nx);
+
 distances = zeros(Ny, Nx);
 
+% finding the center positions, as well as distances to
+% TX/RX, elevation and azimuth angles for each RIS element
+% note: Ny and Nx are assumed to be even numbers
 for j = 1:Ny
     for i = 1:Nx
         x = -RIS_size_x / 2 + (i - 0.5) * RIS_block_size_x;
         y = -RIS_size_y / 2 + (j - 0.5) * RIS_block_size_y;
         z = 0;
+        % Note: the normal of the RIS surface is in the z direction
         
         % Store position vector
-        rn{j, i} = [x; y; z];
-        % Compute distance
+        rn{j, i} = [x, y, z];
+        % Compute distance relative to RIS center
         distances(j,i) = sqrt(x^2 + y^2); % or norm(rn{j,i})
+
+        % Vector from satellite to RIS element
+        r_S{j, i} = -w_S + rn{j, i};
+        % Vector from RIS element to reflecting user
+        r_U_r{j, i} = -rn{j, i} + w_U_r;
+        % Vector from RIS element to transmitting user
+        r_U_t{j, i} = -rn{j, i} + w_U_t;
+        % Vector from RIS element to eavesdropper
+        r_E{j, i} = -rn{j, i} + w_E;
+
+        % Distance from satellite to RIS element
+        r_t_nm_S(j, i) = norm(r_S{j, i});
+        % Distance from RIS element to reflecting user
+        r_r_nm_U_r(j, i) = norm(r_U_r{j, i});
+        % Distance from RIS element to transmitting user
+        r_r_nm_U_t(j, i) = norm(r_U_t{j, i});
+        % Distance from RIS element to eavesdropper
+        r_r_nm_E(j, i) = norm(r_E{j, i});
+
+        % Elevation angle of satellite with RIS element (angle between vector from satellite to RIS element and RIS surface normal)
+        theta_t_nm_S(j, i) = acos(norm(dot(r_S{j, i},[0, 0, 1]))/(norm(r_S{j, i})*norm([0, 0, 1])));
+        % Elevation angle of reflecting user with RIS element (angle between vector from RIS element to reflecting user and RIS surface normal)
+        theta_r_nm_U_r(j, i) = acos(norm(dot(r_U_r{j, i},[0, 0, 1]))/(norm(r_U_r{j, i})*norm([0, 0, 1])));
+        % Elevation angle of transmitting user with RIS element (angle between vector from RIS element to transmitting user and RIS surface normal)
+        theta_r_nm_U_t(j, i) = acos(norm(dot(r_U_t{j, i},[0, 0, 1]))/(norm(r_U_t{j, i})*norm([0, 0, 1])));        
+        % Elevation angle of eavesdropper with RIS element (angle between vector from RIS element to eavesdropper and RIS surface normal)
+        theta_r_nm_E(j, i) = acos(norm(dot(r_E{j, i},[0, 0, 1]))/(norm(r_E{j, i})*norm([0, 0, 1])));
+
+        % Azimuth angle of satellite with RIS element (angle between vector from satellite to RIS element projected on x-y plane and x-axis)
+        phi_t_nm_S(j, i) = acos(norm(dot([r_S{j, i}(1:2), 0],[1, 0, 0]))/(norm([r_S{j, i}(1:2), 0])*norm([1, 0, 0])));
+        % Azimuth angle of reflecting user with RIS element (angle between vector from RIS element to reflecting user projected on x-y plane and x-axis)
+        phi_r_nm_U_r(j, i) = acos(norm(dot([r_U_r{j, i}(1:2), 0],[1, 0, 0]))/(norm([r_U_r{j, i}(1:2), 0])*norm([1, 0, 0])));   
+        % Azimuth angle of transmitting user with RIS element (angle between vector from RIS element to transmitting user projected on x-y plane and x-axis)
+        phi_r_nm_U_t(j, i) = acos(norm(dot([r_U_t{j, i}(1:2), 0],[1, 0, 0]))/(norm([r_U_t{j, i}(1:2), 0])*norm([1, 0, 0])));
+        % Azimuth angle of eavesdropper with RIS element (angle between vector from RIS element to eavesdropper projected on x-y plane and x-axis)
+        phi_r_nm_E(j, i) = acos(norm(dot([r_E{j, i}(1:2), 0],[1, 0, 0]))/(norm([r_E{j, i}(1:2), 0])*norm([1, 0, 0])));    
+
+        % angle between vector from satellite to RIS element and satellite to RIS center
+        theta_tx_nm_S(j, i) = acos(norm(dot(r_S{j, i},[0, 0, 1]))/(norm(r_S{j, i})*norm([0, 0, 1])));
+        % angle between vector from RIS element to reflecting user and RIS center to reflecting user
+        theta_rx_nm_U_r(j, i) = acos(norm(dot(r_U_r{j, i},[0, 0, 1]))/(norm(r_U_r{j, i})*norm([0, 0, 1])));
+        % angle between vector from RIS element to transmitting user and RIS center to transmitting user
+        theta_rx_nm_U_t(j, i) = acos(norm(dot(r_U_t{j, i},[0, 0, 1]))/(norm(r_U_t{j, i})*norm([0, 0, 1])));        
+        % angle between vector from RIS element to eavesdropper and RIS center to eavesdropper
+        theta_rx_nm_E(j, i) = acos(norm(dot(r_E{j, i},[0, 0, 1]))/(norm(r_E{j, i})*norm([0, 0, 1])));
     end
 end
 
-rn_vec = reshape(rn, [], 1);  % Stack column-wise into N×1 cell array
+% Antenna angles for each TX/RX
+% Elevation angle of satellite with RIS center (angle between vector from satellite to RIS center and RIS surface normal)
+theta_t_S = acos(norm(dot(w_S,[0, 0, 1]))/(norm(w_S)*norm([0, 0, 1])));
+% Elevation angle of reflecting user with RIS center (angle between vector from RIS center to reflecting user and RIS surface normal)
+theta_r_U_r = acos(norm(dot(w_U_r,[0, 0, 1]))/(norm(w_U_r)*norm([0, 0, 1])));
+% Elevation angle of transmitting user with RIS center (angle between vector from RIS center to transmitting user and RIS surface normal)
+theta_r_U_t = acos(norm(dot(w_U_t,[0, 0, 1]))/(norm(w_U_t)*norm([0, 0, 1])));        
+% Elevation angle of eavesdropper with RIS center (angle between vector from RIS center to eavesdropper and RIS surface normal)
+theta_r_E = acos(norm(dot(w_E,[0, 0, 1]))/(norm(w_E)*norm([0, 0, 1])));
+% Azimuth angle of satellite with RIS center (angle between vector from satellite to RIS center projected on x-y plane and x-axis)
+phi_t_S = acos(norm(dot([w_S(1:2), 0],[1, 0, 0]))/(norm([w_S(1:2), 0])*norm([1, 0, 0])));
+% Azimuth angle of reflecting user with RIS center (angle between vector from RIS center to reflecting user projected on x-y plane and x-axis)
+phi_r_U_r = acos(norm(dot([w_U_r(1:2), 0],[1, 0, 0]))/(norm([w_U_r(1:2), 0])*norm([1, 0, 0])));   
+% Azimuth angle of transmitting user with RIS center (angle between vector from RIS center to transmitting user projected on x-y plane and x-axis)
+phi_r_U_t = acos(norm(dot([w_U_t(1:2), 0],[1, 0, 0]))/(norm([w_U_t(1:2), 0])*norm([1, 0, 0])));
+% Azimuth angle of eavesdropper with RIS center (angle between vector from RIS center to eavesdropper projected on x-y plane and x-axis)
+phi_r_E = acos(norm(dot([w_E(1:2), 0],[1, 0, 0]))/(norm([w_E(1:2), 0])*norm([1, 0, 0])));  
 
-A_p = RIS_element_size^2; % % physical aperture (surface area of a unit cell) m^2
-RIS_normal = [0, 0, 1]; % normal of the RIS surface
+% The paper has one proposition for specular reflection (incident angle =
+% reflection angle) and one proposition for intelligent reflection (the
+% reflected signal can be in any desired direction.
 
-% location coordinates
+% According to the paper, the direction of the reflected signal is
+% determined by the reflection coefficient (phase shift). I don't 
+% understand how this will work with our paper. The paper calls this
+% intelligent reflection.
 
-UAV_altitude = 300;
-LEO_altitude = 150e3;
+% note: near-field case considers each RIS element individually while the
+% far-field case doesn't
 
+% Additional path loss parameters from W. Tang paper
+near_field_threshold = 2*N*RIS_element_size^2/lambda;
+F = @(theta,phi) cos(theta).^3; % normalized power radiation pattern function for RIS unit cell (fixed once RIS is designed and fabricated)
+F_tx = @(theta,phi) cos(theta).^62; % normalized power radiation pattern function for transmitter antenna
+F_rx_reflect = @(theta,phi) cos(theta).^62; % normalized power radiation pattern function for reflecting receiver antenna
+F_rx_transmit = @(theta,phi) cos(theta).^62; % normalized power radiation pattern function for transmitting receiver antenna
+F_rx_eve = @(theta,phi) cos(theta).^62; % normalized power radiation pattern function for eavesdropper antenna
+% The antenna gains and unit cell gains depend on the normalized power
+% radiation pattern function F().
+% note: theta should be integrated over [0,pi] but it is [0,pi/2] in the
+% below expressions because our F() function equals 0 for theta ~ (pi/2,pi]
+G_unit_cell = 4*pi / integral2(@(theta,phi) F(theta,phi) .* sin(theta), 0, pi/2, 0, 2*pi); % Gain of unit cell on RIS surface
+G_tx = 4*pi / integral2(@(theta,phi) F_tx(theta,phi) .* sin(theta), 0, pi/2, 0, 2*pi); % Gain of the transmitter antenna
+G_rx_reflect = 4*pi / integral2(@(theta,phi) F_rx_reflect(theta,phi) .* sin(theta), 0, pi/2, 0, 2*pi); % Gain of the reflecting receiver antenna
+G_rx_transmit = 4*pi / integral2(@(theta,phi) F_rx_transmit(theta,phi) .* sin(theta), 0, pi/2, 0, 2*pi); % Gain of the transmitting receiver antenna
+G_rx_eve = 4*pi / integral2(@(theta,phi) F_rx_transmit(theta,phi) .* sin(theta), 0, pi/2, 0, 2*pi); % Gain of the eavesdropper antenna
 
-w_U_r = [-50, -UAV_altitude,50]; % location of U_r
-w_U_t = [50, -UAV_altitude, -50]; % location of U_t
-w_R = [0, 0, 0]; % location of STAR-RIS x-y plane
-w_S = [50, LEO_altitude-UAV_altitude, 200]; % location of LEO satellite
-w_E = [10, -10, 20]; % location of Eve
-% need to add a parameter for orientation of RIS surface. currently
-% assuming fixed
-
-
-
-% additional path loss parameters from J. Jeong et al. paper
+% distances
 d_t_c = norm(w_S-w_R); % distance from LEO to STAR-RIS
 d_r_c_r = norm(w_U_r-w_R); % distance from STAR-RIS to reflect UE
 d_r_c_t = norm(w_U_t-w_R); % distance from STAR-RIS to transmit UE
 d_r_c_e = norm(w_E-w_R); % distance from STAR-RIS to Eve
-d_SE = norm(w_S-w_E); % distance from LEO to Eve; not part of J. Jeong et al. path loss model
-L_S_R_dB=-2; % specular reflection loss - 2dB
-L_S_R = 10^(L_S_R_dB/10); % specular reflection loss
+d_SE = norm(w_S-w_E); % distance from LEO to Eve;
+% note: paper assumes distance between TX/RX and RIS elements to be larger
+% than 5*lambda, which is regarded as the lowerbound of near-field
 
-Gamma_av = 0.9;
+% RIS elements' amplitude and phase coefficients
+A_r = 0.9; % reflection coefficients
+A_t = 0.9; % transmission (refraction) coefficients
+% note: amplitude A_r and A_t assumed to be constant between RIS elements
+uniform_dist = makedist('Uniform','lower',0,'upper',2*pi);
+ris_angle_r = random(uniform_dist,Ny,Nx,M); % angle of RIS elements for reflection
+ris_angle_t = random(uniform_dist,Ny,Nx,M); % angle of RIS elements for transmission
 
-L_P_E = 1; % phase-error loss due to quantization
+% note: path loss model assumes constant amplitude and different phases accross RIS elements
 
-r_t = 0.25; % transmitter antenna's effective radius
-r_d = 0.25; % receiver antenna's effective radius
-
-
-
-
-
-
-incident_wave = w_S-w_R;
-reflected_wave_r = w_U_r - w_R;
-reflected_wave_t = w_U_t - w_R;
-reflected_wave_e = w_E - w_R;
-
-theta_i_n=zeros(N,1);
-theta_r_n_r=zeros(N,1);
-theta_r_n_t=zeros(N,1);
-theta_r_n_e=zeros(N,1);
-
-
-for n=1:N
-    theta_i_n(n) = acos(norm(dot(incident_wave,rn_vec{n}))/(norm(rn_vec{n})*norm(incident_wave))); % angle between incident wave and the normal of surface (wave points to n-th RIS element)
-    theta_r_n_r(n) = acos(norm(dot(reflected_wave_r,rn_vec{n}))/(norm(rn_vec{n})*norm(reflected_wave_r))); % angle between reflected wave to reflecting user and the n-th RIS element (wave points to n-th RIS element)
-    theta_r_n_t(n) = acos(norm(dot(reflected_wave_t,rn_vec{n}))/(norm(rn_vec{n})*norm(reflected_wave_t))); % angle between reflected wave to reflecting user and the n-th RIS element (wave points to n-th RIS element)
-    theta_r_n_e(n) = acos(norm(dot(reflected_wave_e,rn_vec{n}))/(norm(rn_vec{n})*norm(reflected_wave_e))); % angle between reflected wave to reflecting user and the n-th RIS element(wave points to n-th RIS element)
+% path loss experienced by the signal reaching reflect UE
+if d_t_c < near_field_threshold || d_r_c_r < near_field_threshold
+    P_L_r = near_field_PL(G_tx,G_rx_reflect,G_unit_cell,RIS_element_size,RIS_element_size,lambda,A_r,F_tx,F,F_rx_reflect,theta_tx_nm_S,phi_tx_nm_S,theta_t_nm_S,phi_t_nm_S,theta_r_nm_U_r,phi_r_nm_U_r,theta_rx_nm_U_r,phi_rx_nm_U_r,r_t_nm_S,r_r_nm_U_r,ris_angle_r);
+else
+    P_L_r = far_field_PL(G_tx,G_rx_reflect,G_unit_cell,RIS_element_size,RIS_element_size,lambda,F,theta_t_S,phi_t_S,theta_r_U_r,phi_r_U_r,A_r,d_t_c,d_r_c_r,Ny,Nx,ris_angle_r);
 end
-
-    theta_i_c = acos(norm(dot(incident_wave,RIS_normal))/(norm(RIS_normal)*norm(incident_wave))); % angle between incident wave and the normal of surface (wave points to center of surface)
-    theta_r_c_r = acos(norm(dot(reflected_wave_r,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_r))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
-    theta_r_c_t = acos(norm(dot(reflected_wave_t,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_t))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
-    theta_r_c_e = acos(norm(dot(reflected_wave_e,RIS_normal))/(norm(RIS_normal)*norm(reflected_wave_e))); % angle between reflected wave to reflecting user and the normal of surface (wave points to center of surface)
-
-%Average gain
-
-pt=1;
-rt=1;
-
-G_t_a_n = zeros(N,1);
-
-G_r_a_r_n = zeros(N,1);
-G_r_a_t_n = zeros(N,1);
-
-G_r_a_e_n = zeros(N,1);
-
-for n=1:N
-    G_t_a_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_i_n(n)))/(norm(incident_wave)-norm(rn_vec{n})*cos(theta_i_n(n)))))^pt; % Tx antenna gain
-
-    G_r_a_r_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_r(n)))/(norm(reflected_wave_r)-norm(rn_vec{n})*cos(theta_r_n_r(n)))))^rt; %  Rx antenna gain - reflecting user
-    G_r_a_t_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_t(n)))/(norm(reflected_wave_t)-norm(rn_vec{n})*cos(theta_r_n_t(n)))))^rt; % Rx antenna gain - transmitting user
-
-    G_r_a_e_n(n) = cos(atan((norm(rn_vec{n})*sin(theta_r_n_e(n)))/(norm(reflected_wave_e)-norm(rn_vec{n})*cos(theta_r_n_e(n)))))^rt; % average Rx antenna gain - eavesdropper
+% path loss experienced by the signal reaching transmit UE
+if d_t_c < near_field_threshold || d_r_c_t < near_field_threshold
+    P_L_t = near_field_PL(G_tx,G_rx_transmit,G_unit_cell,RIS_element_size,RIS_element_size,lambda,A_t,F_tx,F,F_rx_transmit,theta_tx_nm_S,phi_tx_nm_S,theta_t_nm_S,phi_t_nm_S,theta_r_nm_U_t,phi_r_nm_U_t,theta_rx_nm_U_t,phi_rx_nm_U_t,r_t_nm_S,r_r_nm_U_t,ris_angle_t);
+else
+    P_L_t = far_field_PL(G_tx,G_rx_transmit,G_unit_cell,RIS_element_size,RIS_element_size,lambda,F,theta_t_S,phi_t_S,theta_r_U_t,phi_r_U_t,A_t,d_t_c,d_r_c_t,Ny,Nx,ris_angle_t);
 end
-TX_RX_gain = (r_d*2*pi/lambda)^2;
-
-
-G_t_a = mean(G_t_a_n)*TX_RX_gain; % average Tx antenna gain
-G_r_a_r = mean(G_r_a_r_n)*TX_RX_gain; % average Rx antenna gain - reflecting user
-G_r_a_t = mean(G_r_a_t_n)*TX_RX_gain; % average Rx antenna gain - transmitting user
-G_r_a_e = mean(G_r_a_e_n)*TX_RX_gain; % average Rx antenna gain - transmitting user
-
-G_a_e = (r_d*2*pi/lambda)^2; % average Rx antenna gain - eavesdropper direct path
-
-% path loss experienced by the signal reaching reflect/transmit UE
-P_L_r = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_r)*G_t_a*G_r_a_r*A_p^2*Gamma_av^2/(d_t_c^2*d_r_c_r^2*16*pi^2);
-P_L_t = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_t)*G_t_a*G_r_a_t*A_p^2*Gamma_av^2/(d_t_c^2*d_r_c_t^2*16*pi^2);
 % path loss experienced by the signal reaching Eve, direct path from satellite
-
-P_L_E_1 = (lambda/(4*pi))^4*G_t_a*G_a_e/(d_SE^2); % still using the old path loss model
+P_L_E_1 = (lambda/(4*pi))^4*G_tx*G_rx_eve/(d_SE^2); % still using the old path loss model
 % path loss experienced by the signal reaching Eve, path via STAR-RIS
+if d_t_c < near_field_threshold || d_r_c_e < near_field_threshold
+    P_L_E_2 = near_field_PL(G_tx,G_rx_eve,G_unit_cell,RIS_element_size,RIS_element_size,lambda,A_r,F_tx,F,F_rx_eve,theta_tx_nm_S,phi_tx_nm_S,theta_t_nm_S,phi_t_nm_S,theta_r_nm_E,phi_r_nm_E,theta_rx_nm_E,phi_rx_nm_E,r_t_nm_S,r_r_nm_E,ris_angle_r);
+else
+    P_L_E_2 = far_field_PL(G_tx,G_rx_eve,G_unit_cell,RIS_element_size,RIS_element_size,lambda,F,theta_t_S,phi_t_S,theta_r_E,phi_r_E,A_r,d_t_c,d_r_c_e,Ny,Nx,ris_angle_r);
+end
 
-P_L_E_2 = N^2*L_P_E*L_S_R*cos(theta_i_c)*cos(theta_r_c_e)*G_t_a*G_r_a_e*A_p^2*Gamma_av^2/(d_t_c^2*d_r_c_e^2*16*pi^2);
+% note: in calculating the path loss, individual RIS element parameters are
+% in (Ny,Nx,M) tensors, but in the code below, they are in (N,M) matrices
+% (where Ny*Nx=N)
 
 sigma_r = 1; % standard deviation for gaussian noise at reflect UE
 sigma_t = 1; % standard deviation for gaussian noise at transmit UE
 sigma_E = 1; % standard deviation for gaussian noise at Eve
-
-M = 1e4; % number of samples
 
 % RSMA parameters
 alpha_c = 2/3; % power allocation factor for common message
@@ -211,13 +292,20 @@ H_r2 = gaminv(U_h_r, m_r, theta_r);
 H_t2 = gaminv(U_h_t, m_t, theta_t);
 G2 = gaminv(U_g, m_E, theta_E);
 
+% Element-wise RIS magnitude and phase shift for each element and sample
+zeta_r_k = rand(N,M); % reflection coefficients
+zeta_t_k = 1-zeta_r_k; % transmission (refraction) coefficients
+phi_r = sqrt(zeta_r_k).*exp(1j.*reshape(ris_angle_r,N,M)); % [N x M]
+phi_t = sqrt(zeta_t_k).*exp(1j.*reshape(ris_angle_t,N,M)); % [N x M]
+% note: (N,M) is (number of RIS elements,number of samples). The path loss
+% model above considers (Ny,Nx,M) tensors instead of (N,M) matrices.
+
 % Form Nakagami-m Variables
 H = sqrt(H2); % magnitude for channel from LEO to i-th STAR-RIS element
 H_r = sqrt(H_r2); % magnitude for channel from i-th RIS element to reflect UE
 H_t = sqrt(H_t2); % magnitude for channel from i-th RIS element to transmit UE
 G = sqrt(G2); % magnitude for channel from i-th STAR-RIS element to Eve
 
-uniform_dist = makedist('Uniform','lower',0,'upper',2*pi);
 nakagami_dist_SE = makedist('Nakagami','mu',m_SE,'omega',omega_SE);
 
 % direct channel from LEO satellite to Eve (no correlation matrix because
@@ -229,21 +317,6 @@ h = H'.*exp(1j.*random(uniform_dist,N,M)); % size: [N x M]
 h_r = H_r'.*exp(1j.*random(uniform_dist,N,M));
 h_t = H_t'.*exp(1j.*random(uniform_dist,N,M));
 g_2 = G'.*exp(1j.*random(uniform_dist,N,M));
-
-zeta_r_k = rand(N,M); % reflection coefficients
-zeta_t_k = 1-zeta_r_k; % transmission (refraction) coefficients
-ris_angle_r = random(uniform_dist,N,M); % angle of RIS elements for reflection
-ris_angle_t = random(uniform_dist,N,M); % angle of RIS elements for transmission
-ris_angle_E = -angle(g_1)-angle(conj(g_2).*h); % angle of RIS elements for Eve (optimal for PLS?)
-% notes: g_1 has size [1xM] and conj(g_2).*h has size [NxM];
-% in channel calculation, conj(g_2).*phi_E.*h gets summed along the all the
-% first dimension (N RIS elements), yet angle(sum(conj(g_2).*phi_E.*h,1))
-% still equal -angle(g_1), which is good.
-
-% Element-wise RIS magnitude and phase shift for each element and sample
-phi_r = sqrt(zeta_r_k).*exp(1j.*ris_angle_r); % [N x M]
-phi_t = sqrt(zeta_t_k).*exp(1j.*ris_angle_t); % [N x M]
-phi_E = sqrt(zeta_r_k).*exp(1j.*ris_angle_E); % [N x M]; on the reflecting side so takes reflection coefficient
 
 gamma_r_bar = P_S/sigma_r^2;
 gamma_t_bar = P_S/sigma_t^2;
@@ -263,7 +336,7 @@ gamma_p_t = alpha_p_t.*P_L_t.*channel_t.*gamma_t_bar./(gamma_t_bar.*channel_t.*P
 
 gamma_E_bar = 1; % P_S/sigma_E^2;
 % channel coefficients and RIS coefficients and phases, including path loss, for Eve
-channel_E = abs(sum(sqrt(P_L_E_2).*conj(g_2).*phi_E.*h,1)+sqrt(P_L_E_1).*g_1).^2;
+channel_E = abs(sum(sqrt(P_L_E_2).*conj(g_2).*phi_r.*h,1)+sqrt(P_L_E_1).*g_1).^2;
 
 % SINR of the common signal part at Eve
 gamma_c_E = alpha_c.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
@@ -290,3 +363,19 @@ R_p_t = 1e-3; % for private signal vs transmitting user
 % below threshold?)
 P_SOP_r = mean((C_c_r<R_c_r)&(C_p_r<R_p_r));
 P_SOP_t = mean((C_c_t<R_c_t)&(C_p_t<R_p_t));
+
+function output = far_field_PL(G_t, G_r, G, d_x, d_y, lambda, F, theta_t, phi_t, theta_r, phi_r, A, d_1, d_2, Ny, Nx, phi_nm)
+    n_y = (1-Ny/2 : Ny/2)'; % [Ny x 1]
+    n_x = 1-Nx/2 : Nx/2; % [1 x Nx]
+    % note: Ny and Nx assumed to be even numbers
+    Beta = exp((1j*2*pi.*((sin(theta_t).*cos(phi_t)+sin(theta_r).*cos(phi_r)).*(n_x-1/2).*d_x+(sin(theta_t).*sin(phi_t)+sin(theta_r).*sin(phi_r)).*(n_y-1/2).*d_y+(lambda.*phi_nm./2./pi)))./lambda);
+    Beta = squeeze(sum(sum(Beta, 1), 2))'; % [1 x M] vector
+    output = G_t.*G_r.*G.*d_x.*d_y.*lambda.^2.*F(theta_t,phi_t).*F(theta_r,phi_r).*A.^2./(64*pi^3.*d_1^2.*d_2^2).*abs(Beta).^2; % [1 x M] vector
+end
+
+function output = near_field_PL(G_t, G_r, G, d_x, d_y, lambda, A, F_tx, F, F_rx, theta_tx_nm, phi_tx_nm, theta_t_nm, phi_t_nm, theta_r_nm, phi_r_nm, theta_rx_nm, phi_rx_nm, r_t_nm, r_r_nm, phi_nm)
+    F_combine_nm = @(theta_tx_nm, phi_tx_nm, theta_t_nm, phi_t_nm, theta_r_nm, phi_r_nm, theta_rx_nm, phi_rx_nm) F_tx(theta_tx_nm,phi_tx_nm).*F(theta_t_nm,phi_t_nm).*F(theta_r_nm,phi_r_nm).*F_rx(theta_rx_nm,phi_rx_nm);
+    Beta = sqrt(F_combine_nm(theta_tx_nm, phi_tx_nm, theta_t_nm, phi_t_nm, theta_r_nm, phi_r_nm, theta_rx_nm, phi_rx_nm)).*exp(-1j.*(2*pi.*(r_t_nm+r_r_nm)-lambda.*phi_nm)./lambda)./(r_t_nm.*r_r_nm);
+    Beta = squeeze(sum(sum(Beta, 1), 2))'; % [1 x M] vector
+    output = G_t.*G_r.*G.*d_x.*d_y.*lambda.^2.*A.^2./(64*pi^3).*abs(Beta).^2; % [1 x M] vector
+end
