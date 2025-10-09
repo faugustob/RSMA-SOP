@@ -2,13 +2,14 @@ clear;
 
 % Simulation parameters
 M = 1e2; % number of samples
+N_path = 2; % number of paths
 
 % Parameters
 
 Light_speed = physconst('LightSpeed');
 freq=10.5e9;
 
-P_S_dB_vector = [200:5:300];%dB (120)
+P_S_dB_vector = 100:10:300;%dB; range from 100 to 300 dB
 P_S_vector = 10.^(P_S_dB_vector./10); % transmit power, in watts (P_S)
 
 gamma_c_r_vector = zeros(size(P_S_vector));
@@ -344,7 +345,7 @@ for P_S = P_S_vector
     % SINR of the private signal part at the transmitting user
     gamma_p_t = alpha_p_t.*P_L_t.*channel_t.*gamma_t_bar./(gamma_t_bar.*channel_t.*P_L_t.*(alpha_p_r+eta.*alpha_c)+1);
     
-    gamma_E_bar = 1; % P_S/sigma_E^2;
+    gamma_E_bar = P_S/sigma_E^2;
     % channel coefficients and RIS coefficients and phases, including path loss, for Eve
     channel_E = abs(sum(sqrt(P_L_E_2).*conj(g_2).*phi_r.*h,1)+sqrt(P_L_E_1).*g_1).^2;
     
@@ -406,3 +407,6 @@ title('gamma_p_r_E');
 figure
 plot(P_S_dB_vector, gamma_p_t_E_vector)
 title('gamma_p_t_E');
+% At legit user, SINR converges at 2 for common signal and 1 for private signal
+% At Eve, SINR converges at 2 for common signal and 0.5 for private signal
+% SINR converges at around 200dB for Eve but around 300dB for legit user
