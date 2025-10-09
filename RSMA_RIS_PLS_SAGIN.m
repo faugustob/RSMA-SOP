@@ -236,25 +236,26 @@ alpha_p_r = 1/6; % power allocation factor for private message of reflecting use
 alpha_p_t = 1/6; % power allocation factor for private message of transmitting user
 eta = 0; % error factor associated with imperfect SIC; not used yet
 
-% nakagami parameters
-m_SR = 1; % shape parameter; from LEO satellite to STAR-RIS
-omega_SR = 10; % spread parameter; from LEO satellite to STAR-RIS
-m_r = 0.5; % shape parameter; from STAR-RIS to U_r
-omega_r = 1; % spread parameter; from STAR-RIS to U_r
-m_t = 0.5; % shape parameter; from STAR-RIS to U_t
-omega_t = 1; % spread parameter; from STAR-RIS to U_t
-m_E = 0.5; % shape parameter; from STAR-RIS to Eve
-omega_E = 1; % spread parameter; from STAR-RIS to Eve
+% nakagami parameters; different parameter for every path
+m_SR = 1*ones(1,N_path); % shape parameter; from LEO satellite to STAR-RIS
+omega_SR = 10*ones(1,N_path); % spread parameter; from LEO satellite to STAR-RIS
+m_r = 0.5*ones(1,N_path); % shape parameter; from STAR-RIS to U_r
+omega_r = 1*ones(1,N_path); % spread parameter; from STAR-RIS to U_r
+m_t = 0.5*ones(1,N_path); % shape parameter; from STAR-RIS to U_t
+omega_t = 1*ones(1,N_path); % spread parameter; from STAR-RIS to U_t
+m_E = 0.5*ones(1,N_path); % shape parameter; from STAR-RIS to Eve
+omega_E = 1*ones(1,N_path); % spread parameter; from STAR-RIS to Eve
+% currently only considers one path for the direct channel from LEO to Eve
 m_SE = 1; % shape parameter; direct channel from LEO satellite to Eve
 omega_SE = 10; % spread parameter; direct channel from LEO satellite to Eve
 
 % parameters for correlation matrix
 kappa = 0.4; % exponential correlation coefficient
 % derived gamma distribution scales
-theta_SR = omega_SR / m_SR;
-theta_r = omega_r / m_r;
-theta_t = omega_t / m_t;
-theta_E = omega_E / m_E;
+theta_SR = omega_SR ./ m_SR;
+theta_r = omega_r ./ m_r;
+theta_t = omega_t ./ m_t;
+theta_E = omega_E ./ m_E;
 
 % Use vectorized indexing to build |i-j| matrix
 i = (1:N)'; j = 1:N;
@@ -277,18 +278,22 @@ if minEig <= 0
 end
 
 % Generate Correlated Samples via Gaussian Copula
-% Generate correlated uniforms without loops
-U_h = copularnd('Gaussian', R, M); % LEO to i-th STAR-RIS element
-U_h_r = copularnd('Gaussian', R, M); % i-th RIS element to reflect UE
-U_h_t = copularnd('Gaussian', R, M); % i-th RIS element to transmit UE
-U_g = copularnd('Gaussian', R, M); % i-th STAR-RIS element to Eve
-
-% Transform uniforms to gamma variates (|h|^2 and |g|^2); (nakagami-m
-% variables squared)
-H2 = gaminv(U_h, m_SR, theta_SR);   % size: [M x N]
-H_r2 = gaminv(U_h_r, m_r, theta_r);
-H_t2 = gaminv(U_h_t, m_t, theta_t);
-G2 = gaminv(U_g, m_E, theta_E);
+% Generate correlated uniforms for every path
+H2 = zeros(M, N, N_path);   % size: [M x N x N_path]
+H_r2 = zeros(M, N, N_path);
+H_t2 = zeros(M, N, N_path);
+G2 = zeros(M, N, N_path);
+for path = 1:N_path
+    U_h = copularnd('Gaussian', R, M); % LEO to i-th STAR-RIS element
+    U_h_r = copularnd('Gaussian', R, M); % i-th RIS element to reflect UE
+    U_h_t = copularnd('Gaussian', R, M); % i-th RIS element to transmit UE
+    U_g = copularnd('Gaussian', R, M); % i-th STAR-RIS element to Eve
+    % Transform uniforms to gamma variates (|h|^2 and |g|^2); (nakagami-m variables squared)
+    H2(:,:,path) = gaminv(U_h, m_SR(path), theta_SR(path));
+    H_r2(:,:,path) = gaminv(U_h_r, m_r(path), theta_r(path));
+    H_t2(:,:,path) = gaminv(U_h_t, m_t(path), theta_t(path));
+    G2(:,:,path) = gaminv(U_g, m_E(path), theta_E(path));
+end
 
 % Element-wise RIS magnitude and phase shift for each element and sample
 zeta_r_k = rand(N,M); % reflection coefficients
@@ -297,6 +302,9 @@ phi_r = sqrt(zeta_r_k).*exp(1j.*reshape(ris_angle_r,N,M)); % [N x M]
 phi_t = sqrt(zeta_t_k).*exp(1j.*reshape(ris_angle_t,N,M)); % [N x M]
 % note: (N,M) is (number of RIS elements,number of samples). The path loss
 % model above considers (Ny,Nx,M) tensors instead of (N,M) matrices.
+
+% Will each path of each RIS element have its own RIS amplitude and phase
+% change or will it be the same for all paths of the same RIS element???
 
 % Form Nakagami-m Variables
 H = sqrt(H2); % magnitude for channel from LEO to i-th STAR-RIS element
@@ -309,12 +317,14 @@ nakagami_dist_SE = makedist('Nakagami','mu',m_SE,'omega',omega_SE);
 % direct channel from LEO satellite to Eve (no correlation matrix because
 % no RIS elements; size: [1 x M])
 g_1 = random(nakagami_dist_SE,1,M).*exp(1j.*random(uniform_dist,1,M));
+% do we want to consider multiple paths here as well???
 
 % add random uniform phase (0 to 2*pi)
-h = H'.*exp(1j.*random(uniform_dist,N,M)); % size: [N x M]
-h_r = H_r'.*exp(1j.*random(uniform_dist,N,M));
-h_t = H_t'.*exp(1j.*random(uniform_dist,N,M));
-g_2 = G'.*exp(1j.*random(uniform_dist,N,M));
+h = permute(H, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path)); % size: [N x M x N_path]
+h_r = permute(H_r, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path));
+h_t = permute(H_t, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path));
+g_2 = permute(G, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path));
+% should the phase be uniformly distributed or gaussian with mean 0???
 
 % vary the transmit power P_S and plot SINR vs transmit power
 P_S_dB_vector = 100:5:400;%dB; range from 100 to 400 dB
@@ -333,9 +343,9 @@ for P_S = P_S_vector
     gamma_r_bar = P_S/sigma_r^2;
     gamma_t_bar = P_S/sigma_t^2;
     % channel coefficients and RIS coefficients and phases for users
-    channel_r = abs(sum(conj(h_r).*phi_r.*h,1)).^2;
+    channel_r = abs(sum(sum(conj(h_r).*repmat(phi_r, [1, 1, N_path]).*h,3),1)).^2;
     
-    channel_t = abs(sum(conj(h_t).*phi_t.*h,1)).^2;
+    channel_t = abs(sum(sum(conj(h_t).*repmat(phi_t, [1, 1, N_path]).*h,3),1)).^2;
     % SINR of the common signal part at the reflecting user
     gamma_c_r = alpha_c.*P_L_r.*channel_r.*gamma_r_bar./(gamma_r_bar.*channel_r.*P_L_r.*(alpha_p_r+alpha_p_t)+1);
     % SINR of the common signal part at the transmitting user
@@ -348,7 +358,7 @@ for P_S = P_S_vector
     
     gamma_E_bar = P_S/sigma_E^2;
     % channel coefficients and RIS coefficients and phases, including path loss, for Eve
-    channel_E = abs(sum(sqrt(P_L_E_2).*conj(g_2).*phi_r.*h,1)+sqrt(P_L_E_1).*g_1).^2;
+    channel_E = abs(sum(sum(sqrt(P_L_E_2).*conj(g_2).*repmat(phi_r, [1, 1, N_path]).*h,3),1)+sqrt(P_L_E_1).*g_1).^2;
     
     % SINR of the common signal part at Eve
     gamma_c_E = alpha_c.*channel_E.*gamma_E_bar./(gamma_E_bar.*channel_E.*(alpha_p_r+alpha_p_t)+1);
