@@ -337,6 +337,9 @@ gamma_c_E_vector = zeros(size(P_S_vector));
 gamma_p_r_E_vector = zeros(size(P_S_vector));
 gamma_p_t_E_vector = zeros(size(P_S_vector));
 
+P_SOP_r_vector = zeros(size(P_S_vector));
+P_SOP_t_vector = zeros(size(P_S_vector));
+
 iteration = 1;
 for P_S = P_S_vector
     gamma_r_bar = P_S/sigma_r^2;
@@ -393,30 +396,145 @@ for P_S = P_S_vector
     gamma_p_r_E_vector(iteration) = mean(gamma_p_r_E);
     gamma_p_t_E_vector(iteration) = mean(gamma_p_t_E);
 
+    P_SOP_r_vector(iteration) = P_SOP_r;
+    P_SOP_t_vector(iteration) = P_SOP_t;
+
     iteration = iteration + 1;
 end
 
-figure
-plot(P_S_dB_vector, gamma_c_r_vector)
-title('gamma_c_r'); 
-figure
-plot(P_S_dB_vector, gamma_c_t_vector)
-title('gamma_c_t'); 
-figure
-plot(P_S_dB_vector, gamma_p_r_vector)
-title('gamma_p_r'); 
-figure
-plot(P_S_dB_vector, gamma_p_t_vector)
-title('gamma_p_t');
-figure
-plot(P_S_dB_vector, gamma_c_E_vector)
-title('gamma_c_E'); 
-figure
-plot(P_S_dB_vector, gamma_p_r_E_vector)
-title('gamma_p_r_E'); 
-figure
-plot(P_S_dB_vector, gamma_p_t_E_vector)
-title('gamma_p_t_E');
-% At legit user, SINR converges at 2 for common signal and 1 for private signal
-% At Eve, SINR converges at 2 for common signal and 0.5 for private signal
-% SINR converges at around 200dB for Eve but around 300dB for legit user
+% --- Plotting SINR vs Transmit Power (P_S) ---
+% Convert SINR values to dB for better visualization on the y-axis
+gamma_c_r_dB = 10*log10(gamma_c_r_vector);
+gamma_c_t_dB = 10*log10(gamma_c_t_vector);
+gamma_p_r_dB = 10*log10(gamma_p_r_vector);
+gamma_p_t_dB = 10*log10(gamma_p_t_vector);
+gamma_c_E_dB = 10*log10(gamma_c_E_vector);
+gamma_p_r_E_dB = 10*log10(gamma_p_r_E_vector);
+gamma_p_t_E_dB = 10*log10(gamma_p_t_E_vector);
+
+% Set default plot properties for better aesthetics
+set(0, 'DefaultAxesFontSize', 12); 
+set(0, 'DefaultLineLineWidth', 1.5);
+
+figure;
+plot(P_S_dB_vector, gamma_c_r_dB);
+title('Average SINR of Common Message at Reflecting User (U_r)', 'FontSize', 14); 
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Average SINR \gamma_{c,r} (dB)', 'FontSize', 12);
+grid on;
+
+figure;
+plot(P_S_dB_vector, gamma_c_t_dB);
+title('Average SINR of Common Message at Transmitting User (U_t)', 'FontSize', 14); 
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Average SINR \gamma_{c,t} (dB)', 'FontSize', 12);
+grid on;
+
+figure;
+plot(P_S_dB_vector, gamma_p_r_dB);
+title('Average SINR of Private Message at Reflecting User (U_r)', 'FontSize', 14); 
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Average SINR \gamma_{p,r} (dB)', 'FontSize', 12);
+grid on;
+
+figure;
+plot(P_S_dB_vector, gamma_p_t_dB);
+title('Average SINR of Private Message at Transmitting User (U_t)', 'FontSize', 14);
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Average SINR \gamma_{p,t} (dB)', 'FontSize', 12);
+grid on;
+
+figure;
+plot(P_S_dB_vector, gamma_c_E_dB);
+title('Average SINR of Common Message at Eavesdropper (Eve)', 'FontSize', 14); 
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Average SINR \gamma_{c,E} (dB)', 'FontSize', 12);
+grid on;
+
+figure;
+plot(P_S_dB_vector, gamma_p_r_E_dB);
+title('Average SINR of Private Message (U_r) at Eavesdropper (Eve)', 'FontSize', 14); 
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Average SINR \gamma_{p,r,E} (dB)', 'FontSize', 12);
+grid on;
+
+figure;
+plot(P_S_dB_vector, gamma_p_t_E_dB);
+title('Average SINR of Private Message (U_t) at Eavesdropper (Eve)', 'FontSize', 14);
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Average SINR \gamma_{p,t,E} (dB)', 'FontSize', 12);
+grid on;
+
+% --- Plotting Secrecy Outage Probability (SOP) vs Transmit Power (P_S) ---
+
+figure;
+semilogy(P_S_dB_vector, P_SOP_r_vector);
+title('Secrecy Outage Probability for Reflecting User (U_r)', 'FontSize', 14);
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,r}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(P_S_dB_vector, P_SOP_t_vector);
+title('Secrecy Outage Probability for Transmitting User (U_t)', 'FontSize', 14);
+xlabel('Transmit Power P_S (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,t}', 'FontSize', 12);
+grid on;
+
+% --- Plotting Secrecy Outage Probability (SOP) vs Average SINR ($\gamma$) ---
+
+figure;
+semilogy(gamma_c_r_dB, P_SOP_r_vector);
+title('Secrecy Outage Probability vs. Average SINR of Common Message (U_r)', 'FontSize', 14); 
+xlabel('Average SINR of Common Message \gamma_{c,r} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,r}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(gamma_c_t_dB, P_SOP_t_vector);
+title('Secrecy Outage Probability vs. Average SINR of Common Message (U_t)', 'FontSize', 14);
+xlabel('Average SINR of Common Message \gamma_{c,t} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,t}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(gamma_p_r_dB, P_SOP_r_vector);
+title('Secrecy Outage Probability vs. Average SINR of Private Message (U_r)', 'FontSize', 14); 
+xlabel('Average SINR of Private Message \gamma_{p,r} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,r}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(gamma_p_t_dB, P_SOP_t_vector);
+title('Secrecy Outage Probability vs. Average SINR of Private Message (U_t)', 'FontSize', 14);
+xlabel('Average SINR of Private Message \gamma_{p,t} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,t}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(gamma_c_E_dB, P_SOP_r_vector);
+title('SOP (U_r) vs. Average SINR of Common Message at Eve', 'FontSize', 14);
+xlabel('Average SINR of Common Message at Eve \gamma_{c,E} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,r}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(gamma_c_E_dB, P_SOP_t_vector);
+title('SOP (U_t) vs. Average SINR of Common Message at Eve', 'FontSize', 14); 
+xlabel('Average SINR of Common Message at Eve \gamma_{c,E} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,t}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(gamma_p_r_E_dB, P_SOP_r_vector);
+title('SOP (U_r) vs. Average SINR of Private Message (U_r) at Eve', 'FontSize', 14); 
+xlabel('Average SINR of Private Message at Eve \gamma_{p,r,E} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,r}', 'FontSize', 12);
+grid on;
+
+figure;
+semilogy(gamma_p_t_E_dB, P_SOP_t_vector);
+title('SOP (U_t) vs. Average SINR of Private Message (U_t) at Eve', 'FontSize', 14);
+xlabel('Average SINR of Private Message at Eve \gamma_{p,t,E} (dB)', 'FontSize', 12);
+ylabel('Secrecy Outage Probability P_{SOP,t}', 'FontSize', 12);
+grid on;
