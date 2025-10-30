@@ -324,7 +324,6 @@ h = permute(H, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path)); % size: [N 
 h_r = permute(H_r, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path));
 h_t = permute(H_t, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path));
 g_2 = permute(G, [2, 1, 3]).*exp(1j.*random(uniform_dist,N,M,N_path));
-% should the phase be uniformly distributed or gaussian with mean 0???
 
 % vary the transmit power P_S and plot SINR vs transmit power
 P_S_dB_vector = 100:5:400;%dB; range from 100 to 400 dB
