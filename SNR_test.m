@@ -7,7 +7,7 @@
 clear; clc;
 
 %% ------------------- PARAMETERS -----------------------
-alpha  = 2.5;       % shape of X
+alpha  = 3.5;       % shape of X
 beta   = 3.2;       % shape of Z
 theta1 = 1.0;       % scale of X
 theta2 = 0.8;       % scale of Z
