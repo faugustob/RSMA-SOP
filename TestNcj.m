@@ -10,14 +10,14 @@ m_j = 2; Omega_j = 1; % RIS reflected
 m_g = 2; Omega_g = 1; % LOS
 
 % Number of elements
-N_R = 4;  % RIS elements
+N_R = 30;  % RIS elements
 P_e = 2;  % LOS interference
 
 P_r = 2; % Number of paths from LEO to RIS
 P_rj = 4; %Number of paths from RIS to user j.
 
-M=4;
-N=4;
+M=1;
+N=1;
 
 % Deterministic coefficients (example)
 alpha_c = 1; P_LJ = 1; P_LOS = 1; P_t = 1;
