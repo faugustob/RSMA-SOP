@@ -62,8 +62,8 @@ transmit = 1 - reflect;  % shape (1,K+L,num_samples)
 
 % from LEO satellite to STAR-RIS (one value for each path and assume same
 % for each RIS element):
-m_r = 1*ones(1,P_r); % shape parameter
-omega_r = 10*ones(1,P_r); % spread parameter
+m_q = 1*ones(1,P_r); % shape parameter
+omega_q = 10*ones(1,P_r); % spread parameter
 
 % from STAR-RIS to users and eavesdroppers (one value for each path and 
 % each receiver, and assume same for each RIS element):
@@ -84,7 +84,7 @@ omega_g = 10*ones(L,P_e); % spread parameter
 kappa = 0.4; % exponential correlation coefficient
 
 % derived gamma distribution scales
-theta_r = omega_r ./ m_r; % from LEO satellite to STAR-RIS
+theta_q = omega_q ./ m_q; % from LEO satellite to STAR-RIS
 theta_j_q = omega_j_q ./ m_j_q; % from STAR-RIS to legit users
 
 % Use vectorized indexing to build |i-j| matrix
@@ -112,7 +112,7 @@ H_r_j_q_2 = zeros(num_samples, N_R, P_r_j, K+L);
 for path = 1:P_r
     U = copularnd('Gaussian', R, num_samples); % LEO to STAR-RIS
     % Transform uniforms to gamma variates (|h|^2); (nakagami-m variables squared)
-    H_r_p_2(:,:,path) = gaminv(U, m_r(path), theta_r(path));
+    H_r_p_2(:,:,path) = gaminv(U, m_q(path), theta_q(path));
 end
 for path = 1:P_r_j
     for user = 1:K
@@ -130,12 +130,9 @@ end
 h_r_p = sqrt(H_r_p_2); % magnitudes for channels from LEO to STAR-RIS
 h_r_j_q = sqrt(H_r_j_q_2); % magnitudes for channels from STAR-RIS to users and eavesdroppers
 
-% create uniform distribution from 0 to 2*pi
-uniform_dist = makedist('Uniform','lower',0,'upper',2*pi);
-
 % Add uniform random phase
-h_r_p = h_r_p.*exp(1j.*random(uniform_dist,size(h_r_p)));
-h_r_j_q = h_r_j_q.*exp(1j.*random(uniform_dist,size(h_r_j_q)));
+h_r_p = h_r_p.*exp(1j.*rand(size(h_r_p)).*2.*pi);
+h_r_j_q = h_r_j_q.*exp(1j.*rand(size(h_r_j_q)).*2.*pi);
 
 % Form Nakagami-m variable magnitudes and uniform random phase for direct
 % path from LEO to Eve
@@ -143,7 +140,7 @@ g_e_u = zeros(num_samples, P_e);
 for path = 1:P_e
     nakagami_dist = makedist('Nakagami','mu',m_g(path),'omega',omega_g(path));
     % direct channel from LEO satellite to Eve (no spatial correlation)
-    g_e_u(:,path) = random(nakagami_dist,num_samples,1).*exp(1j.*random(uniform_dist,num_samples,1));
+    g_e_u(:,path) = random(nakagami_dist,num_samples,1).*exp(1j.*rand(num_samples,1).*2.*pi);
 end
 
 % STAR-RIS phase and magnitude of each RIS element
@@ -157,5 +154,5 @@ zeta_k_St = 1 - zeta_k_Sr; % transmit coefficients
 % coefficient zeta, and adding element-wise, we get a matrix where
 % reflecting users get the reflecting coefficient and transmitting user
 % gets the transmitting coefficient
-beta_r = (sqrt(zeta_k_Sr).*permute(reflect,[3,1,2])+sqrt(zeta_k_St).*permute(transmit,[3,1,2])).*random(uniform_dist,num_samples,N_R,K+L);
+beta_r = (sqrt(zeta_k_Sr).*permute(reflect,[3,1,2])+sqrt(zeta_k_St).*permute(transmit,[3,1,2])).*exp(1j.*rand(num_samples,N_R,K+L).*2.*pi);
 % note: beta_r will have shape (num_samples,N_R,K+L)
