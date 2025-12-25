@@ -1,20 +1,13 @@
 function Hp = compute_Hp(tau, nu, M, N, T, Deltaf, method)
-% compute_Hp
-% Builds the MN-by-MN OTFS delay–Doppler channel matrix Hp
+% compute_Hp  Wrapper to compute Hp using either 'loop' or 'blocked'
 %
-% USAGE:
+% Usage:
 %   Hp = compute_Hp(tau, nu, M, N, T, Deltaf, 'loop');
 %   Hp = compute_Hp(tau, nu, M, N, T, Deltaf, 'blocked');
 %
-% INPUTS:
-%   tau, nu   : delay and Doppler (tau_{p,q}^{r,j}, nu_{p,q}^{r,j})
-%   M, N      : grid sizes
-%   T         : symbol duration
-%   Deltaf    : subcarrier spacing
-%   method    : 'loop' or 'blocked'
-%
-% OUTPUT:
-%   Hp        : complex MN-by-MN matrix
+% The file also contains:
+%   - Hp_loop(tau,nu,M,N,T,Deltaf)
+%   - Hp_blocked(tau,nu,M,N,T,Deltaf)
 
 if nargin < 7
     method = 'loop';
@@ -31,118 +24,140 @@ end
 
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% 1) CLEAR NESTED-LOOP IMPLEMENTATION
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function Hp = Hp_loop(tau, nu, M, N, T, Deltaf)
 
-MN = M*N;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 1) CLEAR NESTED-LOOP VERSION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function Hp = Hp_loop(tau, nu, M, N, T, Deltaf)
+% Hp_loop  Build Hp (MN x MN) using straightforward nested loops
+
+MN = M * N;
 Hp = complex(zeros(MN, MN));
 
-n = 0:N-1;
-m = 0:M-1;
-mp = 0:M-1;
+nvec = 0:(N-1);
+mvec = 0:(M-1);
+mprimevec = 0:(M-1);
+j2pi = 1j * 2*pi;
+factor_common_exp = exp(-j2pi * nu * tau);
 
-j2pi = 1j*2*pi;
-common_phase = exp(-j2pi*nu*tau);
+% Prebuild m,m' matrices (MxM)
+[Mmat, Mprime] = meshgrid(mvec, mprimevec);
+delta = Mprime - Mmat;
 
-[Mmat, MpMat] = meshgrid(m, mp);
-delta = MpMat - Mmat;
+for kp = 0:(N-1)
+    for k = 0:(N-1)
 
-for kp = 0:N-1
-    for k = 0:N-1
+        % n-sum
+        alpha_n = (kp-k)/N - nu/Deltaf;
+        S_n = sum(exp(-j2pi * (nvec.' * alpha_n))); % scalar
 
-        Sn = sum(exp(-j2pi*n*((kp-k)/N - nu/Deltaf)));
-
-        for lp = 0:M-1
-            for l = 0:M-1
+        for lp = 0:(M-1)
+            for l = 0:(M-1)
 
                 r = lp + kp*M + 1;
                 c = l  + k *M + 1;
 
                 % ---- h_{P,1} ----
-                pref1 = common_phase * (1/M) * (1 - tau/T) * (1/N) * Sn;
-
-                exp1 = exp(1j*pi*((tau/T+1)*(delta + nu/Deltaf)));
-                phase1 = exp(1j*2*pi*((Mmat*lp)/M - (MpMat*l)/M - MpMat*(tau/T)));
+                pref1 = factor_common_exp * (1/M) * (1 - tau/T) * (1/N) * S_n;
+                term_exp1 = exp(1j*pi * ((tau/T + 1) * (delta + nu/Deltaf)));
+                phase1 = exp(1j*2*pi * ( (Mmat*lp)/M - (Mprime*l)/M - Mprime*(tau/T) ));
                 sinc1 = sinc((delta + nu/Deltaf)*(1 - tau/T));
-
-                hP1 = pref1 * sum(exp1 .* phase1 .* sinc1, 'all');
+                hP1 = pref1 * sum( (term_exp1 .* phase1 .* sinc1), 'all' );
 
                 % ---- h_{P,2} ----
-                pref2 = common_phase * exp(-j2pi*k/N) * ...
-                        (1/M) * (tau/T) * (1/N) * Sn;
-
-                phase2 = exp(1j*2*pi*((Mmat*lp)/M - (MpMat*l)/M - MpMat*(tau/T)));
-                exp2 = exp(1j*pi*(tau/T)*(delta + nu/Deltaf));
+                pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/M) * (tau/T) * (1/N) * S_n;
+                term_exp2 = exp(1j*2*pi * ( (Mmat*lp)/M - (Mprime*l)/M - Mprime*(tau/T) ));
+                phase2 = exp(1j*pi*(tau/T)*(delta + nu/Deltaf));
                 sinc2 = sinc((delta + nu/Deltaf)*(tau/T));
-
-                hP2 = pref2 * sum(phase2 .* exp2 .* sinc2, 'all');
+                hP2 = pref2 * sum( (term_exp2 .* phase2 .* sinc2), 'all' );
 
                 Hp(r,c) = hP1 + hP2;
             end
         end
+
     end
 end
 
 end
 
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% 2) BLOCK / VECTORIZED IMPLEMENTATION
+%% 2) BLOCK/VECTORIZED VERSION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 function Hp = Hp_blocked(tau, nu, M, N, T, Deltaf)
+% Hp_blocked  Build Hp (MN x MN) using block computation for each (k',k)
 
 MN = M*N;
 Hp = complex(zeros(MN, MN));
 
-n = 0:N-1;
-m = 0:M-1;
-mp = 0:M-1;
+nvec = 0:(N-1);
+mvec = 0:(M-1);
+mprimevec = 0:(M-1);
 
 j2pi = 1j*2*pi;
-common_phase = exp(-j2pi*nu*tau);
+factor_common_exp = exp(-j2pi * nu * tau);
 
-[Mmat, MpMat] = meshgrid(m, mp);
-Mmat  = Mmat.';
-MpMat = MpMat.';
-delta = MpMat - Mmat;
+% Preconstruct m,m' matrices
+[Mmat, Mprime] = meshgrid(mvec, mprimevec);
+Mmat = Mmat.';       % Mmat(i,j)=m_i
+Mprime = Mprime.';   % Mprime(i,j)=m'_j
+delta = Mprime - Mmat;
 
-A1 = exp(1j*pi*((tau/T+1)*(delta + nu/Deltaf))) .* ...
-     sinc((delta + nu/Deltaf)*(1 - tau/T));
+% phase parts that do not depend on l,l'
+phase_base1 = exp(1j*pi * ((tau/T + 1) * (delta + nu/Deltaf)));
+phase_base2 = exp(1j*pi * ((tau/T)     * (delta + nu/Deltaf)));
 
-A2 = exp(1j*pi*(tau/T)*(delta + nu/Deltaf)) .* ...
-     sinc((delta + nu/Deltaf)*(tau/T));
+sinc1 = sinc((delta + nu/Deltaf) * (1 - tau/T));
+sinc2 = sinc((delta + nu/Deltaf) * (tau/T));
 
-exp_mptau = exp(-j2pi*(mp.'*(tau/T)));
+A1 = phase_base1 .* sinc1;   % MxM
+A2 = phase_base2 .* sinc2;   % MxM
 
-for kp = 0:N-1
-    for k = 0:N-1
+% Precompute vector forms
+exp_mprime_tau = exp(-j2pi * (mprimevec.' * (tau/T)));    % Mx1
 
-        Sn = sum(exp(-j2pi*n*((kp-k)/N - nu/Deltaf)));
+for kp = 0:(N-1)
+    for k = 0:(N-1)
 
-        pref1 = common_phase * (1/M)*(1 - tau/T)*(1/N)*Sn;
-        pref2 = common_phase * exp(-j2pi*k/N) * ...
-                (1/M)*(tau/T)*(1/N)*Sn;
+        % --- n-sum ---
+        alpha_n = (kp-k)/N - nu/Deltaf;
+        S_n = sum(exp(-j2pi * (nvec.' * alpha_n)));
 
-        lp = 0:M-1;
-        l  = (0:M-1).';
+        pref1 = factor_common_exp * (1/M) * (1 - tau/T) * (1/N) * S_n;
+        pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/M) * (tau/T) * (1/N) * S_n;
 
-        Em_lp  = exp(1j*2*pi*(m.'*lp/M));
-        Emp_l  = exp(-1j*2*pi*(mp.'*l.'/M));
+        % --- Build MxM block for all (l',l) ---
 
-        C1 = A1.' * Em_lp;
-        C2 = A2.' * Em_lp;
+        % exp(j2π m l'/M) matrix: rows m, cols l'
+        lpvec = 0:(M-1);
+        lvec  = (0:(M-1)).'; % column
 
-        C1 = C1 .* (exp_mptau * ones(1,M));
-        C2 = C2 .* (exp_mptau * ones(1,M));
+        exp_m_lp = exp(1j*2*pi*((mvec.') * lpvec / M));   % MxM (m x l')
+        exp_mprime_l = exp(-1j*2*pi*((mprimevec.') * lvec.' / M)); % MxM (m' x l)
 
-        Block1 = C1.' * Emp_l;
-        Block2 = C2.' * Emp_l;
+        % Step 1: C1 = A1.' * exp_m_lp
+        C1 = A1.' * exp_m_lp;   % (m' x l')
+        C2 = A2.' * exp_m_lp;
 
-        rs = kp*M + 1;
-        cs = k *M + 1;
+        % Multiply by exp(-j2π m' τ/T)
+        C1 = C1 .* (exp_mprime_tau * ones(1,M));
+        C2 = C2 .* (exp_mprime_tau * ones(1,M));
 
-        Hp(rs:rs+M-1, cs:cs+M-1) = pref1*Block1 + pref2*Block2;
+        % Combine with exp(-j2π m' l/M) and sum over m'
+        Block1 = (C1.') * exp_mprime_l;  % (l' x l)
+        Block2 = (C2.') * exp_mprime_l;
+
+        Block_total = pref1 * Block1 + pref2 * Block2;
+
+        % Insert block
+        row_start = kp*M + 1;
+        col_start = k *M + 1;
+
+        Hp(row_start:row_start+M-1, col_start:col_start+M-1) = Block_total;
+
     end
 end
 
