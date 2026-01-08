@@ -1,31 +1,22 @@
-function path_loss = compute_ris_PL(lambda, N_V, N_H, S_xyz, User_loc, R_xyz)
+function path_loss = compute_ris_PL(lambda, N_V, N_H, S_xyz, User_loc, R_xyz,normal,F,F_tx,F_rx,G,G_t,G_r)
 
 %% Basic parameters
+d_x = lambda/2;
 d_y = lambda/2;
-d_z = lambda/2;
 
-RIS_size_y = N_H * d_y;
-RIS_size_z = N_V * d_z;
-
-  %% Radiation patterns (Tang paper)
-F      = @(theta,phi) cos(theta).^3;
-F_tx   = @(theta,phi) cos(theta).^62;
-F_rx   = @(theta,phi) cos(theta).^62;
+RIS_size_x = N_H * d_x;
+RIS_size_y = N_V * d_y;
 
 
 
-%% Gains (Eq. 5–6)
-G   = 4*pi / integral2(@(t,p) F(t,p).*sin(t),    0, pi/2, 0, 2*pi);
-G_t = 4*pi / integral2(@(t,p) F_tx(t,p).*sin(t), 0, pi/2, 0, 2*pi);
-G_r = 4*pi / integral2(@(t,p) F_rx(t,p).*sin(t), 0, pi/2, 0, 2*pi);
 
 %% RIS element positions
 rn = zeros(3, N_V, N_H);
 for j = 1:N_V
     for i = 1:N_H
-        y = -RIS_size_y/2 + (i-0.5)*d_y;
-        z = -RIS_size_z/2 + (j-0.5)*d_z;
-        rn(:,j,i) = [0; y; z];
+        x = -RIS_size_x/2 + (i-0.5)*d_x;
+        y = -RIS_size_y/2 + (j-0.5)*d_y;
+        rn(:,j,i) = [x; y; 0];
     end
 end
 
@@ -50,10 +41,10 @@ for j = 1:N_V
         r_t_nm(j,i) = norm(v_t);
         r_r_nm(j,i) = norm(v_r);
 
-        theta_t_nm(j,i) = acos(dot(v_t,[1,0,0])/r_t_nm(j,i)); % angle between vector and z
+        theta_t_nm(j,i) = acos(dot(v_t,normal)/r_t_nm(j,i)); % angle between vector and x
         phi_t_nm(j,i)   = atan2(v_t(2), v_t(1)); % azimuth
 
-        theta_r_nm(j,i) = acos(dot(v_r,[1,0,0])/r_r_nm(j,i));
+        theta_r_nm(j,i) = acos(dot(v_r,normal)/r_r_nm(j,i));
         phi_r_nm(j,i)   = atan2(v_r(2), v_r(1)); % azimuth
 
         theta_tx_nm(j,i) = acos( dot(v_t, (S_xyz - R_xyz)) / ( norm(v_t) * norm(S_xyz - R_xyz) ));       
@@ -76,27 +67,27 @@ end
 
    % Far-field using general expression (Eq. 3)
     path_loss = PL_eq3( ...
-    G_t, G_r, G, d_y, d_z, lambda, ...
+    F,F_tx,F_rx,G_t, G_r, G, d_x, d_y, lambda, ...
     theta_tx_nm, theta_t_nm, ...
     theta_r_nm, theta_rx_nm, r_t_nm, r_r_nm );
     x=1;
 
 end
 function output = PL_eq3( ...
-    G_t, G_r, G, d_x, d_y, lambda, ...
+    F,F_tx,F_rx,G_t, G_r, G, d_x, d_y, lambda, ...
     theta_tx_nm, theta_t_nm, ...
     theta_r_nm, theta_rx_nm, r_t_nm, r_r_nm )
 
-    %% Radiation patterns (Tang paper)
-    F      = @(theta) cos(theta).^3;
-    F_tx   = @(theta) cos(theta).^62;
-    F_rx   = @(theta) cos(theta).^62;
+    % %% Radiation patterns (Tang paper)
+    % F      = @(theta) cos(theta).^3;
+    % F_tx   = @(theta) cos(theta).^62;
+    % F_rx   = @(theta) cos(theta).^62;
 
     % Combined radiation pattern (Eq. 3)
-    F_nm = F_tx(theta_tx_nm) ...
-         .* F(theta_t_nm) ...
-         .* F(theta_r_nm) ...
-         .* F_rx(theta_rx_nm);
+    F_nm = F_tx(theta_tx_nm,0) ...
+         .* F(theta_t_nm,0) ...
+         .* F(theta_r_nm,0) ...
+         .* F_rx(theta_rx_nm,0);
 
     % Field contribution per RIS element
     E_nm = sqrt(F_nm) ...

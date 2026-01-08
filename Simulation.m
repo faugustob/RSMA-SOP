@@ -1,10 +1,10 @@
 clc; clear;
 
 Ns = 1e6; % number of samples for Monte Carlo simulation
-rng(2);
+rng(22);
 
 c = physconst('LightSpeed'); % speed of light
-f_c = 10.5e9; % frequency
+f_c = 10e9; % frequency
 lambda = c / f_c; % wavelength
  % ---- Earth-centered conversion ----
 R_earth = 6371e3;
@@ -12,36 +12,44 @@ R_earth = 6371e3;
 
 %Number of nodes
 K_h = 1;  % number of high speed legit users % 50 km/h
-K_s = 1;  % number of high speed legit users % 1.2 m/s
+K_s = 2;  % number of high speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-L = 1; % number of eavesdroppers
+L = 4; % number of eavesdroppers
 
-% --- System Parameters ---
-delta_f = 15e3;      % Subcarrier spacing (Hz)
+% --- OTFS System Parameters ---
+delta_f = 100e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
+B = 10e6;        % [Hz] ← Use this
+Tf      = 14*T;      % 14-symbol frame (~1 ms)
 
-M=8;
-N=8;
 
-I=1;
+L_tau = 8;   % 8 delay taps over max_tau (covers multipath + RIS)
+L_nu  = 8;   % 8 Doppler taps over [-max_nu, max_nu]
 
 R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 4; % number of rows of regularly arranged unit cells of RIS
-N_H = 4; % number of columns of regularly arranged unit cells of RIS
+N_V = 16; % number of rows of regularly arranged unit cells of RIS
+N_H = 12; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
 d_y = floor(lambda/2 * 1000) / 1000; % vertical size of RIS element
 
 
-G_tx = 10^(10/10); %10 dB
-G_rx = 10^(10/10); %10 dB
+  %% Radiation patterns (Tang paper)
+F      = @(theta,phi) cos(theta).^(1/64);
+F_tx   = @(theta,phi) cos(theta).^1100;%33 2 degree
+F_rx   = @(theta,phi) cos(theta).^15; %15 17.28 degree
 
 
+
+%% Gains (Eq. 5–6)
+G   = 4*pi / integral2(@(t,p) F(t,p).*sin(t),    0, pi/2, 0, 2*pi);
+G_t = 4*pi / integral2(@(t,p) F_tx(t,p).*sin(t), 0, pi/2, 0, 2*pi);
+G_r = 4*pi / integral2(@(t,p) F_rx(t,p).*sin(t), 0, pi/2, 0, 2*pi);
 
 
 P = 2; % number of propagation paths arriving at the r-th RIS element
@@ -49,13 +57,15 @@ Q_j = 3; % number of propagation paths departing from the r-th RIS element
 Pe = 2; % number of propagation paths departing from the LEO satellite
 
 % location coordinates
-UAV_altitude = 150;
-LEO_altitude = 480e3;
+HAP_altitude = 20e3;
+LEO_altitude = 250e3;
+
+RIS_normal = [0,0,1];
 
 
-[max_theta,max_alpha,max_beta] = compute_max_theta(LEO_altitude,UAV_altitude);
+[max_theta,max_alpha,max_beta] = compute_max_theta(LEO_altitude,HAP_altitude);
 
-S_elevation = max_theta/2;
+S_elevation = pi/2-max_theta*(0.009);
 S_azimuth  = pi/4;
 S_radius  = R_earth+LEO_altitude;
 
@@ -66,31 +76,18 @@ S_xyz = [S_x;S_y;S_z];
 
 
 S_v = 7800;
-R_xyz = [0; 0; R_earth+UAV_altitude]; % location of STAR-RIS; code assumes this to be origin;
+R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this to be origin;
 % note: this code assumes surface is on x-y plane (surface normal points in
 % z-axis direction)
 R_v_xyz = [0;0;0];
 
 
 % ELEVATION (UNCHANGED)
-el = max_alpha * rand(1, K);
+el = pi/2 - max_alpha * rand(1, K);
 
-% AZIMUTH (FORCE HALF x>0, HALF x<0)
-Khalf = floor(K/2);
 
-if Khalf == 0
-    Khalf=1;
-end
+az = (2*pi) * rand(1, K);
 
-% x > 0  → cos(az) > 0
-az_pos = (pi/2) * rand(1, Khalf) - pi/2;
-
-% x < 0  → cos(az) < 0
-az_neg = (pi/2) * rand(1, K - Khalf) + pi/2;
-
-% Combine and shuffle
-az = [az_pos, az_neg];
-az = az(randperm(K));
 
 % RADIUS (FIXED ON EARTH SURFACE)
 r = R_earth * ones(1, K);
@@ -100,58 +97,21 @@ r = R_earth * ones(1, K);
 
 ground_users_cart = [x; y; z];   % 3 x K
 
-% PARAMETERS
-Rmin = 20;                 % Inner radius of shell [m]
-Rmax = 100;                 % Outer radius of shell [m]
 
-
-% Center of the sphere (UAV position in ECEF-like XYZ)
-center = [0; 0; R_earth + UAV_altitude];
-
-
-% RANDOM VARIABLES
-u = rand(1, L);   % radius
-w = rand(1, L);   % polar angle
-
-% RADIUS SAMPLING (UNIFORM VOLUME)
-r = (Rmin^3 + (Rmax^3 - Rmin^3).*u).^(1/3);
-
-% POLAR ANGLE (ISOTROPIC)
-costheta = 2*w - 1;
-theta = acos(costheta);
-
-% AZIMUTH ANGLE (FORCE HALF x>0, HALF x<0)
-
-Lhalf = floor(L/2);
-
-if Lhalf==0
-    Lhalf=1;
-end
-
-% x > 0  → cos(phi) > 0
-phi_pos = (pi/2) * rand(1, Lhalf) - pi/2;
-
-% x < 0  → cos(phi) < 0
-phi_neg = (pi/2) * rand(1, L - Lhalf) + pi/2;
-
-% Combine and shuffle
-phi = [phi_pos, phi_neg];
-phi = phi(randperm(L));
-
-%% SPHERICAL → CARTESIAN
-x = r .* sin(theta) .* cos(phi);
-y = r .* sin(theta) .* sin(phi);
-z = r .* cos(theta);
+%% Eavesdroppers position
+x = 1000*rand(1, L);
+y = 1000*rand(1, L);
+z = R_earth + 50 + 950*rand(1, L);
 
 
 %% SHIFT TO GLOBAL COORDINATES
 % Add the UAV center position to each point
-eavesdroppers_xyz = R_xyz + [x; y; z];
+eavesdroppers_xyz =  [x; y; z];
 
 rho_j_xyz = [ground_users_cart,eavesdroppers_xyz];
 
 % find out whether each receiver is on the reflect side or transmit side
-reflect = sign(rho_j_xyz(1,:)) == sign(S_xyz(1)); % shape (1,K+L,Ns)
+%reflect = sign(rho_j_xyz(3,:)) == sign(S_xyz(3)); % shape (1,K+L,Ns)
 %transmit = 1 - reflect;  % shape (1,K+L,Ns)
 
 
@@ -183,7 +143,7 @@ omega_e = (1/Pe)*ones(K+L,Pe); % spread parameter
 
 % note: beta_r will have shape (Ns,Nr,K+L)
 
-Nsymb = M*N; 
+
 
 % ============================================================
 % Earth-centered positions and velocities (LEO → RIS)
@@ -208,8 +168,6 @@ sigma_ang = deg2rad(20);   % angular spread
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
 
 
-HA = zeros(Nsymb,Nsymb,P,Q_j,K+L); % Relay link
-HB = zeros(Nsymb,Nsymb,Pe,K+L);
 g_pq = zeros(P,Q_j,K+L);
 Plos = zeros(K+L,1);
 PLj = zeros(K+L,1);
@@ -217,7 +175,9 @@ PLj = zeros(K+L,1);
 h_rp = zeros(Nr, P,K+L);
 h_jq = zeros(Nr, Q_j,K+L);
 h_e = zeros(Pe,K+L);
+taus = zeros(Q_j,K);
 
+%OTFS Per User channel conditions
 for k =1:K
 
   
@@ -231,11 +191,15 @@ for k =1:K
     User_k_loc = rho_j_xyz(:,k);
 
     d_los = sqrt(sum((User_k_loc-S_xyz).^2));
+    d_ris = sqrt(sum((User_k_loc-R_xyz).^2));
 
 
-    Plos(k) = ((lambda/(4*pi))^2*G_tx*G_rx)/(d_los^2);
+    Plos(k) = ((lambda/(4*pi))^2*G_t*G_r)/(d_los^2);
+    Plos_ris(k) = ((lambda/(4*pi))^2*G_t*G_r)/(d_ris^2);
+
+    PL = Plos(k)*Plos_ris(k) ;
     
-    PLj(k) = compute_ris_PL(lambda,N_V,N_H,S_xyz,User_k_loc,R_xyz);
+    PLj(k) = compute_ris_PL(lambda,N_V,N_H,S_xyz,User_k_loc,R_xyz,RIS_normal,F,F_tx,F_rx,G,G_t,G_r);
     Ns=1;
   
 
@@ -249,6 +213,15 @@ for k =1:K
     % RIS to legitimate users delays and doppler coefficients.
     [taus_k, nus_k, u_paths_k] = compute_delay_and_doppler( ...
     c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, sigma_ang);
+  
+
+    for p=1:P
+        for q=1:Q_j
+           taus_kq(k,p,q) = taus_R(p)+taus_k(q);
+           nus_kq(k,p,q) = nus_R(p)+nus_k(q);
+        end 
+    end
+    
 
     % sat to legitimate users delays and doppler coefficients.
     [taus_u, nus_u, u_paths_u] = compute_delay_and_doppler( ...
@@ -256,15 +229,14 @@ for k =1:K
 
     g_pq(:,:,k) = exp(1i*2*pi*(taus_R*nus_k'));    
 
-
-
+    taus_ku(:,k) = taus_u; 
+    nus_ku(:,k) = nus_u; 
    
     %Channels
     for p = 1:P
         % Scale parameter theta = omega/m
         h_rp(:, p,k) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1));
     end
-
 
     
     for q = 1:Q_j
@@ -275,11 +247,27 @@ for k =1:K
     for u = 1:Pe
         h_e(u,k) = sqrt(gamrnd(m_e(k,u), omega_e(u)/m_e(k,u))) .* exp(1i*2*pi*rand());
     end
-       
+            
+end
+
+% Max tau and nu
+max_tau = max([taus_kq(:);taus_ku(:)]);  % ~30 ms ✓
+max_nu  = max([nus_kq(:);nus_ku(:)]);    % OK
+
+% Compute M and N based on the parameters
+[M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
+M = max(M, 64); N = max(N, 12);  % Minimum practical size
+Nsymb = M*N; 
+
+HA = zeros(Nsymb,Nsymb,P,Q_j,K+L); % Relay link
+HB = zeros(Nsymb,Nsymb,Pe,K+L);
+
+
+for k=1:K
 
     for p=1:P
         for q=1:Q_j
-            HA(:,:,p,q,k) =  compute_Hp(taus_R(p)+taus_k(q), nus_R(p)+nus_k(q), M, N, T, delta_f, 'blocked');
+            HA(:,:,p,q,k) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked');
         end
     end
    
@@ -287,8 +275,7 @@ for k =1:K
     for u = 1:Pe
         HB(:,:,u,k) =  compute_Hp(taus_u(u), nus_u(u), M, N, T, delta_f, 'blocked');
     end
-   
-    
+
 end
 
 
@@ -301,10 +288,10 @@ for l=1:L
 
         d_los = sqrt(sum((User_l_loc-S_xyz).^2));
 
-        Plos(K+l) = ((lambda/(4*pi))^2*G_tx*G_rx)/(d_los^2);
+        Plos(K+l) = ((lambda/(4*pi))^2*G_t*G_r)/(d_los^2);
 
 
-        PLj(K+l) = compute_ris_PL(lambda,N_V,N_H,S_xyz,User_l_loc,R_xyz);
+        PLj(K+l) = compute_ris_PL(lambda,N_V,N_H,S_xyz,User_l_loc,R_xyz,RIS_normal,F,F_tx,F_rx,G,G_t,G_r);
 
          
         Ns=1;
@@ -360,47 +347,99 @@ for l=1:L
        end
 
         for u = 1:Pe
-            HB(:,:,u,K+l) =  compute_Hp(taus_u(u), nus_u(u), M, N, T, delta_f, 'blocked');
+            HB(:,:,u,K+l) =  compute_Hp(taus_ku(u,k) ,nus_ku(u,k), M, N, T, delta_f, 'blocked');
         end
 
         g_pq(:,:,K+l) = exp(1i*2*pi*(taus_R*nus_l'));           
 end
  
-%  % SCA optimization SINR, Secrecy capacity
-% 
+
+%%
 % display('SCA is optimizing your problem');
 % 
-% Num_agents  = 30;
-% Max_iteration = 500;
+% Num_agents  = 50;
+% Max_iteration = 200;
+% Rmin=0.1;
+% C_k = zeros(K,1);
 % 
 % %Initialize the set of random solutions
-% %X=initialization(N,dim,ub,lb);
+% 
+% % dim = K+1+2*Nr;
+% % 
+% % ub=[ones(1,K+1),2*pi*ones(1,Nr),ones(1,Nr)];
+% % lb=zeros(1,K+1+2*Nr);
 % 
 % dim = K+1;
 % 
-% ub=ones(1,K+1);
-% lb=zeros(1,K+1);
 % 
-% zeta_k_Sr = rand(Nr,1); % reflection coefficients
-% phi = rand(Nr,1);
 % 
-% alpha = rand(Num_agents, K+1);       % random values
+% ub=[ones(1,K+1)];
+% alpha_min = 1e-4;
+% lb = alpha_min * ones(1,K+1);
+% 
+% 
+
+% 
+% zeta_k_Sr = rand(1,Nr); % reflection coefficients
+% phi = 2*pi*rand(1,Nr);
+% 
+% %alpha_vec = [1/2, (1/(2*K))*ones(1,K)];
+% %alpha = rand(Num_agents, K+1);  
+% alpha = rand(Num_agents, K+1); 
+% % random values
 % alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
 % 
+% %X = [alpha,phi,zeta_k_Sr];
 % X = [alpha];
+% 
 % 
 % Destination_position=zeros(1,dim);
 % Destination_fitness=inf;
 % 
 % Convergence_curve=zeros(1,Max_iteration);
+% min_sum_secrecy = zeros(1,Max_iteration);
+% 
 % Objective_values = zeros(1,size(X,1));
 % %All_objective_values=zeros(Max_iteration,size(X,1));
 % 
+% %Pre-test
+% 
+% % alpha_test1 = [0.9, 0.05, 0.05];
+% % alpha_test2 = [0.2, 0.4, 0.4];
+% % 
+% % [sc_c_lk1,sc_p_lk1,rate_c1,rate_k1,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,alpha_test1);
+% % [sc_c_lk2,sc_p_lk2,rate_c2,rate_k2,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,alpha_test2);
+% % disp(rate_k1)
+% % disp(rate_k2)
+% 
 % % Calculate the fitness of the first set and find the best one
 % for i=1:size(X,1)
-%     [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_j_q,m_p,omega_e,omega_p,omega_j_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,zeta_k_Sr,phi,X(i,:));
+%     C_k = zeros(K,1);
+% 
+%     [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,X(i,:));
 %     sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-%     Objective_values(1,i)=-min(sum_secrecy(:));
+%     sum_rate_k = rate_c + sum(rate_k(:));
+%     % Objective_values(1,i)=-mean(sum_secrecy(:));
+% 
+%     rate_c_available = rate_c;
+% 
+%     for k = 1:K
+%         deficit = max(Rmin - rate_k(k), 0);
+%         C_k(k) = min(deficit, rate_c_available);
+%         rate_c_available = max(rate_c_available - C_k(k), 0);
+%     end
+% 
+%     R_k = rate_k(:) + C_k;
+%     sum_rate_k = sum(R_k);
+% 
+% 
+%     penalty = 0;
+%     violation = max(Rmin - R_k, 0);
+%     penalty = penalty + sum(violation.^2);
+% 
+% 
+%     Objective_values(1,i) = -sum_rate_k + 1e3 * penalty;
+% 
 %     if i==1
 %         Destination_position=X(i,:);
 %         Destination_fitness=Objective_values(1,i);
@@ -411,6 +450,9 @@ end
 % 
 %     All_objective_values(1,i)=Objective_values(1,i);
 % end
+% 
+% 
+% 
 % 
 % %Main loop
 % t=2; % start from the second iteration since the first iteration was dedicated to calculating the fitness
@@ -423,6 +465,8 @@ end
 % 
 %     % Update the position of solutions with respect to destination
 %     for i=1:size(X,1) % in i-th solution
+% 
+% 
 %         for j=1:size(X,2) % in j-th dimension
 % 
 %             % Update r2, r3, and r4 for Eq. (3.3)
@@ -443,21 +487,45 @@ end
 %     end
 % 
 %     for i=1:size(X,1)
+%         C_k = zeros(K,1);
 % 
 %         % Check if solutions go outside the search spaceand bring them back
 %         Flag4ub=X(i,:)>ub;
 %         Flag4lb=X(i,:)<lb;
 %         X(i,:)=(X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;
 % 
-%        X(i,:) = X(i,:) ./ sum(X(i,:), 2); % Normalize to ensure sum alpha = 1;
+%        X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)+ 1e-12); % Normalize to ensure sum alpha = 1;
 % 
 % 
 % 
 %         % Calculate the objective values
 % 
-%         [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_j_q,m_p,omega_e,omega_p,omega_j_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,zeta_k_Sr,phi,X(i,:));
+%         [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi, zeta_k_Sr, X(i,:));
 %         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-%         Objective_values(1,i)=-min(sum_secrecy(:));
+%         sum_rate_k = rate_c + sum(rate_k(:));
+% 
+%         %Objective_values(1,i)=-mean(sum_secrecy(:));
+% 
+%          rate_c_available = rate_c;
+% 
+%         for k = 1:K
+%             deficit = max(Rmin - rate_k(k), 0);
+%             C_k(k) = min(deficit, rate_c_available);
+%             rate_c_available = max(rate_c_available - C_k(k), 0);
+%         end
+% 
+%         R_k = rate_k(:) + C_k;
+%         sum_rate_k = sum(R_k);
+% 
+% 
+%         penalty = 0;
+%         violation = max(Rmin - R_k, 0);
+%         penalty = penalty + sum(violation.^2);
+% 
+% 
+%         Objective_values(1,i) = -sum_rate_k + 1e3 * penalty;
+%         %Objective_values(1,i)=-sum_rate_k;
+% 
 % 
 %         % Update the destination if there is a better solution
 %         if Objective_values(1,i)<Destination_fitness
@@ -475,64 +543,132 @@ end
 % 
 %     % Increase the iteration counter
 %     t=t+1;
+% 
+% 
+% 
 % end
-%%
-% dim = K+1+2*Nr;
-% fun = @(x) -min(compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,x));  % Wrap with min
-% lb = zeros(1,dim); ub = [ones(1,K+1), 2*pi*ones(1,Nr), ones(1,Nr)];
-% options = optimoptions('particleswarm','SwarmSize',100,'MaxIterations',1000,'Display','iter');
-% [x_opt, fval] = particleswarm(fun, dim, lb, ub, options);
+% %%
+% % alphas = [
+% %     1/3, 1/3, 1/3;
+% %     0.9, 0.05, 0.05;
+% %     0.05, 0.475, 0.475;
+% %     Destination_position
+% % ];
+% % 
+% % for i = 1:size(alphas,1)
+% %     [~,~,~,rate_k] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi, zeta_k_Sr,alphas(i,:));
+% %     fprintf('alpha = [%0.2f %0.2f %0.2f], sum-rate = %.3f\n', ...
+% %         alphas(i,1), alphas(i,2), alphas(i,3), sum(rate_k));
+% % end
 
-%%
 display('SCA is optimizing your problem');
 
-Num_agents  = 5;
-Max_iteration = 50;
+Num_agents  = 10;
+Max_iteration = 20;
+Rmin=0.001;
+C_k = zeros(K,1);
 
 %Initialize the set of random solutions
 
-dim = K+1+2*Nr;
+% dim = K+1+2*Nr;
+% 
+% ub=[ones(1,K+1),2*pi*ones(1,Nr),ones(1,Nr)];
+% lb=zeros(1,K+1+2*Nr);
 
-ub=[ones(1,K+1),2*pi*ones(1,Nr),ones(1,Nr)];
-lb=zeros(1,K+1+2*Nr);
+dim = K+1+Nr;
+% dim = Nr;
 
-zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
+
+
+ub=[ones(1,K+1),2*pi*ones(1,Nr)];
+alpha_min = 1e-4;
+lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
+% 
+% ub=[2*pi*ones(1,Nr)];
+% alpha_min = 1e-4;
+% lb = [zeros(1,Nr)];
+
+
+% zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
+% phi = 2*pi*rand(Num_agents,Nr);
+
+zeta_k_Sr = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
 phi = 2*pi*rand(Num_agents,Nr);
 
-alpha_vec = [1/2, (1/(2*K))*ones(1,K)];
+%alpha_vec = [1/2, (1/(2*K))*ones(1,K)];
 %alpha = rand(Num_agents, K+1);  
-alpha = ones(Num_agents, K+1).*alpha_vec; 
+alpha = (1/(K+1))*ones(Num_agents, K+1); 
 % random values
 alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
 
-X = [alpha,phi,zeta_k_Sr];
+%X = [alpha,phi,zeta_k_Sr];
+X = [alpha,phi];
+
 
 Destination_position=zeros(1,dim);
 Destination_fitness=inf;
+best_sum_rate=0;
 
 Convergence_curve=zeros(1,Max_iteration);
+sum_rate_curve=zeros(1,Max_iteration);
+
 min_sum_secrecy = zeros(1,Max_iteration);
 
 Objective_values = zeros(1,size(X,1));
 %All_objective_values=zeros(Max_iteration,size(X,1));
 
+%Pre-test
+
+% alpha_test1 = [0.9, 0.05, 0.05];
+% alpha_test2 = [0.2, 0.4, 0.4];
+% 
+% [sc_c_lk1,sc_p_lk1,rate_c1,rate_k1,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,alpha_test1);
+% [sc_c_lk2,sc_p_lk2,rate_c2,rate_k2,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,alpha_test2);
+% disp(rate_k1)
+% disp(rate_k2)
+
 % Calculate the fitness of the first set and find the best one
 for i=1:size(X,1)
-    [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,X(i,:));
+    C_k = zeros(K,1);
+
+    %[sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,X(i,:));
+    [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h_rp,h_jq,h_e,alpha,phi,zeta_k_Sr,X(i,:));
+
     sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-    sum_rate_k = sum(rate_k(:));
-    Objective_values(1,i)=-mean(sum_secrecy(:));
+    sum_rate_k = rate_c + sum(rate_k(:));
+    % Objective_values(1,i)=-mean(sum_secrecy(:));
+
+    rate_c_available = rate_c;
+
+    for k = 1:K
+        deficit = max(Rmin - rate_k(k), 0);
+        C_k(k) = min(deficit, rate_c_available);
+        rate_c_available = max(rate_c_available - C_k(k), 0);
+    end
+    
+    R_k = rate_k(:) + C_k;
+    sum_rate_k = sum(R_k);
+
+
+    penalty = 0;
+    violation = max(Rmin - R_k, 0);
+    penalty = penalty + sum(violation.^2);
+
+    
+    Objective_values(1,i) = -sum_rate_k + 1e3 * penalty;
+
     if i==1
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
+        best_sum_rate = sum_rate_k;
     elseif Objective_values(1,i)<Destination_fitness
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
+        best_sum_rate = sum_rate_k;
     end
 
     All_objective_values(1,i)=Objective_values(1,i);
 end
-
 
 
 
@@ -547,6 +683,8 @@ while t<=Max_iteration
 
     % Update the position of solutions with respect to destination
     for i=1:size(X,1) % in i-th solution
+       
+
         for j=1:size(X,2) % in j-th dimension
 
             % Update r2, r3, and r4 for Eq. (3.3)
@@ -565,38 +703,62 @@ while t<=Max_iteration
 
         end
     end
-
     for i=1:size(X,1)
+        C_k = zeros(K,1);
 
         % Check if solutions go outside the search spaceand bring them back
         Flag4ub=X(i,:)>ub;
         Flag4lb=X(i,:)<lb;
         X(i,:)=(X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;
 
-       X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)+ 1e-12); % Normalize to ensure sum alpha = 1;
+       X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)+ 1e-15); % Normalize to ensure sum alpha = 1;
 
 
 
         % Calculate the objective values
 
-        [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,X(i,:));
+        [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h_rp,h_jq,h_e,alpha,phi, zeta_k_Sr, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-        sum_rate_k = sum(rate_k(:));
-        Objective_values(1,i)=-mean(sum_secrecy(:));
+        sum_rate_k = rate_c + sum(rate_k(:));
+
+        %Objective_values(1,i)=-mean(sum_secrecy(:));
+
+         rate_c_available = rate_c;
+
+        for k = 1:K
+            deficit = max(Rmin - rate_k(k), 0);
+            C_k(k) = min(deficit, rate_c_available);
+            rate_c_available = max(rate_c_available - C_k(k), 0);
+        end
+        
+        R_k = rate_k(:) + C_k;
+        sum_rate_k = sum(R_k);
+
+    
+        penalty = 0;
+        violation = max(Rmin - R_k, 0);
+        penalty = penalty + sum(violation.^2);
+    
+        
+        Objective_values(1,i) = -sum_rate_k + 1e3 * penalty;
+        %Objective_values(1,i)=-sum_rate_k;
 
 
         % Update the destination if there is a better solution
         if Objective_values(1,i)<Destination_fitness
             Destination_position=X(i,:);
             Destination_fitness=Objective_values(1,i);
+            best_sum_rate = sum_rate_k;
         end
     end
 
     Convergence_curve(t)=-Destination_fitness;
+    Sum_rate_curve(t)=best_sum_rate;
+
 
     % Display the iteration and best optimum obtained so far
     if mod(t,1)==0
-        display(['At iteration ', num2str(t), ' the optimum is ', num2str(-Destination_fitness)]);
+        display(['At iteration ', num2str(t), ' the optimum is ', num2str(best_sum_rate)]);
     end
 
     % Increase the iteration counter
@@ -605,15 +767,37 @@ while t<=Max_iteration
     
 
 end
+%%
+% alphas = [
+%     1/3, 1/3, 1/3;
+%     0.9, 0.05, 0.05;
+%     0.05, 0.475, 0.475;
+%     Destination_position
+% ];
+% 
+% for i = 1:size(alphas,1)
+%     [~,~,~,rate_k] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi, zeta_k_Sr,alphas(i,:));
+%     fprintf('alpha = [%0.2f %0.2f %0.2f], sum-rate = %.3f\n', ...
+%         alphas(i,1), alphas(i,2), alphas(i,3), sum(rate_k));
+% end
 
+phi1 = rand(1,Nr)*2*pi;
+phi2 = phi1; 
+
+Nc1 = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(1),PLj(1),Nr,HB(:,:,:,1),HA(:,:,:,:,1),g_pq(:,:,1),phi1,Nsymb,h_rp(:,:,1),h_jq(:,:,1),h_e(:,1),'loop')
+Nc2 = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(1),PLj(1),Nr,HB(:,:,:,1),HA(:,:,:,:,1),g_pq(:,:,1),phi2,Nsymb,h_rp(:,:,1),h_jq(:,:,1),h_e(:,1),'vectorized')
 
 
 %%
 figure;
-plot(Convergence_curve(2:end),'Color','b')
+plot(Convergence_curve(2:end),'Color','b','LineWidth',1.5)
 title('Convergence curve')
 xlabel('Iteration');
 ylabel('Best flame (score) obtained so far');
 
-
+figure;
+plot(Sum_rate_curve(2:end),'Color','b','LineWidth',1.5)
+title('Best sum rate curve')
+xlabel('Iteration');
+ylabel('Best flame (score) obtained so far');
 
