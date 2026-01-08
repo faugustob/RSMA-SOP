@@ -5,7 +5,7 @@ function [max_theta,max_alpha,max_beta] = compute_max_theta(LEO_altitude,UAV_alt
     z_ant = UAV_altitude/1000;          % Antenna height in km 
     r_A = R_E + z_ant;     % Distance from Earth center to Antenna
     
-    h_sat = LEO_altitude;           % Satellite altitude in km
+    h_sat = LEO_altitude/1000;           % Satellite altitude in km
     r_sat = R_E + h_sat;   % Distance from Earth center to Satellite
     
     %% ----- Step 2: Geometric Calculation -----

@@ -1,127 +1,99 @@
-function [sc_c_lk,sc_p_lk,rate_c,rate_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,x)
-    
-
-
-   
-
+%function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,x)
+function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h_rp,h_jq,h_e,alpha,phi,zeta_k_Sr,x)
+    % 
+    % phi=[];
+    % alpha=[];
     alpha = x(1:K+1);
     phi = x(K+2:K+1+Nr);
-    zeta_k_Sr = x(K+2+Nr:K+1+2*Nr);
-
-    zeta_k_St = 1 - zeta_k_Sr; % transmit coefficients
-
-    
-
-    phase = exp(1j.*phi.*2.*pi);
-
-
-    beta_Sr = sqrt(zeta_k_Sr).*phase;
-    beta_St = sqrt(zeta_k_St).*phase;
-
-    
-
-    snr_e_db = 50;
-    
-    snr_e = 10^(snr_e_db/10);
+     % phi = x;
     
     
-    snr_db =  90;
+    phase = exp(1j.*phi);
+    beta_r = sqrt(zeta_k_Sr).*phase;
+    % beta_St = sqrt(zeta_k_St).*phase;
     
-    snr_linear = 10^(snr_db/10);
-    
-    b_a = 1/snr_linear;
-    b_e = 1/snr_e;
+    % Use the realistic SNR values we discussed
+    % snr_e_db = 5;
+    % snr_db = 20; 
+    % 
+    % b_a = 1 / 10^(snr_db/10);
+    % b_e = 1 / 10^(snr_e_db/10);
 
-    alpha_c = alpha(1); % power allocation factor for common message
-    alpha_pi_v = alpha(2:end); % power allocation factor for private message of each user
-    % power allocation coefficients must satisfy constraint:
-    % alpha_c+alpha_pi_v*K <= 1
+    BW = delta_f;                 % Subcarrier bandwidth (Hz)
+    N0_dBm = -174;             % Thermal noise density (dBm/Hz)
+    sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
+    
+    Pw_dBm = 46;               % LEO RF transmit power (10 W)
+    Pw = 10^((Pw_dBm-30)/10);  % Watts
+    %Pw=80;
+
+    
+    alpha_c = alpha(1);
+    alpha_pi_v = alpha(2:end); 
+
     sinr_c_k = zeros(K,1);
     sinr_p_k = zeros(K,1);
-    for k =1:K  
 
-       
-        % h_rp = zeros(Nr, P);
-        % for p = 1:P
-        %     % Scale parameter theta = omega/m
-        %     h_rp(:, p) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1));
-        % end 
-        % 
-        % 
-        % 
-        % h_jq = zeros(Nr, Q_j);
-        % for q = 1:Q_j
-        %     h_jq(:, q) = sqrt(gamrnd(m_q(k,q), omega_q(q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
-        % end
-        % 
-        % 
-        % h_e = zeros(Pe,1);
-        % for u = 1:Pe
-        %     h_e(u) = sqrt(gamrnd(m_e(k,u), omega_e(u)/m_e(k,u))) .* exp(1i*2*pi*rand());
-        % end
-      
-
-        reflect_coeff = reflect(k);
-
-        if reflect_coeff == 1
-            beta_r = beta_Sr;
-        else
-            beta_r = beta_St;
-        end
-        [Nc_k] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(k),PLj(k),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,k),h_jq(:,:,k),h_e(:,k));
-        % sinr_c_k(k) = (alpha_c*Nc_k)/(sum(sqrt(alpha_pi_v))^2*Nc_k+b_a);
-        % sinr_p_k(k) = (alpha_pi_v(k)*Nc_k)/((sum(sqrt(alpha_pi_v))-sqrt(alpha_pi_v(k)))^2*Nc_k+b_a);
-        sinr_c_k(k) = (alpha_c * Nc_k) / (sum(alpha_pi_v) * Nc_k + b_a);  % Linear sum alpha_pi
-        interference_p_k = sum(alpha_pi_v) - alpha_pi_v(k);  % sum_{v≠k} alpha_pi(v)
-        sinr_p_k(k) = (alpha_pi_v(k) * Nc_k) / (interference_p_k * Nc_k + b_a);
-    
+    % --- Legitimate Users ---
+    for k = 1:K  
+        % reflect_coeff = reflect(k);
+        % beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == 0) * beta_St;
+        
+        [Nc_k] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(k),PLj(k),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,k),h_jq(:,:,k),h_e(:,k),'vectorized');
+        
+        % RSMA SINR Logic: Common message sees all private power as interference
+        signal_c = alpha_c * Nc_k;
+        interf_c = sum(alpha_pi_v) * Nc_k;
+        
+        sinr_c_k(k) = signal_c / (interf_c + sigma2/Pw); 
+        
+        % Private message only sees OTHER private messages as interference (after SIC)
+        signal_p = alpha_pi_v(k) * Nc_k;
+        interf_p = (sum(alpha_pi_v)-alpha_pi_v(k)) * Nc_k;
+        
+        sinr_p_k(k) = signal_p / (interf_p + sigma2/Pw);
     end
     
+    % --- Eavesdroppers ---
     sinr_c_l = zeros(L,1);
     sinr_p_l = zeros(L,K);
     for l=1:L
+        % reflect_coeff = reflect(K+l);
+        % beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == 0) * beta_St;
         
-        % h_rp = zeros(Nr, P);
-        % for p = 1:P
-        %     % Scale parameter theta = omega/m
-        %     h_rp(:, p) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1));
-        % end
-        % 
-        % h_jq = zeros(Nr, Q_j);
-        % for q = 1:Q_j
-        %     h_jq(:, q) = sqrt(gamrnd(m_q(K+l,q), omega_q(q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
-        % end
-        % 
-        % h_e = zeros(Pe,1);
-        % for u = 1:Pe
-        %     h_e(u) = sqrt(gamrnd(m_e(K+l,u), omega_e(u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
-        % end
+        [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l),PLj(K+l),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l),h_jq(:,:,K+l),h_e(:,K+l),'vectorized');
+        
 
-        reflect_coeff = reflect(K+l);
+        signal_c_l = alpha_c * Nc_l;
+        interf_c_l = sum(alpha_pi_v) * Nc_l;
+        
+        sinr_c_l(l) = signal_c_l / (interf_c_l + sigma2/Pw); 
 
-        if reflect_coeff == 1
-            beta_r = beta_Sr;
-        else
-            beta_r = beta_St;
-        end
-
-        [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l),PLj(K+l),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l),h_jq(:,:,K+l),h_e(:,K+l));
-       sinr_c_l(l) = (alpha_c * Nc_l) / (sum(alpha_pi_v) * Nc_l + b_e);
+        %sinr_c_l(l) = (alpha_c * Nc_l) / ((1 - alpha_c) * Nc_l + b_e);
         for k=1:K
-            interference_p_l = sum(alpha_pi_v) - alpha_pi_v(k);
-            sinr_p_l(l,k) = (alpha_pi_v(k) * Nc_l) / (interference_p_l * Nc_l + b_e);
-        end
-    end
-    sc_c_lk= zeros(L,K);
-    sc_p_lk= zeros(L,K);
-
-    for l=1:L
-        for k=1:K
-                sc_c_lk(l,k) = log2(1+sinr_c_k(k))-log2(1+sinr_c_l(l));
-                sc_p_lk(l,k) = log2(1+sinr_p_k(k))-log2(1+sinr_p_l(l,k));
+            signal_p_kl = alpha_pi_v(k) * Nc_l;
+            interf_p_kl = (sum(alpha_pi_v)-alpha_pi_v(k))  * Nc_l;
+            
+          
+            sinr_p_l(l,k) = (signal_p_kl) / (interf_p_kl + sigma2/Pw);
         end
     end
 
-    rate_c = log2(1+sinr_c_k);
-    rate_k = log2(1+sinr_p_k(k));
+    % --- RSMA Rate Calculation ---
+    rate_c_min = min(log2(1 + sinr_c_k)); % The common rate is limited by the worst user
+    rate_p_vec = log2(1 + sinr_p_k);      % Private rates for each user
+
+    % --- Secrecy Capacities ---
+    sc_c_lk = zeros(L,1); 
+    for l = 1:L
+        % Common Secrecy: Shared rate minus what the eavesdropper can see
+        sc_c_lk(l) = max(rate_c_min - log2(1 + sinr_c_l(l)), 0);
+    end
+    
+    sc_p_lk = zeros(L,K);
+    for l = 1:L
+        for k = 1:K
+            sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
+        end
+    end
 end
