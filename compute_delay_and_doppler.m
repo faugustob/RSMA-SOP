@@ -45,7 +45,7 @@ function [taus, nus, u_paths] = compute_delay_and_doppler( ...
     for p = 2:P
 
         % --- Excess delay ---
-        Delta_tau = 1e-9 + 500e-9 * rand();
+        Delta_tau = 1e-9 + 1e-5 * rand();
         taus(p) = taus(1) + Delta_tau;
 
         % --- Direction (clustered around LOS) ---
