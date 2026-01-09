@@ -26,7 +26,6 @@ end
 
 function [Nc] = compute_loop(I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq,beta_r,Nsymb,h_rp,h_jq,h_e)
 
-W = eye(Nsymb);   % matched filter / identity kernel
 
 %% ===================== Main Computation Loop =====================
 % ------------------ Construct Term1 ------------------
@@ -108,20 +107,32 @@ end
 %     Nc = norm(Heff, 'fro')^2;
 % end
 function Nc = compute_vectorized(I, Pe, P, Q_j, Plos, PLj, Nr, HB, HA, g_pq, beta_r, Nsymb, h_rp, h_jq, h_e)
-    % Move inputs to GPU (do this once outside the function if possible)
-    HA_gpu = gpuArray(reshape(HA, Nsymb^2, []));
-    HB_gpu = gpuArray(reshape(HB, Nsymb^2, []));
+    % 1. Pre-process shapes on CPU first
+    HA_proc = reshape(HA, Nsymb^2, []);
+    HB_proc = reshape(HB, Nsymb^2, []);
     
-    % Term 1
     combined_weights = (h_rp.' * (beta_r(:) .* h_jq)) .* g_pq;
-    w1_gpu = gpuArray(combined_weights(:));
-    term1 = reshape(HA_gpu * w1_gpu, Nsymb, Nsymb);
+    w1 = combined_weights(:);
+    w2 = h_e(:);
+
+    % 2. Move to GPU ONLY if available
+    if gpuDeviceCount > 0
+        HA_proc = gpuArray(HA_proc);
+        HB_proc = gpuArray(HB_proc);
+        w1 = gpuArray(w1);
+        w2 = gpuArray(w2);
+        % Also move constants if they are used in large matrix operations
+        I = gpuArray(I);
+    end
     
-    % Term 2
-    w2_gpu = gpuArray(h_e(:));
-    term2 = (I * sqrt(Plos)) * reshape(HB_gpu * w2_gpu, Nsymb, Nsymb);
+    % 3. Core Math (This code runs on whichever device the data is currently on)
+    term1 = reshape(HA_proc * w1, Nsymb, Nsymb);
+    term2 = (I * sqrt(Plos)) * reshape(HB_proc * w2, Nsymb, Nsymb);
     
-    % Final Calculation
     Heff = (sqrt(PLj) * term1) + term2;
-    Nc = gather(norm(Heff, 'fro')^2); % Move result back to CPU
+    
+    % 4. Final Calculation & Move back to CPU
+    % norm(..., 'fro')^2 is equivalent to sum(abs(x(:)).^2) which is often faster
+    result = norm(Heff, 'fro')^2;
+    Nc = gather(result); 
 end

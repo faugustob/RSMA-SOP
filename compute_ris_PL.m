@@ -40,26 +40,35 @@ for j = 1:N_V
 
         r_t_nm(j,i) = norm(v_t);
         r_r_nm(j,i) = norm(v_r);
+        
 
         theta_t_nm(j,i) = acos(dot(v_t,normal)/r_t_nm(j,i)); % angle between vector and x
+        
+        if theta_t_nm(j,i)> pi/2
+            theta_t_nm(j,i) = pi - theta_t_nm(j,i);
+        end
+
         phi_t_nm(j,i)   = atan2(v_t(2), v_t(1)); % azimuth
 
         theta_r_nm(j,i) = acos(dot(v_r,normal)/r_r_nm(j,i));
+         if theta_r_nm(j,i)> pi/2
+            theta_r_nm(j,i) = pi - theta_r_nm(j,i);
+        end
+
         phi_r_nm(j,i)   = atan2(v_r(2), v_r(1)); % azimuth
 
         theta_tx_nm(j,i) = acos( dot(v_t, (S_xyz - R_xyz)) / ( norm(v_t) * norm(S_xyz - R_xyz) ));       
         theta_rx_nm(j,i) = acos(dot(v_r,(User_loc-R_xyz))/(norm(v_r)*norm((User_loc-R_xyz))));
+
+        if theta_tx_nm(j,i) > pi/2
+            theta_tx_nm(j,i) = pi - theta_tx_nm(j,i);
+        end
+        if theta_rx_nm(j,i) > pi/2
+            theta_rx_nm(j,i) = pi - theta_rx_nm(j,i);
+        end
     end
 end
 
-
-%% Distances TX/RX to RIS center
-% d_1 = norm(R_xyz - S_xyz);
-% d_2 = norm(User_loc - R_xyz);
-
-%% Near / far-field threshold
-% D = max(RIS_size_x, RIS_size_y);
-% near_field_threshold = 2*D^2/lambda;
 
 
 %% Reflection amplitude
@@ -72,16 +81,14 @@ end
     theta_r_nm, theta_rx_nm, r_t_nm, r_r_nm );
     x=1;
 
+    if ~isreal(path_loss) || path_loss < 0 || isnan(path_loss)
+    error('Invalid PL: Check angles/distances');    
+    end
 end
 function output = PL_eq3( ...
     F,F_tx,F_rx,G_t, G_r, G, d_x, d_y, lambda, ...
     theta_tx_nm, theta_t_nm, ...
     theta_r_nm, theta_rx_nm, r_t_nm, r_r_nm )
-
-    % %% Radiation patterns (Tang paper)
-    % F      = @(theta) cos(theta).^3;
-    % F_tx   = @(theta) cos(theta).^62;
-    % F_rx   = @(theta) cos(theta).^62;
 
     % Combined radiation pattern (Eq. 3)
     F_nm = F_tx(theta_tx_nm,0) ...
