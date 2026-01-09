@@ -12,7 +12,7 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     any_reflect = any(reflect > 0) && any(reflect < 0);
 
     if any_reflect
-        zeta_k_St = x(K+2+Nr:K+2+Nr);
+        zeta_k_St = x(K+2+Nr:K+1+2*Nr);
     end
 
     if gpuDeviceCount > 0
