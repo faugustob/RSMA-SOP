@@ -1,18 +1,31 @@
 %function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,x)
-function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h_rp,h_jq,h_e,alpha,phi,zeta_k_Sr,x)
+function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,x)
     %
     % phi=[];
     % alpha=[];
     alpha = x(1:K+1);
     phi = x(K+2:K+1+Nr);
-    % phi = x;
 
-    % --- GPU CHANGES: Convert x-derived vars to GPU if not already ---
-    alpha = gpuArray(alpha);  % Low-cost; ensures RSMA ops on GPU
-    phi = gpuArray(phi);
 
+
+
+    any_reflect = any(reflect > 0) && any(reflect < 0);
+
+    if any_reflect
+        zeta_k_St = x(K+2+Nr:K+2+Nr);
+    end
+
+    if gpuDeviceCount > 0
+         % --- GPU CHANGES: Convert x-derived vars to GPU if not already ---
+        alpha = gpuArray(alpha);  % Low-cost; ensures RSMA ops on GPU
+        phi = gpuArray(phi);
+        zeta_k_St = gpuArray(zeta_k_St);
+    end
+    zeta_k_Sr = 1 - zeta_k_St;
+   
     phase = exp(1j .* phi);  % Complex exp on GPU
-    beta_r = sqrt(zeta_k_Sr) .* phase;  % Assuming zeta_k_Sr pre-GPU'd outside; else gpuArray it
+    beta_St = sqrt(zeta_k_St) .* phase;  % Assuming zeta_k_Sr pre-GPU'd outside; else gpuArray it
+    beta_Sr = sqrt(zeta_k_Sr) .* phase;
 
     % beta_St = sqrt(zeta_k_St).*phase;  % Uncomment if needed
 
@@ -37,13 +50,13 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     % --- GPU CHANGES: Precompute sums once on GPU ---
     sum_alpha_pi = sum(alpha_pi_v);  % Scalar, but on GPU
 
-    sinr_c_k = gpuArray(zeros(K,1));  % Allocate output on GPU
-    sinr_p_k = gpuArray(zeros(K,1));
+    sinr_c_k = zeros(K,1);  % Allocate output
+    sinr_p_k = zeros(K,1);
 
     % --- Legitimate Users ---
     for k = 1:K
-        % reflect_coeff = reflect(k);
-        % beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == 0) * beta_St;
+        reflect_coeff = reflect(k);
+        beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
 
         % Channel call: Inputs already GPU'd outside, so stays on GPU
         [Nc_k] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(k),PLj(k),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,k),h_jq(:,:,k),h_e(:,k),'vectorized');
@@ -64,8 +77,8 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     sinr_p_l = gpuArray(zeros(L,K));
 
     for l=1:L
-        % reflect_coeff = reflect(K+l);
-        % beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == 0) * beta_St;
+        reflect_coeff = reflect(K+l);
+        beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
 
         [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l),PLj(K+l),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l),h_jq(:,:,K+l),h_e(:,K+l),'vectorized');
 

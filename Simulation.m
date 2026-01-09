@@ -60,7 +60,7 @@ Pe = 2; % number of propagation paths departing from the LEO satellite
 HAP_altitude = 20e3;
 LEO_altitude = 250e3;
 
-RIS_normal = [0,0,1];
+RIS_normal = [0;0;1];
 
 
 [max_theta,max_alpha,max_beta] = compute_max_theta(LEO_altitude,HAP_altitude);
@@ -97,7 +97,6 @@ r = R_earth * ones(1, K);
 
 ground_users_cart = [x; y; z];   % 3 x K
 
-
 %% Eavesdroppers position
 x = 1000*rand(1, L);
 y = 1000*rand(1, L);
@@ -111,8 +110,8 @@ eavesdroppers_xyz =  [x; y; z];
 rho_j_xyz = [ground_users_cart,eavesdroppers_xyz];
 
 % find out whether each receiver is on the reflect side or transmit side
-%reflect = sign(rho_j_xyz(3,:)) == sign(S_xyz(3)); % shape (1,K+L,Ns)
-%transmit = 1 - reflect;  % shape (1,K+L,Ns)
+reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
+
 
 
 % Nakagami Parameters:
@@ -260,6 +259,8 @@ max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);
 [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 M = max(M, 64); N = max(N, 12);  % Minimum practical size
 
+
+
 Nsymb = M*N; 
 
 HA = zeros(Nsymb,Nsymb,P,Q_j,K+L); % Relay link
@@ -356,54 +357,58 @@ for l=1:L
         g_pq(:,:,K+l) = exp(1i*2*pi*(taus_R*nus_l'));           
 end
 
-HA = gpuArray(HA); HB = gpuArray(HB);  % After precompute  
-h_rp = gpuArray(h_rp); h_jq = gpuArray(h_jq); g_pq = gpuArray(g_pq); h_e = gpuArray(h_e);
- 
 
+
+if gpuDeviceCount > 0
+    % GPU is available
+    HA = gpuArray(HA); HB = gpuArray(HB);  % After precompute  
+    h_rp = gpuArray(h_rp); h_jq = gpuArray(h_jq); g_pq = gpuArray(g_pq); h_e = gpuArray(h_e);
+end
+ 
+%% Sine-Cosine optimization
 
 
 display('SCA is optimizing your problem');
 
-Num_agents  = 50;
-Max_iteration = 50;
+Num_agents  = 30;
+Max_iteration = 100;
 Rmin=0.01;
-C_k = zeros(K,1);
 
-%Initialize the set of random solutions
+% Check if more than one STAR-RIS side is being used.
+any_reflect = any(reflect > 0) && any(reflect < 0);
 
-% dim = K+1+2*Nr;
-% 
-% ub=[ones(1,K+1),2*pi*ones(1,Nr),ones(1,Nr)];
-% lb=zeros(1,K+1+2*Nr);
-
+% Problem bounds and dimensionality
 dim = K+1+Nr;
-% dim = Nr;
-
-
-
 ub=[ones(1,K+1),2*pi*ones(1,Nr)];
 alpha_min = 1e-4;
 lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
-% 
-% ub=[2*pi*ones(1,Nr)];
-% alpha_min = 1e-4;
-% lb = [zeros(1,Nr)];
+zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
 
 
 % zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
-% phi = 2*pi*rand(Num_agents,Nr);
-
-zeta_k_Sr = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
 phi = 2*pi*rand(Num_agents,Nr);
 
-%alpha_vec = [1/2, (1/(2*K))*ones(1,K)];
-%alpha = rand(Num_agents, K+1);  
+
 alpha = (1/(K+1))*rand(Num_agents, K+1); 
 % random values
 alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
-
-%X = [alpha,phi,zeta_k_Sr];
 X = [alpha,phi];
+
+if any_reflect
+    dim = K+1+2*Nr;
+    ub=[ones(1,K+1),2*pi*ones(1,Nr),ones(1,Nr)];
+    alpha_min = 1e-4;
+    lb = [alpha_min * ones(1,K+1),zeros(1,2*Nr)];
+    zeta_k_St = rand(Num_agents,Nr);
+    X = [alpha,phi,zeta_k_St];
+end
+
+% --- Problem Dimensions and Bounds ---
+dim_pso = dim;
+alpha_min_pso = alpha_min;
+lb_pso =lb;
+ub_pso = ub;
+
 
 
 Destination_position=zeros(1,dim);
@@ -423,8 +428,7 @@ Objective_values = zeros(1,size(X,1));
 for i=1:size(X,1)
     C_k = zeros(K,1);
 
-    %[sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,X(i,:));
-    [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h_rp,h_jq,h_e,alpha,phi,zeta_k_Sr,X(i,:));
+    [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,X(i,:));
 
     sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
     sum_rate_k = rate_c + sum(rate_k(:));
@@ -469,7 +473,7 @@ t=2; % start from the second iteration since the first iteration was dedicated t
 while t<=Max_iteration
 
     % Eq. (3.4)
-    a = 2;
+    a = 3;
     Max_iteration = Max_iteration;
     r1=a-t*((a)/Max_iteration); % r1 decreases linearly from a to 0
 
@@ -509,7 +513,7 @@ while t<=Max_iteration
 
         % Calculate the objective values
 
-        [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h_rp,h_jq,h_e,alpha,phi, zeta_k_Sr, X(i,:));
+        [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi, zeta_k_St, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
         sum_rate_k = rate_c + sum(rate_k(:));
 
@@ -559,6 +563,7 @@ while t<=Max_iteration
     
 
 end
+
 %%
 % phi1 = rand(1,Nr)*2*pi;
 % phi2 = phi1; 
@@ -580,3 +585,79 @@ title('Best sum rate curve')
 xlabel('Iteration');
 ylabel('Best flame (score) obtained so far');
 
+%% Particle Swarm Optimization
+
+display('Using MATLAB built-in particleswarm for optimization...');
+
+
+
+% --- PSO Options ---
+% You can adjust SwarmSize and MaxIterations to match your original SCA settings
+options = optimoptions('particleswarm', ...
+    'SwarmSize', 50, ...
+    'MaxIterations', 50, ...
+    'Display', 'iter', ...
+    'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
+
+% --- Define the Objective Function Wrapper ---
+% We pass all your environment variables into the function handle
+fitness_func = @(x) objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L, m_e, m_q, m_p, ...
+    omega_e, omega_p, omega_q, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e);
+
+% --- Run Built-in PSO ---
+[best_x, best_fval] = particleswarm(fitness_func, dim_pso, lb_pso, ub_pso, options);
+
+% --- Post-Processing ---
+% Extract final best sum rate from the best position found
+[~, final_sum_rate] = objective_wrapper(best_x, K, Nr, Rmin, Pe, P, Q_j, L, m_e, m_q, m_p, ...
+    omega_e, omega_p, omega_q, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e);
+
+display(['Optimization complete. Best Sum Rate: ', num2str(final_sum_rate)]);
+
+% --- The Objective Function Wrapper (Local Function) ---
+function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L, m_e, m_q, m_p, ...
+    omega_e, omega_p, omega_q, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e)
+
+    % 1. Extract and Normalize Alpha (ensure sum = 1)
+    alpha = x(1:K+1);
+    alpha = alpha ./ (sum(alpha) + 1e-15);
+    
+    % 2. Extract Phi
+    phi = x(K+2:end);
+    zeta_k_Sr = ones(1, Nr); % Constant RIS amplitude
+    
+    % 3. Call your SINR function
+    % We pass normalized alpha and phi back into the compute function
+    [~, ~, rate_c, rate_k, ~] = compute_sinr_sc(Pe, P, Q_j, L, K, m_e, m_q, m_p, ...
+        omega_e, omega_p, omega_q, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, ...
+        reflect,h_rp, h_jq, h_e, alpha, phi, zeta_k_Sr, [alpha, phi]);
+
+    % 4. Calculate Rate with Common Rate Allocation
+    rate_c_available = rate_c;
+    C_k = zeros(K, 1);
+    for k = 1:K
+        deficit = max(Rmin - rate_k(k), 0);
+        C_k(k) = min(deficit, rate_c_available);
+        rate_c_available = max(rate_c_available - C_k(k), 0);
+    end
+    
+    R_k = rate_k(:) + C_k;
+    sum_rate_k = sum(R_k);
+    
+    % 5. Penalty for Rmin constraint violation
+    penalty = 1e3 * sum(max(Rmin - R_k, 0).^2);
+    
+    % Objective: Minimize -SumRate + Penalty
+    fitness = -sum_rate_k + penalty;
+end
+
+function stop = myCustomPlot(optimValues, state)
+    stop = false;
+    % We plot the negative of the best fval to see the actual Sum Rate
+    plot(optimValues.iteration, -optimValues.bestfval, 'bo', 'MarkerFaceColor', 'b');
+    xlabel('Iteration');
+    ylabel('Actual Sum Rate');
+    grid on;
+    title('Maximization Progress');
+    hold on;
+end
