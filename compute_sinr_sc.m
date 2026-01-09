@@ -73,8 +73,8 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     end
 
     % --- Eavesdroppers ---
-    sinr_c_l = gpuArray(zeros(L,1));
-    sinr_p_l = gpuArray(zeros(L,K));
+    sinr_c_l = zeros(L,1);
+    sinr_p_l = zeros(L,K);
 
     for l=1:L
         reflect_coeff = reflect(K+l);
