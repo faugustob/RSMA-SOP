@@ -7,7 +7,7 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     phi = x(K+2:K+1+Nr);
 
 
-    if sum(alpha) > 1
+    if sum(alpha) - 1> 1e-15
         error('Illegal RSMA power allocation');
     end
     any_reflect = any(reflect > 0) && any(reflect < 0);
@@ -103,13 +103,14 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     sc_c_lk = zeros(L,1); 
     for l = 1:L
         % Common Secrecy: Shared rate minus what the eavesdropper can see
-        sc_c_lk(l) = max(rate_c_min - log2(1 + sinr_c_l(l)), 0);
+        sc_c_lk(l) = rate_c_min - log2(1 + sinr_c_l(l));
     end
     
     sc_p_lk = zeros(L,K);
     for l = 1:L
         for k = 1:K
-            sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
+            %sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
+            sc_p_lk(l,k) = rate_p_vec(k) - log2(1 + sinr_p_l(l,k));
         end
     end
 

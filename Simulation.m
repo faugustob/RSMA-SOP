@@ -389,9 +389,15 @@ zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for
 phi = 2*pi*rand(Num_agents,Nr);
 
 
-alpha = (1/(K+1))*rand(Num_agents, K+1); 
+alpha = rand(Num_agents, K+1); 
 % random values
 alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
+
+alpha = alpha - (sum(alpha,2)-1)/(K+1);
+alpha = alpha - (sum(alpha,2)-1)/(K+1);
+alpha = alpha - (sum(alpha,2)-1)/(K+1);
+
+
 X = [alpha,phi];
 
 if any_reflect
@@ -502,14 +508,18 @@ while t<=Max_iteration
     for i=1:size(X,1)
         C_k = zeros(K,1);
 
+
+
         % Check if solutions go outside the search spaceand bring them back
         Flag4ub=X(i,:)>ub;
         Flag4lb=X(i,:)<lb;
         X(i,:)=(X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;
 
-       X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)+ 1e-15); % Normalize to ensure sum alpha = 1;
+     
+        X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)); % Normalize to ensure sum alpha = 1;
 
-
+        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
+        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
 
         % Calculate the objective values
 
@@ -595,7 +605,7 @@ display('Using MATLAB built-in particleswarm for optimization...');
 % You can adjust SwarmSize and MaxIterations to match your original SCA settings
 options = optimoptions('particleswarm', ...
     'SwarmSize', 70, ...
-    'MaxIterations', 100, ...
+    'MaxIterations', 200, ...
     'Display', 'iter', ...
     'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
 
@@ -620,7 +630,9 @@ function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L
 
     % 1. Extract and Normalize Alpha (ensure sum = 1)
     alpha = x(1:K+1);
-    alpha = alpha ./ (sum(alpha) + 1e-15);
+    alpha = alpha ./ (sum(alpha));
+
+    alpha = alpha - (sum(alpha)-1)/(K+1);
     
     % 2. Extract Phi
     phi = x(K+2:end);
