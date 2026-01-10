@@ -434,21 +434,10 @@ Objective_values = zeros(1,size(X,1));
 for i=1:size(X,1)
     C_k = zeros(K,1);
 
-    [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,X(i,:));
+    [sc_c_lk,sc_p_lk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,X(i,:));
 
     sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-    sum_rate_k = rate_c + sum(rate_k(:));
-    % Objective_values(1,i)=-mean(sum_secrecy(:));
-
-    rate_c_available = rate_c;
-
-    for k = 1:K
-        deficit = max(Rmin - rate_k(k), 0);
-        C_k(k) = min(deficit, rate_c_available);
-        rate_c_available = max(rate_c_available - C_k(k), 0);
-    end
     
-    R_k = rate_k(:) + C_k;
     sum_rate_k = sum(R_k);
 
 
@@ -506,7 +495,7 @@ while t<=Max_iteration
         end
     end
     for i=1:size(X,1)
-        C_k = zeros(K,1);
+        
 
 
 
@@ -523,21 +512,12 @@ while t<=Max_iteration
 
         % Calculate the objective values
 
-        [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi, zeta_k_St, X(i,:));
+        [sc_c_lk,sc_p_lk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi, zeta_k_St, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-        sum_rate_k = rate_c + sum(rate_k(:));
-
         %Objective_values(1,i)=-mean(sum_secrecy(:));
 
-         rate_c_available = rate_c;
-
-        for k = 1:K
-            deficit = max(Rmin - rate_k(k), 0);
-            C_k(k) = min(deficit, rate_c_available);
-            rate_c_available = max(rate_c_available - C_k(k), 0);
-        end
-        
-        R_k = rate_k(:) + C_k;
+        rate_c_available = rate_c;
+       
         sum_rate_k = sum(R_k);
 
     
@@ -605,7 +585,7 @@ display('Using MATLAB built-in particleswarm for optimization...');
 % You can adjust SwarmSize and MaxIterations to match your original SCA settings
 options = optimoptions('particleswarm', ...
     'SwarmSize', 70, ...
-    'MaxIterations', 200, ...
+    'MaxIterations', 500, ...
     'Display', 'iter', ...
     'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
 
@@ -640,20 +620,11 @@ function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L
     
     % 3. Call your SINR function
     % We pass normalized alpha and phi back into the compute function
-    [~, ~, rate_c, rate_k, ~] = compute_sinr_sc(Pe, P, Q_j, L, K, m_e, m_q, m_p, ...
+    [~, ~, rate_c, rate_k,R_k,~] = compute_sinr_sc(Pe, P, Q_j, L, K, m_e, m_q, m_p, ...
         omega_e, omega_p, omega_q, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, ...
-        reflect,h_rp, h_jq, h_e, alpha, phi, zeta_k_Sr, [alpha, phi]);
+        reflect,Rmin,h_rp, h_jq, h_e, alpha, phi, zeta_k_Sr, [alpha, phi]);
 
-    % 4. Calculate Rate with Common Rate Allocation
-    rate_c_available = rate_c;
-    C_k = zeros(K, 1);
-    for k = 1:K
-        deficit = max(Rmin - rate_k(k), 0);
-        C_k(k) = min(deficit, rate_c_available);
-        rate_c_available = max(rate_c_available - C_k(k), 0);
-    end
-    
-    R_k = rate_k(:) + C_k;
+   
     sum_rate_k = sum(R_k);
     
     % 5. Penalty for Rmin constraint violation
