@@ -1,5 +1,5 @@
 %function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,x)
-function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,x)
+function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,x)
     %
     % phi=[];
     % alpha=[];
@@ -123,4 +123,11 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l
         end
         
         R_k = rate_p_vec(:) + C_k;
+
+        for k = 1:K
+            for kp = 1:K
+                %sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
+                sc_p_kk(l,k) = rate_p_vec(k) - rate_p_vec(kp);
+            end
+        end
 end
