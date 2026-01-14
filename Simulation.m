@@ -1,7 +1,9 @@
 clc; clear;
 
 Ns = 1e6; % number of samples for Monte Carlo simulation
-rng(22);
+rng(2);
+
+transmissionType = 'zakr';
 
 c = physconst('LightSpeed'); % speed of light
 f_c = 10e9; % frequency
@@ -271,13 +273,13 @@ for k=1:K
 
     for p=1:P
         for q=1:Q_j
-            HA(:,:,p,q,k) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked');
+            HA(:,:,p,q,k) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked',transmissionType);
         end
     end
    
 
     for u = 1:Pe
-        HB(:,:,u,k) =  compute_Hp(taus_u(u), nus_u(u), M, N, T, delta_f, 'blocked');
+        HB(:,:,u,k) =  compute_Hp(taus_u(u), nus_u(u), M, N, T, delta_f, 'blocked',transmissionType);
     end
 
 end
@@ -346,12 +348,12 @@ for l=1:L
 
        for p=1:P
             for q=1:Q_j
-                HA(:,:,p,q,K+l) =  compute_Hp(taus_R(p)+taus_l(q), nus_R(p)+nus_l(q), M, N, T, delta_f, 'blocked');
+                HA(:,:,p,q,K+l) =  compute_Hp(taus_R(p)+taus_l(q), nus_R(p)+nus_l(q), M, N, T, delta_f, 'blocked',transmissionType);
             end
        end
 
         for u = 1:Pe
-            HB(:,:,u,K+l) =  compute_Hp(taus_u_l(u) ,nus_u_l(u), M, N, T, delta_f, 'blocked');
+            HB(:,:,u,K+l) =  compute_Hp(taus_u_l(u) ,nus_u_l(u), M, N, T, delta_f, 'blocked',transmissionType);
         end
 
         g_pq(:,:,K+l) = exp(1i*2*pi*(taus_R*nus_l'));           
@@ -370,8 +372,8 @@ end
 
 display('SCA is optimizing your problem');
 
-Num_agents  = 30;
-Max_iteration = 100;
+Num_agents  = 20;
+Max_iteration = 1000;
 Rmin=0.01;
 
 % Check if more than one STAR-RIS side is being used.
@@ -389,9 +391,15 @@ zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for
 phi = 2*pi*rand(Num_agents,Nr);
 
 
-alpha = (1/(K+1))*rand(Num_agents, K+1); 
+alpha = rand(Num_agents, K+1); 
 % random values
 alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
+
+alpha = alpha - (sum(alpha,2)-1)/(K+1);
+alpha = alpha - (sum(alpha,2)-1)/(K+1);
+alpha = alpha - (sum(alpha,2)-1)/(K+1);
+
+
 X = [alpha,phi];
 
 if any_reflect
@@ -428,21 +436,10 @@ Objective_values = zeros(1,size(X,1));
 for i=1:size(X,1)
     C_k = zeros(K,1);
 
-    [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,X(i,:));
+    [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,X(i,:));
 
     sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-    sum_rate_k = rate_c + sum(rate_k(:));
-    % Objective_values(1,i)=-mean(sum_secrecy(:));
-
-    rate_c_available = rate_c;
-
-    for k = 1:K
-        deficit = max(Rmin - rate_k(k), 0);
-        C_k(k) = min(deficit, rate_c_available);
-        rate_c_available = max(rate_c_available - C_k(k), 0);
-    end
     
-    R_k = rate_k(:) + C_k;
     sum_rate_k = sum(R_k);
 
 
@@ -500,34 +497,29 @@ while t<=Max_iteration
         end
     end
     for i=1:size(X,1)
-        C_k = zeros(K,1);
+        
+
+
 
         % Check if solutions go outside the search spaceand bring them back
         Flag4ub=X(i,:)>ub;
         Flag4lb=X(i,:)<lb;
         X(i,:)=(X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;
 
-       X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)+ 1e-15); % Normalize to ensure sum alpha = 1;
+     
+        X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)); % Normalize to ensure sum alpha = 1;
 
-
+        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
+        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
 
         % Calculate the objective values
 
-        [sc_c_lk,sc_p_lk,rate_c,rate_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi, zeta_k_St, X(i,:));
+        [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi, zeta_k_St, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-        sum_rate_k = rate_c + sum(rate_k(:));
-
         %Objective_values(1,i)=-mean(sum_secrecy(:));
 
-         rate_c_available = rate_c;
-
-        for k = 1:K
-            deficit = max(Rmin - rate_k(k), 0);
-            C_k(k) = min(deficit, rate_c_available);
-            rate_c_available = max(rate_c_available - C_k(k), 0);
-        end
-        
-        R_k = rate_k(:) + C_k;
+        rate_c_available = rate_c;
+       
         sum_rate_k = sum(R_k);
 
     
@@ -594,8 +586,8 @@ display('Using MATLAB built-in particleswarm for optimization...');
 % --- PSO Options ---
 % You can adjust SwarmSize and MaxIterations to match your original SCA settings
 options = optimoptions('particleswarm', ...
-    'SwarmSize', 50, ...
-    'MaxIterations', 50, ...
+    'SwarmSize', 20, ...
+    'MaxIterations', 1000, ...
     'Display', 'iter', ...
     'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
 
@@ -620,7 +612,9 @@ function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L
 
     % 1. Extract and Normalize Alpha (ensure sum = 1)
     alpha = x(1:K+1);
-    alpha = alpha ./ (sum(alpha) + 1e-15);
+    alpha = alpha ./ (sum(alpha));
+
+    alpha = alpha - (sum(alpha)-1)/(K+1);
     
     % 2. Extract Phi
     phi = x(K+2:end);
@@ -628,20 +622,11 @@ function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L
     
     % 3. Call your SINR function
     % We pass normalized alpha and phi back into the compute function
-    [~, ~, rate_c, rate_k, ~] = compute_sinr_sc(Pe, P, Q_j, L, K, m_e, m_q, m_p, ...
+    [~, ~,~, rate_c, rate_k,R_k,~] = compute_sinr_sc(Pe, P, Q_j, L, K, m_e, m_q, m_p, ...
         omega_e, omega_p, omega_q, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, ...
-        reflect,h_rp, h_jq, h_e, alpha, phi, zeta_k_Sr, [alpha, phi]);
+        reflect,Rmin,h_rp, h_jq, h_e, alpha, phi, zeta_k_Sr, [alpha, phi]);
 
-    % 4. Calculate Rate with Common Rate Allocation
-    rate_c_available = rate_c;
-    C_k = zeros(K, 1);
-    for k = 1:K
-        deficit = max(Rmin - rate_k(k), 0);
-        C_k(k) = min(deficit, rate_c_available);
-        rate_c_available = max(rate_c_available - C_k(k), 0);
-    end
-    
-    R_k = rate_k(:) + C_k;
+   
     sum_rate_k = sum(R_k);
     
     % 5. Penalty for Rmin constraint violation

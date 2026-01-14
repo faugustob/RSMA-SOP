@@ -1,5 +1,5 @@
 %function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,phi,zeta_k_Sr,x)
-function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,x)
+function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,x)
     %
     % phi=[];
     % alpha=[];
@@ -7,8 +7,9 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     phi = x(K+2:K+1+Nr);
 
 
-
-
+    if sum(alpha) - 1> 1e-15
+        error('Illegal RSMA power allocation');
+    end
     any_reflect = any(reflect > 0) && any(reflect < 0);
 
     if any_reflect
@@ -102,17 +103,31 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,sinr_c_k, sinr_p_k, sinr_c_l, si
     sc_c_lk = zeros(L,1); 
     for l = 1:L
         % Common Secrecy: Shared rate minus what the eavesdropper can see
-        sc_c_lk(l) = max(rate_c_min - log2(1 + sinr_c_l(l)), 0);
+        sc_c_lk(l) = rate_c_min - log2(1 + sinr_c_l(l));
     end
     
     sc_p_lk = zeros(L,K);
     for l = 1:L
         for k = 1:K
-            sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
+            %sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
+            sc_p_lk(l,k) = rate_p_vec(k) - log2(1 + sinr_p_l(l,k));
         end
     end
 
-    % --- GPU CHANGES: Gather outputs to CPU only at end (if needed for main script) ---
-    % If main loop uses them on CPU, add: sinr_c_k = gather(sinr_c_k); etc.
-    % But if possible, keep on GPU until final objective.
+     C_k = zeros(K,1);
+        rate_c_available = rate_c_min;
+        for k = 1:K
+            deficit = max(Rmin - rate_p_vec(k), 0);
+            C_k(k) = min(deficit, rate_c_available);
+            rate_c_available = max(rate_c_available - C_k(k), 0);
+        end
+        
+        R_k = rate_p_vec(:) + C_k;
+
+        for k = 1:K
+            for kp = 1:K
+                %sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
+                sc_p_kk(l,k) = rate_p_vec(k) - rate_p_vec(kp);
+            end
+        end
 end
