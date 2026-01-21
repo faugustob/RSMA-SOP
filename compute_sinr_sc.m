@@ -81,7 +81,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
         reflect_coeff = reflect(K+l);
         beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
 
-        [Nc_l] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(K+l),PLj(K+l),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l),h_jq(:,:,K+l),h_e(:,K+l),'vectorized');
+        [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l),PLj(K+l),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l),h_jq(:,:,K+l),h_e(:,K+l),'vectorized');
 
         signal_c_l = alpha_c * Nc_l;
         interf_c_l = sum_alpha_pi * Nc_l;
