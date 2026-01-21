@@ -380,7 +380,7 @@ end
 
 display('SCA is optimizing your problem');
 
-Num_agents  = 50;
+Num_agents  = 40;
 Max_iteration = 1000;
 Rmin=0.01;
 
@@ -605,7 +605,7 @@ display('Using MATLAB built-in particleswarm for optimization...');
 % --- PSO Options ---
 % You can adjust SwarmSize and MaxIterations to match your original SCA settings
 options = optimoptions('particleswarm', ...
-    'SwarmSize', 50, ...
+    'SwarmSize', 40, ...
     'MaxIterations', 1000, ...
     'Display', 'iter', ...
     'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
