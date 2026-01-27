@@ -19,7 +19,7 @@ K_h = 1;  % number of high speed legit users % 50 km/h
 K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 2; % Number of fake eavesdroppers
+nF = 1; % Number of fake eavesdroppers
 
 L = 1; % number of eavesdroppers
 
@@ -498,8 +498,8 @@ for i=1:size(X,1)
 
     %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
 
-    min_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-    min_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+    mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
+    mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
 
     
     penalty = 0;
@@ -507,18 +507,18 @@ for i=1:size(X,1)
     penalty = penalty + sum(violation.^2);
 
     
-    Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
+    Objective_values(1,i) = -mean_fake_p_secrecy + 1e3 * penalty;
 
     if i==1
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
-        best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = min_p_secrecy;
+        best_fake_secrecy_rate = mean_fake_p_secrecy;
+        best_real_secrecy_rate = mean_p_secrecy;
     elseif Objective_values(1,i)<Destination_fitness
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
-        best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = min_p_secrecy;
+        best_fake_secrecy_rate = mean_fake_p_secrecy;
+        best_real_secrecy_rate = mean_p_secrecy;
     end
 
     All_objective_values(1,i)=Objective_values(1,i);
@@ -577,8 +577,8 @@ while t<=Max_iteration
 
         [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-        min_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-        min_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+        mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
+        mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
 
       
        
@@ -588,7 +588,7 @@ while t<=Max_iteration
         penalty = penalty + sum(violation.^2);
     
         
-        Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
+        Objective_values(1,i) = -mean_fake_p_secrecy + 1e3 * penalty;
      
 
 
@@ -596,8 +596,8 @@ while t<=Max_iteration
         if Objective_values(1,i)<Destination_fitness
             Destination_position=X(i,:);
             Destination_fitness=Objective_values(1,i);
-            best_fake_secrecy_rate = min_fake_p_secrecy;
-            best_real_secrecy_rate = min_p_secrecy;
+            best_fake_secrecy_rate = mean_fake_p_secrecy;
+            best_real_secrecy_rate = mean_p_secrecy;
         end
     end
 
@@ -629,21 +629,288 @@ end
 %%
 figure;
 plot(Convergence_curve(2:end),'Color','b','LineWidth',1.5)
-title('Convergence curve')
+title('SCA Convergence curve')
 xlabel('Iteration');
 ylabel('Best flame (score) obtained so far');
 
 figure;
 plot(Fake_secrecy_rate_curve(2:end),'Color','b','LineWidth',1.5)
-title('Best  fake private secrecy rate curve')
+title('Best SCA fake private secrecy rate curve')
+xlabel('Iteration');
+ylabel('Best fake mean private secrecy rate curve');
+
+figure;
+plot(Fake_secrecy_rate_curve(2:end),'Color','b','LineWidth',1.5)
+title('Best SCA  real private secrecy rate curve')
+xlabel('Iteration');
+ylabel('Best real fake mean private secrecy rate curve');
+
+
+
+%% Hybrid SCA optimization (Brajevic et al)
+display('Hybrid SCA is optimizing your problem');
+
+SP = 20;
+MNI = 400;
+
+% Check if more than one STAR-RIS side is being used.
+any_reflect = any(reflect > 0) && any(reflect < 0);
+
+% Problem bounds and dimensionality
+
+Active_Gain_dB = 0; 
+zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
+
+
+phi_Sr = 2*pi*rand(SP,Nr);
+phi_St = 2*pi*rand(SP,Nr);% transmission phases
+
+
+alpha_hsca = rand(SP, K+1); 
+% random values
+alpha_hsca  = alpha_hsca  ./ sum(alpha_hsca , 2);      % divide each row by its row sum
+
+alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+
+dim_hsca = dim;
+alpha_min_hsca = alpha_min;
+lb_hsca =lb;
+ub_hsca = ub;
+
+X = [alpha_hsca ,phi_St];
+
+if any_reflect  
+   
+    zeta_k_St = (10^(Active_Gain_dB/10)) *rand(SP,Nr);
+    X = [alpha_hsca,phi_Sr,phi_St,zeta_k_St];
+    dim_hsca = size(X,2);
+end
+
+y_optimal = zeros(1, dim_hsca); % best solution reached so far
+
+best_mean_fake_secrecy_rate=-inf;
+best_mean_real_secrecy_rate=-inf;
+best_objective = -inf;
+
+objective = zeros(SP,1); % sum rate of each agent in population
+population_real_secrecy_rate = zeros(SP,1); % sum rate of each agent in population
+population_fake_secrecy_rate = zeros(SP,1);
+
+t = 1; % iteration counter
+a = 0.75; % constant
+r1 = a; % parameter that regulates the location of the novel solution
+MR = 0.1; % modification rate control parameter
+MR_max = 0.9;
+P_control = 0.3;
+
+while t<=MNI
+    % find and record the best solution y reached so far
+    for i=1:SP
+        [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
+        mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
+        mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+
+        penalty = 0;
+        violation = max(Rmin - R_k, 0);
+        penalty = penalty - sum(violation.^2);
+
+        objective(i) = mean_fake_p_secrecy + 1e3 * penalty;
+        population_fake_secrecy_rate(i) = mean_fake_p_secrecy;
+        population_real_secrecy_rate(i) = mean_p_secrecy;
+
+        
+
+        if objective(i)>best_objective
+            y_optimal=X(i,:);
+            best_objective = objective(i);
+            best_mean_fake_secrecy_rate = population_fake_secrecy_rate(i);
+            best_mean_real_secrecy_rate = population_real_secrecy_rate(i);
+        end
+    end
+     display(['HSCA At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_mean_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_mean_real_secrecy_rate)]);
+    if mod(t,2) == 0
+        % Produce new solution with modified SCA algorithm
+        for i=1:SP
+            % sample the random parameters
+            neighbours = randsample([1:i-1,i+1:SP], 2);
+            r2 = 2*pi*rand(1,size(X,2));
+            rand_i = rand();
+            R_ij = rand(1,size(X,2));
+            under = R_ij < 0.5;
+            over = 1 - under;     
+            % produce new solution
+            % equation (5) from Hybrid SCA paper
+            v_i = X(neighbours(1),:)+rand_i.*abs(y_optimal-X(neighbours(2),:))+r1.*abs(y_optimal-X(i,:)).*(under.*sin(r2)+over.*cos(r2));
+            
+            % to ensure solutions are within the lower and upper bounds:
+            % (if this is changed, also change section below)
+            % 1. clamp new values to the lower and upper bounds
+            % v_i = min(v_i, ub);
+            % v_i = max(v_i, lb);
+            % or 2. handle with technique from [31] "Hybrid Firefly and
+            % Multi-Strategy ABC Algorithm"
+            v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
+            v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
+            % note: there may be issues if new solution is too far from the
+            % boundaries, causing the above technique to, for example, 
+            % bring the new solution from violating the lower bound to
+            % now violating the upper bound
+
+            alpha = v_i(1:K+1);
+            alpha = max(alpha, alpha_min_hsca);
+            alpha = alpha / sum(alpha);
+            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+
+            % calculate constraint violations
+            % in our case, our only constraint is sum(alpha)<=1
+            CV = sum(v_i(1,1:K+1)) > 1;
+            if CV > 0
+                % if new solution violates constraint, we keep old solution
+                continue;
+            end
+            % for the sum(alpha)<=1 constraint, we can try either:
+            % 1. normalize, or
+            % 2. just discard solution if it is infeasible
+
+            % evaluate the sum rate
+            [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, v_i);
+            mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
+            mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+
+            penalty = 0;
+            violation = max(Rmin - R_k, 0);
+            penalty = penalty - sum(violation.^2);
+    
+            new_objective = mean_fake_p_secrecy + 1e3 * penalty;
+        
+
+
+            if new_objective > objective(i)
+                % if new solution doesn't violate constraint and is better
+                % than old solution, we replace old solution with new
+                % solution
+                objective(i) = new_objective;
+                population_fake_secrecy_rate(i) = mean_fake_p_secrecy;
+                population_real_secrecy_rate(i) = mean_p_secrecy;
+                X(i,:) = v_i;
+            end
+        end
+    else
+        % Produce new solution with multi-strategy ABC algorithm
+        R_j = rand(1,size(X,2));
+        for i=1:SP
+            phi_i = rand()*2-1;
+            neighbours = randsample([1:i-1,i+1:SP], 2);
+            % randomly assign strategy 1 or 2 to each agent in the population
+            S_i = rand() < 0.5; % S_i = True is strategy 1 and S_i = False is strategy 2
+            if S_i
+                % equation (7) from Hybrid SCA paper
+                v_i = X(i,:) + (R_j<MR).*phi_i.*(X(i,:)-X(neighbours(1),:));
+            else
+                % equation (9) from Hybrid SCA paper
+                v_i = X(i,:) + phi_i*(X(neighbours(1),:)-X(neighbours(2),:));
+            end
+
+            % to ensure solutions are within the lower and upper bounds:
+            % (if this is changed, also change section above)
+            % 1. clamp new values to the lower and upper bounds
+            % v_i = min(v_i, ub);
+            % v_i = max(v_i, lb);
+            % or 2. handle with technique from [31] "Hybrid Firefly and
+            % Multi-Strategy ABC Algorithm"
+            v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
+            v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
+            % note: there may be issues if new solution is too far from the
+            % boundaries, causing the above technique to, for example, 
+            % bring the new solution from violating the lower bound to
+            % now violating the upper bound
+
+            alpha = v_i(1:K+1);
+            alpha = max(alpha, alpha_min_hsca);
+            alpha = alpha / sum(alpha);
+            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
+
+            v_i(1:K+1) = alpha;
+
+            % calculate constraint violations
+            % in our case, our only constraint is sum(alpha)<=1
+            CV = sum(v_i(1,1:K+1)) > 1;
+            if CV > 0
+                % if new solution violates constraint, we keep old solution
+                continue;
+            end
+            % for the sum(alpha)<=1 constraint, we can try either:
+            % 1. normalize, or
+            % 2. just discard solution if it is infeasible
+
+            % evaluate the sum rate
+            [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, v_i);
+            mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
+            mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+
+            penalty = 0;
+            violation = max(Rmin - R_k, 0);
+            penalty = penalty - sum(violation.^2);
+    
+            new_objective = mean_fake_p_secrecy + 1e3 * penalty;
+           
+
+            if new_objective > objective(i)
+                % if new solution doesn't violate constraint and is better
+                % than old solution, we replace old solution with new
+                % solution
+                objective(i) = new_objective;
+                population_fake_secrecy_rate(i) = mean_fake_p_secrecy;
+                population_real_secrecy_rate(i) = mean_p_secrecy;
+                X(i,:) = v_i;
+            end
+        end
+    end
+
+    HSCA_Convergence_curve(t)=best_objective;
+    HSCA_Fake_secrecy_rate_curve(t)=best_mean_fake_secrecy_rate;
+    HSCA_Real_secrecy_rate_curve(t)=best_mean_real_secrecy_rate;
+
+
+    r1 = a-t*a/MNI;
+    P = rand();
+    % equation (8) from Hybrid SCA paper
+    if MR < MR_max
+        MR = MR + (MR_max-0.1)/(P*MNI);
+        % note: MR may exceed MR_max for one iteration
+    else
+        MR = MR_max;
+    end
+    t = t + 1;
+
+    
+end
+
+best_HSCA = best_mean_fake_secrecy_rate;
+
+figure;
+plot(HSCA_Convergence_curve(2:end),'Color','b','LineWidth',1.5)
+title('SCA Convergence curve')
 xlabel('Iteration');
 ylabel('Best flame (score) obtained so far');
 
 figure;
-plot(Fake_secrecy_rate_curve(2:end),'Color','b','LineWidth',1.5)
-title('Best  real private secrecy rate curve')
+plot(HSCA_Fake_secrecy_rate_curve(2:end),'Color','b','LineWidth',1.5)
+title('Best SCA fake private secrecy rate curve')
 xlabel('Iteration');
-ylabel('Best flame (score) obtained so far');
+ylabel('Best fake mean private secrecy rate curve');
+
+figure;
+plot(HSCA_Real_secrecy_rate_curve(2:end),'Color','b','LineWidth',1.5)
+title('Best SCA  real private secrecy rate curve')
+xlabel('Iteration');
+ylabel('Best real fake mean private secrecy rate curve');
 
 %% Particle Swarm Optimization
 
@@ -668,9 +935,9 @@ fitness_func = @(x) objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, nF,L, delta_f,
 
 % --- Post-Processing ---
 % Extract final best sum rate from the best position found
-[~, final_sec_rate,min_p_secrecy] = objective_wrapper(best_x, K, Nr, Rmin, Pe, P, Q_j,nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e,Active_Gain_dB);
+[~, final_sec_rate,mean_p_secrecy] = objective_wrapper(best_x, K, Nr, Rmin, Pe, P, Q_j,nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e,Active_Gain_dB);
 
-display(['Optimization complete. Best min. fake private sec. Rate: ', num2str(final_sec_rate),'Best min. real private sec. Rate: ', num2str(min_p_secrecy)]);
+display(['Optimization complete. Best min. fake private sec. Rate: ', num2str(final_sec_rate),'Best min. real private sec. Rate: ', num2str(mean_p_secrecy)]);
 
 % --- The Objective Function Wrapper (Local Function) ---
 function [fitness, min_fake_p_secrecy,min_p_secrecy] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j,nF, L,  delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e, Active_Gain_dB)
