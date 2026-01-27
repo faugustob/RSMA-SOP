@@ -13,7 +13,7 @@ R_earth = 6371e3;
 
 
 %Number of nodes
-K_h = 1;  % number of high speed legit users % 50 km/h
+K_h = 2;  % number of high speed legit users % 50 km/h
 K_s = 2;  % number of high speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
@@ -33,7 +33,7 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 16; % number of rows of regularly arranged unit cells of RIS
+N_V = 12; % number of rows of regularly arranged unit cells of RIS
 N_H = 12; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
@@ -81,24 +81,25 @@ S_v = 7800;
 R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this to be origin;
 % note: this code assumes surface is on x-y plane (surface normal points in
 % z-axis direction)
-R_v_xyz = [0;0;0];
 
 
 % ELEVATION (UNCHANGED)
-el = pi/2 - (0.1)*max_alpha * rand(1, K);
+el = pi/2 - (0.1)*max_alpha * rand(1, K-1);
 
 
-az = (2*pi) * rand(1, K);
+az = (2*pi) * rand(1, K-1);
 
 
 % RADIUS (FIXED ON EARTH SURFACE)
-r = R_earth * ones(1, K);
+r = R_earth * ones(1, K-1);
 
 % SPHERICAL → CARTESIAN
 [x, y, z] = sph2cart(az, el, r);
 
 ground_users_cart = [x; y; z];   % 3 x K
+reflect_user = [0;0;R_earth+HAP_altitude+50];
 
+ground_users_cart = [ground_users_cart,reflect_user];
 %% Eavesdroppers position
 x = 1000*rand(1, L);
 y = 1000*rand(1, L);
@@ -206,7 +207,11 @@ for k =1:K
   
 
     % direction in xy (away from ris)
-    d_ru = User_k_loc(1:2) - R_xyz(1:2);
+    if User_k_loc(1)==R_xyz(1) && User_k_loc(2)==R_xyz(2)
+        d_ru = [R_xyz(1)+1;R_xyz(1)+1];
+    else
+        d_ru = User_k_loc(1:2) - R_xyz(1:2);
+    end
     d_ru = d_ru / norm(d_ru);
 
     % receiver velocity (guaranteed norm)
@@ -279,7 +284,7 @@ for k=1:K
    
 
     for u = 1:Pe
-        HB(:,:,u,k) =  compute_Hp(taus_u(u), nus_u(u), M, N, T, delta_f, 'blocked',transmissionType);
+        HB(:,:,u,k) =  compute_Hp(taus_ku(u,k),  nus_ku(u,k), M, N, T, delta_f, 'blocked',transmissionType);
     end
 
 end
@@ -373,8 +378,9 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 20;
-Max_iteration = 1000;
+Max_iteration = 100;
 Rmin=0.01;
+
 
 % Check if more than one STAR-RIS side is being used.
 any_reflect = any(reflect > 0) && any(reflect < 0);
@@ -387,8 +393,9 @@ lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
 zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
 
 
-% zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
-phi = 2*pi*rand(Num_agents,Nr);
+% zeta_k_Sr = rand(Num_agents,Nr); 
+phi_Sr = 2*pi*rand(Num_agents,Nr);% reflection phases
+phi_St = 2*pi*rand(Num_agents,Nr);% transmission phases
 
 
 alpha = rand(Num_agents, K+1); 
@@ -400,20 +407,19 @@ alpha = alpha - (sum(alpha,2)-1)/(K+1);
 alpha = alpha - (sum(alpha,2)-1)/(K+1);
 
 
-X = [alpha,phi];
+X = [alpha,phi_Sr];
 
 if any_reflect
-    dim = K+1+2*Nr;
-    ub=[ones(1,K+1),2*pi*ones(1,Nr),ones(1,Nr)];
+    dim = K+1+3*Nr;
+    ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
     alpha_min = 1e-4;
-    lb = [alpha_min * ones(1,K+1),zeros(1,2*Nr)];
+    lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
     zeta_k_St = rand(Num_agents,Nr);
-    X = [alpha,phi,zeta_k_St];
+    X = [alpha,phi_Sr,phi_St,zeta_k_St];
 end
 
 % --- Problem Dimensions and Bounds ---
 dim_pso = dim;
-alpha_min_pso = alpha_min;
 lb_pso =lb;
 ub_pso = ub;
 
@@ -436,7 +442,7 @@ Objective_values = zeros(1,size(X,1));
 for i=1:size(X,1)
     C_k = zeros(K,1);
 
-    [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi,zeta_k_St,X(i,:));
+    [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,X(i,:));
 
     sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
     
@@ -514,7 +520,7 @@ while t<=Max_iteration
 
         % Calculate the objective values
 
-        [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,m_e,m_q,m_p,omega_e,omega_p,omega_q,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,alpha,phi, zeta_k_St, X(i,:));
+        [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
         %Objective_values(1,i)=-mean(sum_secrecy(:));
 
@@ -587,28 +593,25 @@ display('Using MATLAB built-in particleswarm for optimization...');
 % You can adjust SwarmSize and MaxIterations to match your original SCA settings
 options = optimoptions('particleswarm', ...
     'SwarmSize', 20, ...
-    'MaxIterations', 1000, ...
+    'MaxIterations', 100, ...
     'Display', 'iter', ...
     'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
 
 % --- Define the Objective Function Wrapper ---
 % We pass all your environment variables into the function handle
-fitness_func = @(x) objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L, m_e, m_q, m_p, ...
-    omega_e, omega_p, omega_q, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e);
+fitness_func = @(x) objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e);
 
 % --- Run Built-in PSO ---
 [best_x, best_fval] = particleswarm(fitness_func, dim_pso, lb_pso, ub_pso, options);
 
 % --- Post-Processing ---
 % Extract final best sum rate from the best position found
-[~, final_sum_rate] = objective_wrapper(best_x, K, Nr, Rmin, Pe, P, Q_j, L, m_e, m_q, m_p, ...
-    omega_e, omega_p, omega_q, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e);
+[~, final_sum_rate] = objective_wrapper(best_x, K, Nr, Rmin, Pe, P, Q_j, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e);
 
 display(['Optimization complete. Best Sum Rate: ', num2str(final_sum_rate)]);
 
 % --- The Objective Function Wrapper (Local Function) ---
-function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L, m_e, m_q, m_p, ...
-    omega_e, omega_p, omega_q, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e)
+function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e)
 
     % 1. Extract and Normalize Alpha (ensure sum = 1)
     alpha = x(1:K+1);
@@ -617,14 +620,24 @@ function [fitness, sum_rate_k] = objective_wrapper(x, K, Nr, Rmin, Pe, P, Q_j, L
     alpha = alpha - (sum(alpha)-1)/(K+1);
     
     % 2. Extract Phi
-    phi = x(K+2:end);
+    phi_Sr = x(K+2:K+1+Nr);
     zeta_k_Sr = ones(1, Nr); % Constant RIS amplitude
+
+   X =  [alpha, phi_Sr];
+
+   any_reflect = any(reflect > 0) && any(reflect < 0);
+
+
+    if any_reflect
+        phi_St =  x(K+2+Nr:K+1+2*Nr);
+        zeta_k_St = x(K+2+2*Nr:K+1+3*Nr);
+        X = [alpha,phi_Sr,phi_St,zeta_k_St];
+    end
     
     % 3. Call your SINR function
     % We pass normalized alpha and phi back into the compute function
-    [~, ~,~, rate_c, rate_k,R_k,~] = compute_sinr_sc(Pe, P, Q_j, L, K, m_e, m_q, m_p, ...
-        omega_e, omega_p, omega_q, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, ...
-        reflect,Rmin,h_rp, h_jq, h_e, alpha, phi, zeta_k_Sr, [alpha, phi]);
+    [~, ~,~, rate_c, rate_k,R_k,~] = compute_sinr_sc(Pe, P, Q_j, L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, ...
+        reflect,Rmin,h_rp, h_jq, h_e, zeta_k_Sr, X);
 
    
     sum_rate_k = sum(R_k);
