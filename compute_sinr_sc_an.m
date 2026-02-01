@@ -7,7 +7,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
     phi_Sr=0;
 
 
-    if sum(alpha) - 1> 1e-15
+    if sum(alpha) - 1> 1e-10
         error('Illegal RSMA power allocation');
     end
     any_reflect = any(reflect > 0) && any(reflect < 0);

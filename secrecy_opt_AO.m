@@ -331,7 +331,7 @@ end
 
 for l=1:nF+L
 
-        vl_ms = 14;        
+        vl_ms = 0;        
 
         User_l_loc = rho_j_xyz(:,K+l);
 
@@ -420,8 +420,8 @@ end
 
 display('SCA is optimizing your problem');
 
-Num_agents  = 50;
-Max_iteration = 1000;
+Num_agents  = 30;
+Max_iteration = 100;
 Rmin=0.1;
 
 % Check if more than one STAR-RIS side is being used.
@@ -524,99 +524,126 @@ for i=1:size(X,1)
     All_objective_values(1,i)=Objective_values(1,i);
 end
 
+alpha_idx = 1:(K+1);
+ris_idx = (K+2):size(X,2);
 
-
-%Main loop
-t=2; % start from the second iteration since the first iteration was dedicated to calculating the fitness
-while t<=Max_iteration
-
+% Main loop - Alternating Optimization (alpha first)
+t = 2;
+while t <= Max_iteration
     % Eq. (3.4)
     a = 3;
-    Max_iteration = Max_iteration;
-    r1=a-t*((a)/Max_iteration); % r1 decreases linearly from a to 0
+    r1 = a - t * (a / Max_iteration);  % r1 decreases linearly
 
-    % Update the position of solutions with respect to destination
-    for i=1:size(X,1) % in i-th solution
-       
-
-        for j=1:size(X,2) % in j-th dimension
-
-            % Update r2, r3, and r4 for Eq. (3.3)
-            r2=(2*pi)*rand();
-            r3=2*rand;
-            r4=rand();
-
-            % Eq. (3.3)
-            if r4<0.5
-                % Eq. (3.1)
-                X(i,j)= X(i,j)+(r1*sin(r2)*abs(r3*Destination_position(j)-X(i,j)));
+    % === Substep 1: Optimize alpha first (phases/amplitudes fixed) ===
+    for i = 1:size(X, 1)
+        for j = alpha_idx  % only alpha dimensions
+            r2 = (2*pi) * rand();
+            r3 = 2 * rand();
+            r4 = rand();
+            if r4 < 0.5
+                X(i,j) = X(i,j) + (r1 * sin(r2) * abs(r3 * Destination_position(j) - X(i,j)));
             else
-                % Eq. (3.2)
-                X(i,j)= X(i,j)+(r1*cos(r2)*abs(r3*Destination_position(j)-X(i,j)));
+                X(i,j) = X(i,j) + (r1 * cos(r2) * abs(r3 * Destination_position(j) - X(i,j)));
             end
-
         end
-    end
-    for i=1:size(X,1)
+
+        % Project alpha onto simplex (sum = 1, >= alpha_min)
+             % Bound check
+        Flag4ub = X(i,alpha_idx) > ub(alpha_idx);
+        Flag4lb = X(i,alpha_idx) < lb(alpha_idx);
         
+        X(i,alpha_idx) = ...
+            X(i,alpha_idx).*(~(Flag4ub+Flag4lb)) + ...
+            ub(alpha_idx).*Flag4ub + ...
+            lb(alpha_idx).*Flag4lb;
+
+        X(i,alpha_idx) = X(i,alpha_idx) ./ sum(X(i,alpha_idx));
 
 
+        % Optional repeated correction for floating-point precision (keep your original style)
+        X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
+        X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
+        X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
 
-        % Check if solutions go outside the search spaceand bring them back
-        Flag4ub=X(i,:)>ub;
-        Flag4lb=X(i,:)<lb;
-        X(i,:)=(X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;
-
-     
-        X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)); % Normalize to ensure sum alpha = 1;
-
-        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
-        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
-
-        % Calculate the objective values
-
-        [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
-        sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
+        % Evaluate objective with updated alpha
+        [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
         mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
         mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
 
-      
-       
-          
         penalty = 0;
         violation = max(Rmin - R_k, 0);
         penalty = penalty + sum(violation.^2);
-    
-        
+
         Objective_values(1,i) = -mean_fake_p_secrecy + 1e3 * penalty;
-     
 
+        % Update global best (alpha-optimized solution)
+        if Objective_values(1,i) < Destination_fitness
+            Destination_position = X(i,:);
+            Destination_fitness = Objective_values(1,i);
+            best_fake_secrecy_rate = mean_fake_p_secrecy;
+            best_real_secrecy_rate = mean_p_secrecy;
+        end
+    end
+    alpha_fixed = X(:,alpha_idx);
 
-        % Update the destination if there is a better solution
-        if Objective_values(1,i)<Destination_fitness
-            Destination_position=X(i,:);
-            Destination_fitness=Objective_values(1,i);
+    % === Substep 2: Optimize non-alpha variables (phases/amplitudes/zeta) with new alpha fixed ===
+    for i = 1:size(X, 1)
+        X(i,alpha_idx) = alpha_fixed(i,:);
+        for j = ris_idx  % phase and zeta dimensions
+            r2 = (2*pi) * rand();
+            r3 = 2 * rand();
+            r4 = rand();
+            if r4 < 0.5
+                X(i,j) = X(i,j) + (r1 * sin(r2) * abs(r3 * Destination_position(j) - X(i,j)));
+            else
+                X(i,j) = X(i,j) + (r1 * cos(r2) * abs(r3 * Destination_position(j) - X(i,j)));
+            end
+        end
+
+        % Bound check
+        Flag4ub = X(i,ris_idx) > ub(ris_idx);
+        Flag4lb = X(i,ris_idx) < lb(ris_idx);
+        
+        X(i,ris_idx) = ...
+            X(i,ris_idx).*(~(Flag4ub+Flag4lb)) + ...
+            ub(ris_idx).*Flag4ub + ...
+            lb(ris_idx).*Flag4lb;
+
+       
+        % Evaluate objective again
+        [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
+        mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
+        mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+
+        penalty = 0;
+        violation = max(Rmin - R_k, 0);
+        penalty = penalty + sum(violation.^2);
+
+        Objective_values(1,i) = -mean_fake_p_secrecy + 1e3 * penalty;
+
+        % Update global best
+        if Objective_values(1,i) < Destination_fitness
+            Destination_position = X(i,:);
+            Destination_fitness = Objective_values(1,i);
             best_fake_secrecy_rate = mean_fake_p_secrecy;
             best_real_secrecy_rate = mean_p_secrecy;
         end
     end
 
-    Convergence_curve(t)=-Destination_fitness;
-    Fake_secrecy_rate_curve(t)=best_fake_secrecy_rate;
-    Real_secrecy_rate_curve(t)=best_real_secrecy_rate;
+    % Record curves
+    Convergence_curve(t) = -Destination_fitness;
+    Fake_secrecy_rate_curve(t) = best_fake_secrecy_rate;
+    Real_secrecy_rate_curve(t) = best_real_secrecy_rate;
 
-
-    % Display the iteration and best optimum obtained so far
-    if mod(t,1)==0
+    if mod(t,1) == 0
         display(['At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_real_secrecy_rate)]);
     end
 
-    % Increase the iteration counter
-    t=t+1;
-
+    t = t + 1;
+end
     
 
-end
+
 
 %%
 % phi1 = rand(1,Nr)*2*pi;
@@ -648,10 +675,10 @@ ylabel('Best real fake mean private secrecy rate curve');
 
 
 %% Hybrid SCA optimization (Brajevic et al)
-display('Hybrid SCA is optimizing your problem');
+display('Hybrid AO SCA is optimizing your problem');
 
-SP = 20;
-MNI = 400;
+SP = 30;
+MNI = 100;
 
 % Check if more than one STAR-RIS side is being used.
 any_reflect = any(reflect > 0) && any(reflect < 0);
@@ -690,9 +717,9 @@ end
 
 y_optimal = zeros(1, dim_hsca); % best solution reached so far
 
-best_mean_fake_secrecy_rate=-inf;
-best_mean_real_secrecy_rate=-inf;
-best_objective = -inf;
+best_mean_fake_secrecy_rate=-10;
+best_mean_real_secrecy_rate=-10;
+best_objective = -10;
 
 objective = zeros(SP,1); % sum rate of each agent in population
 population_real_secrecy_rate = zeros(SP,1); % sum rate of each agent in population
@@ -705,194 +732,187 @@ MR = 0.1; % modification rate control parameter
 MR_max = 0.9;
 P_control = 0.3;
 
-while t<=MNI
-    % find and record the best solution y reached so far
-    for i=1:SP
-        [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
-        mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-        mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+alpha_idx = 1:(K+1);
+ris_idx = (K+2):size(X,2);
 
-        penalty = 0;
-        violation = max(Rmin - R_k, 0);
-        penalty = penalty - sum(violation.^2);
+t = 1;
+while t <= MNI
+    display(['HSCA At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_mean_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_mean_real_secrecy_rate)]);
 
-        objective(i) = mean_fake_p_secrecy + 1e3 * penalty;
-        population_fake_secrecy_rate(i) = mean_fake_p_secrecy;
-        population_real_secrecy_rate(i) = mean_p_secrecy;
-
-        
-
-        if objective(i)>best_objective
-            y_optimal=X(i,:);
-            best_objective = objective(i);
-            best_mean_fake_secrecy_rate = population_fake_secrecy_rate(i);
-            best_mean_real_secrecy_rate = population_real_secrecy_rate(i);
-        end
-    end
-     display(['HSCA At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_mean_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_mean_real_secrecy_rate)]);
-    if mod(t,2) == 0
-        % Produce new solution with modified SCA algorithm
-        for i=1:SP
-            % sample the random parameters
-            neighbours = randsample([1:i-1,i+1:SP], 2);
-            r2 = 2*pi*rand(1,size(X,2));
+    if mod(t, 2) == 0
+        % Even: Modified SCA branch with AO
+        for i = 1:SP
+            neighbours = randsample([1:i-1 i+1:SP], 2);  % Compute once per agent
+            % Substep 1: alpha only
+            r2 = 2*pi*rand(1, length(alpha_idx));
             rand_i = rand();
-            R_ij = rand(1,size(X,2));
-            under = R_ij < 0.5;
-            over = 1 - under;     
-            % produce new solution
-            % equation (5) from Hybrid SCA paper
-            v_i = X(neighbours(1),:)+rand_i.*abs(y_optimal-X(neighbours(2),:))+r1.*abs(y_optimal-X(i,:)).*(under.*sin(r2)+over.*cos(r2));
-            
-            % to ensure solutions are within the lower and upper bounds:
-            % (if this is changed, also change section below)
-            % 1. clamp new values to the lower and upper bounds
-            % v_i = min(v_i, ub);
-            % v_i = max(v_i, lb);
-            % or 2. handle with technique from [31] "Hybrid Firefly and
-            % Multi-Strategy ABC Algorithm"
-            v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
-            v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
-            % note: there may be issues if new solution is too far from the
-            % boundaries, causing the above technique to, for example, 
-            % bring the new solution from violating the lower bound to
-            % now violating the upper bound
+            R_ij = rand(1, length(alpha_idx));
+            under = R_ij < 0.5; over = 1-under;
+            v_i_alpha = X(i,alpha_idx) + rand_i.*abs(y_optimal(alpha_idx)-X(neighbours(2),alpha_idx)) + r1.*abs(y_optimal(alpha_idx)-X(i,alpha_idx)).*(under.*sin(r2)+over.*cos(r2));
+            v_i_alpha = (v_i_alpha<lb_hsca(alpha_idx)).*(2*lb_hsca(alpha_idx)-v_i_alpha) + (v_i_alpha>=lb_hsca(alpha_idx)).*v_i_alpha;
+            v_i_alpha = (v_i_alpha>ub_hsca(alpha_idx)).*(2*ub_hsca(alpha_idx)-v_i_alpha) + (v_i_alpha<=ub_hsca(alpha_idx)).*v_i_alpha;
+            alpha = v_i_alpha;
+           
+            alpha = alpha / sum(alpha);
+            alpha = alpha - (sum(alpha)-1)/(K+1);
+            alpha = alpha - (sum(alpha)-1)/(K+1);
+            alpha = alpha - (sum(alpha)-1)/(K+1);
+            alpha = max(alpha, alpha_min_hsca);
+             alpha = max(alpha, alpha_min_hsca);
+            alpha = alpha / sum(alpha);
+            v_i = X(i,:);
+            v_i(alpha_idx) = alpha;
 
-            alpha_hsca  = v_i(1:K+1);
-            alpha_hsca  = max(alpha_hsca , alpha_min_hsca);
-            alpha_hsca  = alpha_hsca  / sum(alpha_hsca );
-            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
-            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
-            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
-             v_i(1:K+1) = alpha_hsca;
-
-            % calculate constraint violations
-            % in our case, our only constraint is sum(alpha)<=1
-            CV = sum(v_i(1,1:K+1)) > 1;
-            if CV > 0
-                % if new solution violates constraint, we keep old solution
-                continue;
+            % Evaluate after alpha substep
+            [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
+            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            penalty = sum(max(Rmin - R_k, 0).^2);
+            new_obj = mean_fake - 1e3 * penalty;
+            if new_obj > objective(i)
+                objective(i) = new_obj;
+                population_fake_secrecy_rate(i) = mean_fake;
+                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                X(i,alpha_idx) = alpha;
+                % Immediate global best check
+                if new_obj > best_objective
+                    best_objective = new_obj;
+                    y_optimal = X(i,:);
+                    best_mean_fake_secrecy_rate = population_fake_secrecy_rate(i);
+                    best_mean_real_secrecy_rate = population_real_secrecy_rate(i);
+                end
             end
-            % for the sum(alpha)<=1 constraint, we can try either:
-            % 1. normalize, or
-            % 2. just discard solution if it is infeasible
 
-            % evaluate the sum rate
-            [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, v_i);
-            mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-            mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+            % Substep 2: RIS params only (alpha fixed)
+            r2 = 2*pi*rand(1, length(ris_idx));
+            rand_i = rand();
+            R_ij = rand(1, length(ris_idx));
+            under = R_ij < 0.5; over = 1-under;
+            v_i_ris = X(i,ris_idx) + rand_i.*abs(y_optimal(ris_idx)-X(neighbours(2),ris_idx)) + r1.*abs(y_optimal(ris_idx)-X(i,ris_idx)).*(under.*sin(r2)+over.*cos(r2));
+            v_i_ris = (v_i_ris<lb_hsca(ris_idx)).*(2*lb_hsca(ris_idx)-v_i_ris) + (v_i_ris>=lb_hsca(ris_idx)).*v_i_ris;
+            v_i_ris = (v_i_ris>ub_hsca(ris_idx)).*(2*ub_hsca(ris_idx)-v_i_ris) + (v_i_ris<=ub_hsca(ris_idx)).*v_i_ris;
+            v_i = X(i,:);
+            v_i(ris_idx) = v_i_ris;
 
-            penalty = 0;
-            violation = max(Rmin - R_k, 0);
-            penalty = penalty - sum(violation.^2);
-    
-            new_objective = mean_fake_p_secrecy + 1e3 * penalty;
-        
-
-
-            if new_objective > objective(i)
-                % if new solution doesn't violate constraint and is better
-                % than old solution, we replace old solution with new
-                % solution
-                objective(i) = new_objective;
-                population_fake_secrecy_rate(i) = mean_fake_p_secrecy;
-                population_real_secrecy_rate(i) = mean_p_secrecy;
-                X(i,:) = v_i;
+            % Evaluate after RIS substep
+            [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
+            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            penalty = sum(max(Rmin - R_k, 0).^2);
+            new_obj = mean_fake - 1e3 * penalty;
+            if new_obj > objective(i)
+                objective(i) = new_obj;
+                population_fake_secrecy_rate(i) = mean_fake;
+                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                X(i,ris_idx) = v_i_ris;
+                if new_obj > best_objective
+                    best_objective = new_obj;
+                    y_optimal = X(i,:);
+                    best_mean_fake_secrecy_rate = population_fake_secrecy_rate(i);
+                    best_mean_real_secrecy_rate = population_real_secrecy_rate(i);
+                end
             end
         end
-    else
-        % Produce new solution with multi-strategy ABC algorithm
-        R_j = rand(1,size(X,2));
-        for i=1:SP
-            phi_i = rand()*2-1;
-            neighbours = randsample([1:i-1,i+1:SP], 2);
-            % randomly assign strategy 1 or 2 to each agent in the population
-            S_i = rand() < 0.5; % S_i = True is strategy 1 and S_i = False is strategy 2
-            if S_i
-                % equation (7) from Hybrid SCA paper
-                v_i = X(i,:) + (R_j<MR).*phi_i.*(X(i,:)-X(neighbours(1),:));
+
+else
+        % Odd: Multi-strategy ABC branch with AO
+        for i = 1:SP
+            % Strategy Selection: S_i = 1 (Exploration), S_i = 2 (Exploitation)
+            S_i = (rand > P_control) + 1; 
+            neighbours = randsample([1:i-1 i+1:SP], 2);
+            
+            % --- SUBSTEP 1: Alpha (Power Allocation) Only ---
+            v_i_alpha = X(i, alpha_idx);
+            phi_rand = (2*rand(1, length(alpha_idx)) - 1); % ABC step size
+            
+            if S_i == 1
+                % Strategy 1: Search based on random neighbor
+                v_i_alpha = v_i_alpha + phi_rand .* (v_i_alpha - X(neighbours(1), alpha_idx));
             else
-                % equation (9) from Hybrid SCA paper
-                v_i = X(i,:) + phi_i*(X(neighbours(1),:)-X(neighbours(2),:));
+                % Strategy 2: Search based on global best (Exploitation)
+                v_i_alpha = v_i_alpha + phi_rand .* (y_optimal(alpha_idx) - v_i_alpha);
+            end
+            
+            % Projection to Simplex & Minimum Constraint
+            alpha = max(v_i_alpha, alpha_min_hsca);                  
+            alpha = alpha / sum(alpha);
+            alpha = alpha - (sum(alpha)-1)/(K+1);
+            alpha = alpha - (sum(alpha)-1)/(K+1);
+            alpha = alpha - (sum(alpha)-1)/(K+1);
+            alpha = max(alpha, alpha_min_hsca);
+            alpha = alpha / sum(alpha);
+            % Prepare agent for evaluation
+            v_i = X(i,:);
+            v_i(alpha_idx) = alpha;
+            
+            
+            [sc_c_lk, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
+            
+            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            penalty = sum(max(Rmin - R_k, 0).^2);
+            new_obj = mean_fake - 1e3 * penalty;
+
+            % Greedy Selection for Substep 1
+            if new_obj > objective(i)
+                objective(i) = new_obj;
+                X(i, alpha_idx) = alpha;
+                population_fake_secrecy_rate(i) = mean_fake;
+                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                if new_obj > best_objective
+                    best_objective = new_obj;
+                    y_optimal = X(i,:);
+                end
             end
 
-            % to ensure solutions are within the lower and upper bounds:
-            % (if this is changed, also change section above)
-            % 1. clamp new values to the lower and upper bounds
-            % v_i = min(v_i, ub);
-            % v_i = max(v_i, lb);
-            % or 2. handle with technique from [31] "Hybrid Firefly and
-            % Multi-Strategy ABC Algorithm"
-            v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
-            v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
-            % note: there may be issues if new solution is too far from the
-            % boundaries, causing the above technique to, for example, 
-            % bring the new solution from violating the lower bound to
-            % now violating the upper bound
-
-            alpha_hsca  = v_i(1:K+1);
-            alpha_hsca  = max(alpha_hsca , alpha_min_hsca);
-            alpha_hsca  = alpha_hsca  / sum(alpha_hsca );
-            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
-            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
-            alpha_hsca  = alpha_hsca  - (sum(alpha_hsca ,2)-1)/(K+1);
-
-            v_i(1:K+1) = alpha_hsca;
-
-            % calculate constraint violations
-            % in our case, our only constraint is sum(alpha)<=1
-            CV = sum(v_i(1,1:K+1)) > 1;
-            if CV > 0
-                % if new solution violates constraint, we keep old solution
-                continue;
+            % --- SUBSTEP 2: RIS Parameters Only (Alpha Fixed) ---
+            v_i_ris = X(i, ris_idx);
+            phi_rand = (2*rand(1, length(ris_idx)) - 1);
+            
+            if S_i == 1
+                v_i_ris = v_i_ris + phi_rand .* (v_i_ris - X(neighbours(2), ris_idx));
+            else
+                v_i_ris = v_i_ris + phi_rand .* (y_optimal(ris_idx) - v_i_ris);
             end
-            % for the sum(alpha)<=1 constraint, we can try either:
-            % 1. normalize, or
-            % 2. just discard solution if it is infeasible
+            
+            % Boundary handling (Reflection)
+            v_i_ris = (v_i_ris < lb_hsca(ris_idx)).*(2*lb_hsca(ris_idx) - v_i_ris) + (v_i_ris >= lb_hsca(ris_idx)).*v_i_ris;
+            v_i_ris = (v_i_ris > ub_hsca(ris_idx)).*(2*ub_hsca(ris_idx) - v_i_ris) + (v_i_ris <= ub_hsca(ris_idx)).*v_i_ris;
 
-            % evaluate the sum rate
-            [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, v_i);
-            mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-            mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+            v_i = X(i,:);
+            v_i(ris_idx) = v_i_ris;
+            
+     
+            [sc_c_lk, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
+            
+            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            penalty = sum(max(Rmin - R_k, 0).^2);
+            new_obj = mean_fake - 1e3 * penalty;
 
-            penalty = 0;
-            violation = max(Rmin - R_k, 0);
-            penalty = penalty - sum(violation.^2);
-    
-            new_objective = mean_fake_p_secrecy + 1e3 * penalty;
-           
-
-            if new_objective > objective(i)
-                % if new solution doesn't violate constraint and is better
-                % than old solution, we replace old solution with new
-                % solution
-                objective(i) = new_objective;
-                population_fake_secrecy_rate(i) = mean_fake_p_secrecy;
-                population_real_secrecy_rate(i) = mean_p_secrecy;
-                X(i,:) = v_i;
+            % Greedy Selection for Substep 2
+            if new_obj > objective(i)
+                objective(i) = new_obj;
+                X(i, ris_idx) = v_i_ris;
+                population_fake_secrecy_rate(i) = mean_fake;
+                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                if new_obj > best_objective
+                    best_objective = new_obj;
+                    y_optimal = X(i,:);
+                end
             end
         end
     end
 
-    HSCA_Convergence_curve(t)=best_objective;
-    HSCA_Fake_secrecy_rate_curve(t)=best_mean_fake_secrecy_rate;
-    HSCA_Real_secrecy_rate_curve(t)=best_mean_real_secrecy_rate;
+    HSCA_Convergence_curve(t) = best_objective;
+    HSCA_Fake_secrecy_rate_curve(t) = best_mean_fake_secrecy_rate;
+    HSCA_Real_secrecy_rate_curve(t) = best_mean_real_secrecy_rate;
 
-
-    r1 = a-t*a/MNI;
+    r1 = a - t*a/MNI;
     P = rand();
-    % equation (8) from Hybrid SCA paper
     if MR < MR_max
         MR = MR + (MR_max-0.1)/(P*MNI);
-        % note: MR may exceed MR_max for one iteration
     else
         MR = MR_max;
     end
     t = t + 1;
-
-    
 end
-
 best_HSCA = best_mean_fake_secrecy_rate;
 
 figure;
