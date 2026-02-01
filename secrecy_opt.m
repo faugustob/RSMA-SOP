@@ -331,7 +331,7 @@ end
 
 for l=1:nF+L
 
-        vl_ms = 14;        
+        vl_ms = 0;        
 
         User_l_loc = rho_j_xyz(:,K+l);
 
