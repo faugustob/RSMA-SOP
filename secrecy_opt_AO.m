@@ -1607,7 +1607,7 @@ figure('Color','w'); % White background
 colors = lines(5);
 
 % Marker interval
-markerInterval = 5;
+markerInterval = 50;
 
 % Plot each curve with markers every 5 points
 plot(Convergence_curve(2:end), 'Color', colors(1,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convergence_curve(2:end)), 'MarkerFaceColor',colors(1,:))
