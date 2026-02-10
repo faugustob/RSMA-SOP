@@ -20,7 +20,7 @@ A_eve = 0.5;
 alpha_k = ones(K+1, 1) / (K+1); 
 prev_val = 0; % FIXED: Initialized prev_val
 max_iters = 20;
-tolerance = 1e-4;
+tolerance = 1e-5;
 
 fprintf('Iter | Avg Secrecy Rate | alpha_c \n');
 fprintf('------------------------------------\n');
@@ -75,7 +75,7 @@ for k = 1:max_iters
 
                 % Secrecy Slack
                 s_j(j) <= R_legit - R_eve_approx;
-                s_j(j) >= 0; 
+                s_j(j) >= 0;
             end
             
             % --- QoS Constraints ---
