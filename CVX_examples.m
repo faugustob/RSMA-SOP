@@ -12,7 +12,6 @@ cvx_clear; % Reset CVX state to avoid any lingering model construction issues
 cvx_solver mosek
 cvx_precision high
 
-% 1. Create a local 'vec' function on the fly
 
 
 rng(1); % For reproducibility
@@ -176,3 +175,143 @@ cvx_begin sdp
         X <= S
         X == semidefinite(n)
 cvx_end
+%% 2D SCA Animation with CVX
+% Problem: Minimize 0.5*||w||^2 - 15*log(1 + ||w||^2)
+% This creates a 2D landscape with a "volcano" peak at the origin.
+
+clear; clc; close all;
+
+% --- 1. Parameters ---
+wk = [8; 8];        % Starting point in 2D space
+rho = 10;           % High proximal weight to force 100+ iterations
+tol = 1e-4;
+max_iters = 300;
+history = wk;       % Store coordinates [x; y]
+
+% Function definitions
+f = @(x, y) 0.5*(x.^2 + y.^2) - 15*log(1 + x.^2 + y.^2);
+% Gradient of the non-convex part v(w) = 15*log(1 + x^2 + y^2)
+grad_v = @(w) (15 * 2 * w) / (1 + norm(w)^2);
+
+fprintf('Iter |    x    |    y    |  Step Size\n');
+fprintf('------------------------------------\n');
+
+% --- 2. The SCA Loop ---
+for k = 1:max_iters
+    % Current constants for this iteration
+    vk_val = 15 * log(1 + norm(wk)^2);
+    gk_vec = grad_v(wk);
+    
+    cvx_begin quiet
+        variable w_next(2)
+        
+        % The 2D Surrogate:
+        % Convex Part: 0.5 * quad_over_lin(w_next, 1)
+        % Linearized Part: (vk_val + gk_vec' * (w_next - wk))
+        % Proximal Term: (rho/2) * quad_over_lin(w_next - wk, 1)
+        
+        minimize( 0.5*sum_square(w_next) - (vk_val + gk_vec'*(w_next - wk)) + (rho/2)*sum_square(w_next - wk) )
+        
+        subject to
+            w_next >= -10;
+            w_next <= 10;
+    cvx_end
+    
+    step_dist = norm(w_next - wk);
+    history = [history, w_next];
+    
+    if mod(k, 10) == 0
+        fprintf('%4d | %7.3f | %7.3f | %9.6f\n', k, w_next(1), w_next(2), step_dist);
+    end
+    
+    if step_dist < tol
+        fprintf('Converged at iteration %d!\n', k);
+        break;
+    end
+    
+    wk = w_next;
+end
+% =====================================================
+% 2D Contour + 3D Surface Animation (Two Figures)
+% =====================================================
+
+% --- Figures ---
+figContour = figure('Color','w','Position',[100 100 520 520]);
+figSurface = figure('Color','w','Position',[650 100 650 520]);
+
+% --- Grid and surface ---
+[X, Y] = meshgrid(linspace(-10,10,80));
+Z = f(X,Y);
+
+for i = 1:2:size(history,2)
+
+    % =================================================
+    % FIGURE 1: 2D CONTOUR (Top View)
+    % =================================================
+    figure(figContour)
+    clf
+
+    contourf(X, Y, Z, 30, 'LineColor','none')
+    colormap(parula)
+    colorbar
+    hold on
+
+    % Optimization path
+    plot(history(1,1:i), history(2,1:i), ...
+        'r-', 'LineWidth',2)
+
+    % Current point
+    plot(history(1,i), history(2,i), ...
+        'ko', 'MarkerFaceColor','y', 'MarkerSize',8)
+
+    title(['SCA Optimization Path (Iteration ', num2str(i), ')'], ...
+        'FontWeight','bold')
+    xlabel('x'); ylabel('y')
+    axis square tight
+    set(gca,'FontSize',11)
+    hold off
+
+
+    % =================================================
+    % FIGURE 2: 3D SURFACE VIEW
+    % =================================================
+    figure(figSurface)
+    clf
+
+    surf(X, Y, Z, ...
+        'EdgeColor','none', ...
+        'FaceAlpha',0.85)
+    hold on
+
+    shading interp
+    colormap(turbo)
+    camlight headlight
+    lighting gouraud
+    set(gca,'SortMethod','childorder')
+
+    % Path floating above the surface
+    plot3(history(1,1:i), history(2,1:i), ...
+          f(history(1,1:i), history(2,1:i)) + 0.6, ...
+          'r-', 'LineWidth',2)
+
+    % Current / optimum point (always visible)
+    z_opt = f(history(1,i), history(2,i));
+    plot3(history(1,i), history(2,i), z_opt + 2, ...
+          'kp', 'MarkerFaceColor','y', ...
+          'MarkerSize',14, 'LineWidth',1.5)
+
+    % Vertical beacon line
+    plot3([history(1,i) history(1,i)], ...
+          [history(2,i) history(2,i)], ...
+          [min(Z(:)) z_opt + 2], ...
+          'k--', 'LineWidth',1.2)
+
+    view(-35,40)
+    xlabel('x'); ylabel('y'); zlabel('f(x,y)')
+    title('Objective Surface','FontWeight','bold')
+    set(gca,'FontSize',11)
+    hold off
+
+    drawnow
+    pause(0.2)   % Animation speed control
+end
