@@ -627,12 +627,15 @@ X = Destination_position;
 
 phi_St = 2*pi*rand(1,Nr);% transmission phases
 
+Active_Gain_dB = 0; 
+
+
 if any_reflect
-    phi_Sr = 2*pi*rand(1,Nr);;
-    zeta_k = X(end-Nr+1 : end);
+    phi_Sr = 2*pi*rand(1,Nr);
+    zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
 else
     phi_Sr = zeros(1,Nr);
-    zeta_k = ones(1,Nr);
+    zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
 end
 
 best_fake_secrecy = 0;
@@ -648,31 +651,31 @@ for ao = 1:max_AO_iter
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
     % ================================================================
-    alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k, ...
+    alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
               K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
     alpha = alpha.';
 
           % Rebuild X
         if any_reflect
-            X = [alpha, phi_Sr, phi_St, zeta_k];
+            X = [alpha, phi_Sr, phi_St, zeta_k_St];
         else
             X = [alpha, phi_St];
         end
 
-     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X(i,:));
+     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
 
 
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  (Strong SCA heuristic)
     % ================================================================
-    [phi_St, phi_Sr, zeta_k] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k, ...
+    [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
               K, Nr, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, 8);
 
     % Rebuild X
     if any_reflect
-        X = [alpha, phi_Sr, phi_St, zeta_k];
+        X = [alpha, phi_Sr, phi_St, zeta_k_St];
     else
         X = [alpha, phi_St];
     end
@@ -680,7 +683,7 @@ for ao = 1:max_AO_iter
     % Final evaluation
     [~, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, ...
         Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-        zeta_k, Active_Gain_dB, X);
+        zeta_k_St, Active_Gain_dB, X);
 
     current_fake = mean(mean(sc_p_lk(1:nF,:)));
     current_real = mean(mean(sc_p_lk(nF+1:end,:)));
@@ -816,7 +819,9 @@ for sca_iter = 1:max_SCA
         
         alpha_pi = vecAlpha(2:end);
         sum_alpha_pi = sum(alpha_pi);
+        alpha_c = vecAlpha(1);
 
+        %% ===== QoS =====
         for k = 1:K
             Rp(k) + C_k(k) >= Rmin;
         end
@@ -835,7 +840,7 @@ for sca_iter = 1:max_SCA
                 I_l = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) ...
                       + AN_P_ratio * Nc_l_AN_all(l,k);
 
-                alpha_c = vecAlpha(1);
+                
 
                 S_c = alpha_c * Nc_k_all(k);
                 
@@ -874,13 +879,18 @@ for sca_iter = 1:max_SCA
                     * (gamma_l(l,k) - gamma_l_prev(l,k))/log(2);
                 
                 s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
-                s_fake(l,k) >= 0;
+                s_fake(l,k) >= 0;               
 
-                Rc <= log(1 + gamma_c(k))/log(2);
-
-                 %% ===== QoS =====
+                 
             end
+            
         end
+
+        %% Common part decodability constraint.
+        for k = 1:K
+            Rc <= log(1 + gamma_c(k))/log(2);
+        end
+
         
     cvx_end
     
