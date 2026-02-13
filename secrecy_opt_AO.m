@@ -453,10 +453,6 @@ alpha = alpha - (sum(alpha,2)-1)/(K+1);
 
 
 X = [alpha,phi_St];
-% phi_init = -angle(h_jq(:, 1, 1) .* h_rp(:, 1, 1, 1)); 
-% 
-% % phi_init is now (Nr x 1), we transpose it to fit the agent row (1 x Nr)
-% X(1, K+2:K+1+Nr) = phi_init';
 
 if any_reflect
     dim = K+1+3*Nr;
@@ -619,7 +615,7 @@ while t<=Max_iteration
 end
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
-display('Convex Approximation with AO - Proper Implementation (Following Paper)');
+display('Convex Approximation with AO');
 
 max_AO_iter = 15;           % Outer AO iterations
 max_SCA_inner = 10;         % Inner SCA iterations for alpha subproblem
@@ -628,11 +624,11 @@ tol = 1e-3;
 % === Start from the best solution found so far (CRITICAL) ===
 X = Destination_position;   
 
-alpha     = X(1:K+1);
-phi_St    = X(K+2:K+1+Nr);
+
+phi_St = 2*pi*rand(1,Nr);% transmission phases
 
 if any_reflect
-    phi_Sr = X(K+2+Nr : K+1+2*Nr);
+    phi_Sr = 2*pi*rand(1,Nr);;
     zeta_k = X(end-Nr+1 : end);
 else
     phi_Sr = zeros(1,Nr);
@@ -652,9 +648,20 @@ for ao = 1:max_AO_iter
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
     % ================================================================
-    alpha = optimize_alpha_cvx_fixed_phi(alpha, phi_St, phi_Sr, zeta_k, ...
+    alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k, ...
               K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
+    alpha = alpha.';
+
+          % Rebuild X
+        if any_reflect
+            X = [alpha, phi_Sr, phi_St, zeta_k];
+        else
+            X = [alpha, phi_St];
+        end
+
+     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X(i,:));
+
 
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  (Strong SCA heuristic)
@@ -700,7 +707,7 @@ fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.4f\n', best_fake_secre
 
 %% Functions
 
-function alpha = optimize_alpha_cvx_fixed_phi(alpha_init, phi_St, phi_Sr, zeta_k_St, ...
+function alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
     K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
     reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA)
 
@@ -768,12 +775,16 @@ end
 
 %% ========================= INITIALIZATION =========================
 
-alpha = alpha_init(:);
+
 
 gamma_j_prev = ones(K,1)*0.1;
 gamma_l_prev = ones(nF,K)*0.1;
 I_j_prev     = ones(K,1)*0.1;
 I_l_prev     = ones(nF,K)*0.1;
+
+gamma_c_prev = ones(K,1)*0.1;
+I_c_prev     = ones(K,1)*0.1;
+
 
 %% ========================= SCA LOOP =========================
 
@@ -784,6 +795,14 @@ for sca_iter = 1:max_SCA
         variable vecAlpha(K+1) nonnegative
         variable gamma_j(K) nonnegative
         variable gamma_l(nF,K) nonnegative
+        variable gamma_c(K) nonnegative
+
+        variable Rc nonnegative
+        variable Rp(K) nonnegative
+        variable C_k(K) nonnegative
+
+
+
         variable s_fake(nF,K) nonnegative
         
         maximize( (1/(nF*K)) * sum(sum(s_fake)) )
@@ -792,9 +811,16 @@ for sca_iter = 1:max_SCA
         
         sum(vecAlpha) <= 1;
         vecAlpha <= 1;
+        sum(C_k) <= Rc;
+
         
         alpha_pi = vecAlpha(2:end);
         sum_alpha_pi = sum(alpha_pi);
+
+        for k = 1:K
+            Rp(k) + C_k(k) >= Rmin;
+        end
+
         
         for l = 1:nF
             for k = 1:K
@@ -808,6 +834,14 @@ for sca_iter = 1:max_SCA
                 S_l = alpha_pi(k) * Nc_l_all(l,k);
                 I_l = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) ...
                       + AN_P_ratio * Nc_l_AN_all(l,k);
+
+                alpha_c = vecAlpha(1);
+
+                S_c = alpha_c * Nc_k_all(k);
+                
+                I_c = sum_alpha_pi * Nc_k_all(k) ...
+                      + AN_P_ratio * Nc_k_AN_all(k);
+
                 
                 %% ===== SINR LINEARIZATION =====
                 
@@ -823,6 +857,14 @@ for sca_iter = 1:max_SCA
                            - gamma_l_prev(l,k)*I_l_prev(l,k);
                 
                 bilinear_l + gamma_l(l,k)*noise >= S_l;
+
+
+                bilinear_c = gamma_c_prev(k)*I_c ...
+           + I_c_prev(k)*gamma_c(k) ...
+           - gamma_c_prev(k)*I_c_prev(k);
+
+                bilinear_c + gamma_c(k)*noise <= S_c;
+
                 
                 
                 %% ===== LOG LINEARIZATION =====
@@ -833,7 +875,10 @@ for sca_iter = 1:max_SCA
                 
                 s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
                 s_fake(l,k) >= 0;
-                
+
+                Rc <= log(1 + gamma_c(k))/log(2);
+
+                 %% ===== QoS =====
             end
         end
         
