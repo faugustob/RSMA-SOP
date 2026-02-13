@@ -1,4 +1,5 @@
-clc; clear;
+clear; clc;
+cvx_clear;
 
 Ns = 1e6; % number of samples for Monte Carlo simulation
 rng(3);
@@ -420,7 +421,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 60;
-Max_iteration = 200;
+Max_iteration = 10;
 Rmin=0.1;
 
 % Check if more than one STAR-RIS side is being used.
@@ -616,6 +617,332 @@ while t<=Max_iteration
     
 
 end
+
+%% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
+display('Convex Approximation with AO - Proper Implementation (Following Paper)');
+
+max_AO_iter = 15;           % Outer AO iterations
+max_SCA_inner = 10;         % Inner SCA iterations for alpha subproblem
+tol = 1e-3;
+
+% === Start from the best solution found so far (CRITICAL) ===
+X = Destination_position;   
+
+alpha     = X(1:K+1);
+phi_St    = X(K+2:K+1+Nr);
+
+if any_reflect
+    phi_Sr = X(K+2+Nr : K+1+2*Nr);
+    zeta_k = X(end-Nr+1 : end);
+else
+    phi_Sr = zeros(1,Nr);
+    zeta_k = ones(1,Nr);
+end
+
+best_fake_secrecy = 0;
+best_real_secrecy = 0;
+Convergence_curve_AO = zeros(1, max_AO_iter);
+
+fprintf('\n=== Starting Convex AO ===\n');
+
+for ao = 1:max_AO_iter
+    
+    prev_fake = best_fake_secrecy;
+    
+    % ================================================================
+    % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
+    % ================================================================
+    alpha = optimize_alpha_cvx_fixed_phi(alpha, phi_St, phi_Sr, zeta_k, ...
+              K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
+
+    % ================================================================
+    % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  (Strong SCA heuristic)
+    % ================================================================
+    [phi_St, phi_Sr, zeta_k] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k, ...
+              K, Nr, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, 8);
+
+    % Rebuild X
+    if any_reflect
+        X = [alpha, phi_Sr, phi_St, zeta_k];
+    else
+        X = [alpha, phi_St];
+    end
+
+    % Final evaluation
+    [~, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, ...
+        Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+        zeta_k, Active_Gain_dB, X);
+
+    current_fake = mean(mean(sc_p_lk(1:nF,:)));
+    current_real = mean(mean(sc_p_lk(nF+1:end,:)));
+
+    if current_fake > best_fake_secrecy
+        best_fake_secrecy = current_fake;
+        best_real_secrecy = current_real;
+        Destination_position = X;
+    end
+
+    Convergence_curve_AO(ao) = best_fake_secrecy;
+
+    fprintf('AO Iter %2d | Fake Secrecy = %.4f | Real = %.4f | Δ = %.4f\n', ...
+            ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake);
+
+    if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
+        fprintf('→ AO Converged at iteration %d\n', ao);
+        break;
+    end
+end
+
+fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.4f\n', best_fake_secrecy);
+
+
+%% Functions
+
+function alpha = optimize_alpha_cvx_fixed_phi(alpha_init, phi_St, phi_Sr, zeta_k_St, ...
+    K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+    reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA)
+
+%% ========================= CONSTANTS =========================
+
+Nr = length(phi_St);
+
+zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
+phase_St = exp(1j .* phi_St);
+phase_Sr = exp(1j .* phi_Sr);
+beta_St = sqrt(zeta_k_St) .* phase_St;
+beta_Sr = sqrt(zeta_k_Sr) .* phase_Sr;
+
+BW = delta_f;
+N0_dBm = -174;
+sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
+Pw_dBm = 46;
+Pw = 10^((Pw_dBm - 30)/10);
+
+AN_P_ratio = 1;
+noise = max(sigma2/Pw, 1e-10);
+
+%% ========================= PRECOMPUTE CHANNELS =========================
+
+Nc_k_all     = zeros(K,1);
+Nc_k_AN_all  = zeros(K,1);
+Nc_l_all     = zeros(nF,K);
+Nc_l_AN_all  = zeros(nF,K);
+
+for k = 1:K
+    
+    beta_r = beta_Sr; % adjust if reflect logic needed
+    
+    Nc_k_all(k) = compute_OTFS_static_channel( ...
+        0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
+        HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+        beta_r, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
+        h_e(:,k,1), 'vectorized');
+    
+    Nc_k_AN_all(k) = compute_OTFS_static_channel( ...
+        0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
+        HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+        beta_r, Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), ...
+        h_e(:,k,2), 'vectorized');
+end
+
+for l = 1:nF
+    for k = 1:K
+        
+        beta_r = beta_Sr;
+        
+        Nc_l_all(l,k) = compute_OTFS_static_channel( ...
+            1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
+            HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+            beta_r, Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), ...
+            h_e(:,K+l,1), 'vectorized');
+        
+        Nc_l_AN_all(l,k) = compute_OTFS_static_channel( ...
+            1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
+            HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+            beta_r, Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), ...
+            h_e(:,K+l,2), 'vectorized');
+    end
+end
+
+%% ========================= INITIALIZATION =========================
+
+alpha = alpha_init(:);
+
+gamma_j_prev = ones(K,1)*0.1;
+gamma_l_prev = ones(nF,K)*0.1;
+I_j_prev     = ones(K,1)*0.1;
+I_l_prev     = ones(nF,K)*0.1;
+
+%% ========================= SCA LOOP =========================
+
+for sca_iter = 1:max_SCA
+    
+    cvx_begin quiet
+        cvx_solver mosek 
+        variable vecAlpha(K+1) nonnegative
+        variable gamma_j(K) nonnegative
+        variable gamma_l(nF,K) nonnegative
+        variable s_fake(nF,K) nonnegative
+        
+        maximize( (1/(nF*K)) * sum(sum(s_fake)) )
+        
+        subject to
+        
+        sum(vecAlpha) <= 1;
+        vecAlpha <= 1;
+        
+        alpha_pi = vecAlpha(2:end);
+        sum_alpha_pi = sum(alpha_pi);
+        
+        for l = 1:nF
+            for k = 1:K
+                
+                %% ===== SIGNAL & INTERFERENCE =====
+                
+                S_j = alpha_pi(k) * Nc_k_all(k);
+                I_j = (sum_alpha_pi - alpha_pi(k)) * Nc_k_all(k) ...
+                      + AN_P_ratio * Nc_k_AN_all(k);
+                
+                S_l = alpha_pi(k) * Nc_l_all(l,k);
+                I_l = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) ...
+                      + AN_P_ratio * Nc_l_AN_all(l,k);
+                
+                %% ===== SINR LINEARIZATION =====
+                
+                bilinear_j = gamma_j_prev(k)*I_j ...
+                           + I_j_prev(k)*gamma_j(k) ...
+                           - gamma_j_prev(k)*I_j_prev(k);
+                
+                bilinear_j + gamma_j(k)*noise <= S_j;
+                
+                
+                bilinear_l = gamma_l_prev(l,k)*I_l ...
+                           + I_l_prev(l,k)*gamma_l(l,k) ...
+                           - gamma_l_prev(l,k)*I_l_prev(l,k);
+                
+                bilinear_l + gamma_l(l,k)*noise >= S_l;
+                
+                
+                %% ===== LOG LINEARIZATION =====
+                
+                log_l_approx = log(1 + gamma_l_prev(l,k))/log(2) ...
+                    + (1/(1 + gamma_l_prev(l,k))) ...
+                    * (gamma_l(l,k) - gamma_l_prev(l,k))/log(2);
+                
+                s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
+                s_fake(l,k) >= 0;
+                
+            end
+        end
+        
+    cvx_end
+    
+    if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
+        fprintf('SCA failed at iteration %d (%s)\n', sca_iter, cvx_status);
+        break;
+    end
+    
+    %% ===== UPDATE FOR NEXT ITERATION =====
+    
+    alpha_pi_val = vecAlpha(2:end);
+    sum_alpha_val = sum(alpha_pi_val);
+    
+    for l = 1:nF
+        for k = 1:K
+            
+            I_j_prev(k) = (sum_alpha_val - alpha_pi_val(k)) ...
+                * Nc_k_all(k) + AN_P_ratio*Nc_k_AN_all(k);
+            
+            I_l_prev(l,k) = (sum_alpha_val - alpha_pi_val(k)) ...
+                * Nc_l_all(l,k) + AN_P_ratio*Nc_l_AN_all(l,k);
+        end
+    end
+    
+    gamma_j_prev = gamma_j;
+    gamma_l_prev = gamma_l;
+    alpha = vecAlpha;
+    
+end
+
+end
+
+
+
+
+function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St_init, phi_Sr_init, zeta_k_St_init, ...
+    K, Nr, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+    reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_inner)
+
+    % Use Particle Swarm for phase subproblem (SDP too heavy for large Nr)
+    any_reflect = any(reflect > 0) && any(reflect < 0);
+    
+    % Build variable vector for phi: [phi_St, phi_Sr, zeta_k_St] if any_reflect
+    if any_reflect
+        dim = 2*Nr + Nr;  % phi_St, phi_Sr, zeta
+        lb = zeros(1, dim);
+        ub = [2*pi*ones(1, 2*Nr), 10^(Active_Gain_dB/10) * ones(1, Nr)];
+        phi_var_init = [phi_St_init, phi_Sr_init, zeta_k_St_init];
+    else
+        dim = Nr;
+        lb = zeros(1, dim);
+        ub = 2*pi*ones(1, dim);
+        phi_var_init = phi_St_init;
+    end
+    
+    % Objective: negative mean fake secrecy + penalty for QoS
+    f_phi = @(phi_var) ao_objective_phi(phi_var, alpha, K, Nr, Rmin, Pe, P, Q_j, ...
+        nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+        reflect, h_rp, h_jq, h_e, Active_Gain_dB, any_reflect);
+    
+    opts = optimoptions('particleswarm', ...
+        'SwarmSize', 40, ...
+        'MaxIterations', 80, ...
+        'Display', 'off');
+    
+    phi_var_opt = particleswarm(f_phi, dim, lb, ub, opts);
+    
+    if any_reflect
+        phi_St = phi_var_opt(1:Nr);
+        phi_Sr = phi_var_opt(Nr+1:2*Nr);
+        zeta_k_St = phi_var_opt(2*Nr+1:end);
+    else
+        phi_St = phi_var_opt;
+        phi_Sr = [];
+        zeta_k_St = [];
+    end
+end
+
+function fitness = ao_objective_phi(phi_var, alpha, K, Nr, Rmin, Pe, P, Q_j, ...
+    nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+    reflect, h_rp, h_jq, h_e, Active_Gain_dB, any_reflect)
+    
+    if any_reflect
+        phi_St = phi_var(1:Nr);
+        phi_Sr = phi_var(Nr+1:2*Nr);
+        zeta_k_St = phi_var(2*Nr+1:end);
+        x = [alpha, phi_St, phi_Sr, zeta_k_St];
+    else
+        phi_St = phi_var;
+        phi_Sr = zeros(1, Nr);  % Dummy
+        zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);  % Fixed if not mixed
+        x = [alpha, phi_St];
+    end
+    
+    [~, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an_cvx( ...
+        Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, ...
+        g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+        zeta_k_St, Active_Gain_dB, x);
+    
+    mean_fake = mean(sc_p_lk(1:nF, :), 'all');
+    penalty = 1e3 * sum(max(Rmin - R_k, 0).^2);
+    
+    fitness = -mean_fake + penalty;
+end
+
+
+
 
 %%
 display('SCA is optimizing your problem AO');
@@ -1442,161 +1769,6 @@ function stop = psoOutputFcn(optimValues, state)
 end
 
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% ROBUST MONOTONIC AO WITH SIMPLEX-SAFE ALPHA (SOFTMAX PARAMETERIZATION)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% %% ================= USER PARAMETERS =================
-% MAX_AO_ITER = 20;
-% TOL = 1e-3;
-% 
-% dim_u = K + 1;   % unconstrained alpha variables
-% 
-% any_reflect = any(reflect > 0) && any(reflect < 0);
-% if any_reflect
-%     dim_phi = 3 * Nr;
-% else
-%     dim_phi = Nr;
-% end
-% 
-% lb_phi = lb_pso(dim_u+1:end);
-% ub_phi = ub_pso(dim_u+1:end);
-% 
-% %% ================= INITIALIZATION =================
-% u = randn(1, dim_u);                                 % unconstrained alpha
-% phi = lb_phi + (ub_phi - lb_phi).*rand(1, dim_phi); % bounded Phi
-% 
-% best_f = ao_objective(u, phi, K, Nr, Rmin, Pe, P, Q_j, ...
-%     nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-%     reflect, h_rp, h_jq, h_e, Active_Gain_dB);
-% 
-% best_u = u;
-% best_phi = phi;
-% 
-% fprintf('Starting Robust Alternating Optimization...\n');
-% fprintf('Initial fitness: %.4f\n', best_f);
-% 
-% %% ================= PSO OPTIONS =================
-% opts_u = optimoptions('particleswarm', ...
-%     'SwarmSize', 40, ...
-%     'MaxIterations', 50, ...
-%     'Display', 'off');
-% 
-% opts_phi = optimoptions('particleswarm', ...
-%     'SwarmSize', 40, ...
-%     'MaxIterations', 80, ...
-%     'Display', 'off');
-% 
-% fitness_hist = -best_f;
-% 
-% %% ================= AO LOOP =================
-% for it = 1:MAX_AO_ITER
-% 
-%     prev_f = best_f;
-% 
-%     % ===== STEP 1: Optimize Alpha via u =====
-%     f_u = @(u_var) ao_objective(u_var, phi, K, Nr, Rmin, Pe, P, Q_j, ...
-%         nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-%         reflect, h_rp, h_jq, h_e, Active_Gain_dB);
-% 
-%     [u_cand, fval_u] = particleswarm(f_u, dim_u, [], [], opts_u);
-% 
-%     if fval_u < best_f
-%         u = u_cand;
-%         best_f = fval_u;
-%     end
-% 
-%     % ===== STEP 2: Optimize Phi =====
-%     f_phi = @(phi_var) ao_objective(u, phi_var, K, Nr, Rmin, Pe, P, Q_j, ...
-%         nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-%         reflect, h_rp, h_jq, h_e, Active_Gain_dB);
-% 
-%     [phi_cand, fval_phi] = particleswarm(f_phi, dim_phi, lb_phi, ub_phi, opts_phi);
-% 
-%     if fval_phi < best_f
-%         phi = phi_cand;
-%         best_f = fval_phi;
-%     end
-% 
-%     fitness_hist(end+1) = -best_f;
-% 
-%     fprintf('AO iter %2d | fitness = %.4f | improvement = %.3e\n', ...
-%         it, best_f, prev_f - best_f);
-% 
-%     if abs(prev_f - best_f) < TOL
-%         fprintf('Converged at AO iteration %d\n', it);
-%         break;
-%     end
-% end
-% 
-% %% ================= FINAL SOLUTION =================
-% alpha_opt = softmax(u);
-% X = build_X(alpha_opt, phi, K, Nr, reflect, Active_Gain_dB);
-% 
-% [~, final_fake_sec, final_real_sec] = objective_wrapper( ...
-%     X.vec, K, Nr, Rmin, Pe, P, Q_j, nF, L, delta_f, Plos, ...
-%     PLj, HB, HA, g_pq, Nsymb, reflect, h_rp, h_jq, h_e, Active_Gain_dB);
-% 
-% fprintf('\nOptimization complete.\n');
-% fprintf('Best min fake private secrecy rate: %.4f\n', final_fake_sec);
-% fprintf('Best min real private secrecy rate: %.4f\n', final_real_sec);
-% 
-% %% ================= PLOT =================
-% figure;
-% plot(0:length(fitness_hist)-1, fitness_hist, '-o', 'LineWidth', 2);
-% xlabel('AO Iteration');
-% ylabel('Penalized Secrecy Rate');
-% grid on;
-% title('Monotonic AO Convergence');
-% 
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% % ======================= LOCAL FUNCTIONS ================================
-% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
-% function fitness = ao_objective(u, phi, K, Nr, Rmin, Pe, P, Q_j, ...
-%     nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-%     reflect, h_rp, h_jq, h_e, Active_Gain_dB)
-% 
-%     alpha = softmax(u);
-%     X = build_X(alpha, phi, K, Nr, reflect, Active_Gain_dB);
-% 
-%     [~, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an( ...
-%         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, ...
-%         g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-%         X.zeta, Active_Gain_dB, X.vec);
-% 
-%     min_fake = mean(sc_p_lk(1:nF,:), 'all');
-%     penalty = 1e3 * sum(max(Rmin - R_k, 0).^2);
-% 
-%     fitness = -min_fake + penalty;
-% end
-% 
-% function X = build_X(alpha, phi, K, Nr, reflect, Active_Gain_dB)
-% 
-%     idx = 1;
-%     phi_St = phi(idx:idx+Nr-1);
-%     idx = idx + Nr;
-% 
-%     zeta = (10^(Active_Gain_dB/10))*ones(1,Nr);
-% 
-%     if any(reflect > 0) && any(reflect < 0)
-%         phi_Sr = phi(idx:idx+Nr-1);
-%         idx = idx + Nr;
-%         zeta = (10^(Active_Gain_dB/10))*phi(idx:idx+Nr-1);
-%         X.vec = [alpha, phi_St, phi_Sr, zeta];
-%     else
-%         X.vec = [alpha, phi_St];
-%     end
-% 
-%     X.zeta = zeta;
-% end
-% 
-% function a = softmax(u)
-%     u = u - max(u);
-%     a = exp(u);
-%     a = a / sum(a);
-% end
 
 
 %% Plot
