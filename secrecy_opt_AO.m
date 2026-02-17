@@ -1062,27 +1062,64 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
             end
         
             cvx_end
+
+            
         
             if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
                 fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
                 fprintf('Try increasing AN_P_ratio (e.g. to 5-10) or check channel strengths.\n');
                 break;
             end
+
+            % 5. Extract beta_r from W (Rank-1 Approximation)
+            [V_eig, D_eig] = eig(double(W));
+            beta_full = V_eig(:, end) * sqrt(D_eig(end, end)); % Principal eigenvector
+            beta_r_res = beta_full(1:Nr) / beta_full(Nr+1);    % Normalize by the augmented '1'
         
             % ---------- UPDATE FOR NEXT ITERATION ----------
+
+           for k = 1:K               
+            
+                Nc_k_all(k) = compute_OTFS_static_channel( ...
+                0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
+                HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                beta_r_res, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
+                h_e(:,k,1), 'vectorized');
+        
+                Nc_k_AN_all(k) = compute_OTFS_static_channel( ...
+                    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
+                    HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                    beta_r_res, Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), ...
+                    h_e(:,k,2), 'vectorized');
+            end
+            for l = 1:nF
+                for k = 1:K
+               
+                    Nc_l_all(l,k) = compute_OTFS_static_channel( ...
+                        1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
+                        HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                        beta_r_res, Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), ...
+                        h_e(:,K+l,1), 'vectorized');
+                    Nc_l_AN_all(l,k) = compute_OTFS_static_channel( ...
+                        1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
+                        HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                        beta_r_res, Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), ...
+                        h_e(:,K+l,2), 'vectorized');
+                end
+            end
             
             for k = 1:K
                 gamma_j_prev(k) = double(gamma_j(k));
-                I_j_prev(k) = (sum_pi_val - alpha_pi_val(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+                I_j_prev(k) = (sum_alpha_pi - alpha_pi(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
         
                 for l = 1:nF
                     gamma_l_prev(l,k) = double(gamma_l(l,k));
-                    I_l_prev(l,k) = (sum_pi_val - alpha_pi_val(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
+                    I_l_prev(l,k) = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
                 end
             end
         
         end
-        phi_st = angle(doble(beta_r));
+        phi_St = angle(doble(beta_r_res));
 
         cvx_clear;
   end
