@@ -989,9 +989,9 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                                                        Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), h_e(:,k,2));
 
                        % V_aug = [V1, V2'; V2, term3]
-                        V_k_aug = [V1, V2.'; conj(V2), term3];
+                        V_k_aug = [V1, gather(V2).'; conj(V2), term3];
 
-                        V_AN_k_aug = [V1_AN, V2_AN.'; conj(V2_AN), term3_AN];
+                        V_AN_k_aug = [V1_AN, gather(V2_AN).'; conj(V2_AN), term3_AN];
     
    
                        % 4. Expressions are now LINEAR in W
