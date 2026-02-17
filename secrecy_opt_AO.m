@@ -38,8 +38,8 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 40; % number of rows of regularly arranged unit cells of RIS
-N_H = 40; % number of columns of regularly arranged unit cells of RIS
+N_V = 20; % number of rows of regularly arranged unit cells of RIS
+N_H = 20; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
@@ -770,23 +770,23 @@ end
 %% ========================= INITIALIZATION =========================
 alpha_init = ones(K+1,1) / (K+1);
 alpha_c_init = alpha_init(1);
-alpha_pi_init = alpha_init(2:end);
-sum_pi_init = sum(alpha_pi_init);
+alpha_pi = alpha_init(2:end);
+sum_alpha_pi = sum(alpha_pi);
 
 I_j_prev = zeros(K,1); I_c_prev = zeros(K,1);
 gamma_j_prev = zeros(K,1); gamma_c_prev = zeros(K,1);
 I_l_prev = zeros(nF,K); gamma_l_prev = zeros(nF,K);
 
 for k = 1:K
-    I_j_prev(k) = (sum_pi_init - alpha_pi_init(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
-    gamma_j_prev(k) = (alpha_pi_init(k) * Nc_k_all(k)) / (I_j_prev(k) + noise);
+    I_j_prev(k) = (sum_alpha_pi - alpha_pi(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+    gamma_j_prev(k) = (alpha_pi(k) * Nc_k_all(k)) / (I_j_prev(k) + noise);
 
-    I_c_prev(k) = sum_pi_init * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+    I_c_prev(k) = sum_alpha_pi * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
     gamma_c_prev(k) = (alpha_c_init * Nc_k_all(k)) / (I_c_prev(k) + noise);
 
     for l = 1:nF
-        I_l_prev(l,k) = (sum_pi_init - alpha_pi_init(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
-        gamma_l_prev(l,k) = (alpha_pi_init(k) * Nc_l_all(l,k)) / (I_l_prev(l,k) + noise);
+        I_l_prev(l,k) = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
+        gamma_l_prev(l,k) = (alpha_pi(k) * Nc_l_all(l,k)) / (I_l_prev(l,k) + noise);
     end
 end
 gamma_j_prev = max(gamma_j_prev, 1e-6);
@@ -938,21 +938,21 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
         end
         
         %% ========================= INITIALIZATION =========================
-        alpha_pi_init = alpha(2:end);
-        sum_pi_init = sum(alpha_pi_init);
-        
-        I_j_prev = zeros(K,1); I_c_prev = zeros(K,1);
-        gamma_j_prev = zeros(K,1); gamma_c_prev = zeros(K,1);
+        alpha_pi = alpha(2:end);
+        sum_alpha_pi = sum(alpha_pi);
+      
+        I_j_prev = zeros(K,1); 
+        gamma_j_prev = zeros(K,1); 
         I_l_prev = zeros(nF,K); gamma_l_prev = zeros(nF,K);
         
         for k = 1:K
-            I_j_prev(k) = (sum_pi_init - alpha_pi_init(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
-            gamma_j_prev(k) = (alpha_pi_init(k) * Nc_k_all(k)) / (I_j_prev(k) + noise);
+            I_j_prev(k) = (sum_alpha_pi - alpha_pi(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+            gamma_j_prev(k) = (alpha_pi(k) * Nc_k_all(k)) / (I_j_prev(k) + noise);
         
             
             for l = 1:nF
-                I_l_prev(l,k) = (sum_pi_init - alpha_pi_init(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
-                gamma_l_prev(l,k) = (alpha_pi_init(k) * Nc_l_all(l,k)) / (I_l_prev(l,k) + noise);
+                I_l_prev(l,k) = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
+                gamma_l_prev(l,k) = (alpha_pi(k) * Nc_l_all(l,k)) / (I_l_prev(l,k) + noise);
             end
         end
         gamma_j_prev = max(gamma_j_prev, 1e-6);
@@ -982,16 +982,26 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                     % ---------- USER-LEVEL CONSTRAINTS ----------
                     for k = 1:K    
                       
-                       [V1, V2, term3] = compute_V(    0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                       [V1, V2_gpu, term3_gpu] = compute_V(    0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
                                                        Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), h_e(:,k,1));
 
-                       [V1_AN, V2_AN, term3_AN] = compute_V(    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                       [V1_AN, V2_AN_gpu, term3_AN_gpu] = compute_V(    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
                                                        Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), h_e(:,k,2));
+                        
+
+
+                       V2 = gather(V2_gpu);
+
+                       V2_AN = gather(V2_AN_gpu);
+                       
+                       term3 = gather(term3_gpu);
+
+                       term3_AN = gather(term3_AN_gpu);
 
                        % V_aug = [V1, V2'; V2, term3]
-                        V_k_aug = [V1, gather(V2).'; conj(V2), term3];
+                        V_k_aug = [V1, V2.'; conj(V2), term3];
 
-                        V_AN_k_aug = [V1_AN, gather(V2_AN).'; conj(V2_AN), term3_AN];
+                        V_AN_k_aug = [V1_AN, V2_AN.'; conj(V2_AN), term3_AN];
     
    
                        % 4. Expressions are now LINEAR in W
@@ -1011,14 +1021,19 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
             for l = 1:nF
                 for k = 1:K
                     % 1. Get the raw channel components
-                    [V1_lk, V2_lk, term3_lk] = compute_V(1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
+                    [V1_lk, V2_lk_gpu, term3_lk_gpu] = compute_V(1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
                                                 HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
                                                 Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), h_e(:,K+l,1));
                                                 
-                    [V1_AN_lk, V2_AN_lk, term3_AN_lk] = compute_V(1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
+                    [V1_AN_lk, V2_AN_lk_gpu, term3_AN_lk_gpu] = compute_V(1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
                                                         HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
                                                         Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2));
-            
+
+                    V2_lk = gather(V2_lk_gpu);
+                    V2_AN_lk= gather(V2_AN_lk_gpu);
+                    term3_lk = gather(term3_lk_gpu);
+                    term3_AN_lk  = gather(term3_AN_lk_gpu);
+
                     % 2. Construct the Augmented Matrices for SDR
                     % These matrices contain all channel information (quadratic, linear, and constant)
                     V_lk_aug = [V1_lk, V2_lk.'; conj(V2_lk), term3_lk];
