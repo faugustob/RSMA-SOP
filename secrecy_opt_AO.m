@@ -963,75 +963,88 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
             cvx_begin quiet
                 cvx_solver mosek
                 
+                % 1. Define the Augmented Matrix Variable
+                variable W(Nr+1, Nr+1) complex hermitian
+                
                 variable gamma_j(K) nonnegative
                 variable gamma_l(nF,K) nonnegative
-                variable beta_r(Nr,1) complex          
-                variable s_fake(nF,K)            % can be negative (we take max(0,.) later if needed)
-        
-                %maximize( (1/(nF*K)) * sum(sum(s_fake)) )
-        
+                variable s_fake(nF,K)
+                
                 maximize( min(min(s_fake)) )
         
                 subject to
 
-                   abs(beta_r) <= 1;
+                   % 2. SDR Constraints
+                    W == semidefinite(Nr+1); % Must be Positive Semidefinite
+                    W(Nr+1, Nr+1) == 1;      % The "1" in the augmented corner
+                    diag(W(1:Nr, 1:Nr)) <= 1; % Equivalent to abs(beta_r) <= 1
                
                     % ---------- USER-LEVEL CONSTRAINTS ----------
                     for k = 1:K    
                       
-                       [V_1, V_2, term3] = compute_V(    0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                       [V1, V2, term3] = compute_V(    0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
                                                        Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), h_e(:,k,1));
 
-                       [V_1_AN, V_2_AN, term3_AN] = compute_V(    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                       [V1_AN, V2_AN, term3_AN] = compute_V(    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
                                                        Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), h_e(:,k,2));
 
+                       % V_aug = [V1, V2'; V2, term3]
+                        V_k_aug = [V1, V2.'; conj(V2), term3];
 
+                        V_AN_k_aug = [V1_AN, V2_AN.'; conj(V2_AN), term3_AN];
     
    
-                        Nc_k =    beta_r'*V_1*beta_r + 2*real(trace(V_2 * beta_r)) + term3;
-
-                        AN_k =    beta_r'*V_1_AN*beta_r + 2*real(trace(V_2_AN * beta_r)) + term3_AN;
-
+                       % 4. Expressions are now LINEAR in W
+                        Nc_k = real(trace(V_k_aug * W));
+                        AN_k = real(trace(V_AN_k_aug * W));
         
                         S_j = alpha_pi(k) * Nc_k;
                         I_j = (sum_alpha_pi - alpha_pi(k)) * Nc_k+ AN_P_ratio * AN_k;
         
-                        % Correct SCA linearization (upper bound on bilinear)
-                        gamma_j(k)<=S_j/(I_j+noise);
+                       % Standard SCA linearization logic continues...
+                        % (Note: gamma_j(k)*(I_j + noise) <= S_j is still non-convex,
+                        %  usually handled by linearizing the product)
+                        gamma_j_prev(k)*(I_j + noise) + I_j_prev(k)*gamma_j(k) - gamma_j_prev(k)*I_j_prev(k) <= S_j;
                     end
         
-                    % ---------- EAVESDROPPER / SECRECY CONSTRAINTS ----------
-                    for l = 1:nF
-                        for k = 1:K
-
-                           [V_1_lk, V_2_lk, term3_lk] = compute_V(    1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
-                                                       Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), h_e(:,K+l,1));
-
-                           [V_1_AN_lk, V_2_AN_lk, term3_AN_lk] = compute_V(    1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
-                                                       Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2));
-
-
-    
-   
-                            Nc_lk =    beta_r*V_1_lk*beta_r' + 2*real(trace(V_2_lk * beta_r.')) + term3_lk;
-    
-                            AN_lk =    beta_r*V_1_AN_lk*beta_r' + 2*real(trace(V_2_AN_lk * beta_r.')) + term3_AN_lk;
-
-                            S_l = alpha_pi(k) * Nc_lk;
-                            I_l = (sum_alpha_pi - alpha_pi(k)) * Nc_lk + AN_P_ratio * AN_lk;
-
-                            gamma_l(l,k)>=S_l/(I_l+noise);
-        
-                            % Corrected: upper bound on gamma_l (same direction as legitimate users)
-                            gamma_l_prev(l,k)*I_l + I_l_prev(l,k)*gamma_l(l,k) - gamma_l_prev(l,k)*I_l_prev(l,k) + gamma_l(l,k)*noise <= S_l;
-        
-                            % First-order upper bound on log(1+gamma_l) → lower bound on secrecy
-                            log_l_approx = log(1 + gamma_l_prev(l,k))/log(2) + ...
-                                           (1/((1 + gamma_l_prev(l,k))*log(2))) * (gamma_l(l,k) - gamma_l_prev(l,k));
-        
-                            s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
-                        end
-                    end
+                    % ---------- EAVESDROPPER / SECRECY CONSTRAINTS (SDR VERSION) ----------
+            for l = 1:nF
+                for k = 1:K
+                    % 1. Get the raw channel components
+                    [V1_lk, V2_lk, term3_lk] = compute_V(1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
+                                                HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                                                Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), h_e(:,K+l,1));
+                                                
+                    [V1_AN_lk, V2_AN_lk, term3_AN_lk] = compute_V(1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
+                                                        HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                                                        Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2));
+            
+                    % 2. Construct the Augmented Matrices for SDR
+                    % These matrices contain all channel information (quadratic, linear, and constant)
+                    V_lk_aug = [V1_lk, V2_lk.'; conj(V2_lk), term3_lk];
+                    V_AN_lk_aug = [V1_AN_lk, V2_AN_lk.'; conj(V2_AN_lk), term3_AN_lk];
+            
+                    % 3. Calculate Signal and Interference as linear functions of W
+                    Nc_lk = real(trace(V_lk_aug * W));
+                    AN_lk = real(trace(V_AN_lk_aug * W));
+            
+                    S_l = alpha(k+1) * Nc_lk;
+                    I_l = (sum(alpha(2:end)) - alpha(k+1)) * Nc_lk + AN_P_ratio * AN_lk;
+            
+                    % 4. SCA Linearization: Upper bound on the product gamma_l * (I_l + noise)
+                    % We use the identity: xy <= x_prev*y + y_prev*x - x_prev*y_prev
+                    gamma_l_prev(l,k)*(I_l + noise) + I_l_prev(l,k)*gamma_l(l,k) - ...
+                    gamma_l_prev(l,k)*I_l_prev(l,k) <= S_l;
+            
+                    % 5. Secrecy Rate Approximation
+                    % Upper bound on log(1 + gamma_l) to ensure a lower bound on (Rate_j - Rate_l)
+                    log_l_approx = log(1 + gamma_l_prev(l,k))/log(2) + ...
+                                   (1/((1 + gamma_l_prev(l,k))*log(2))) * (gamma_l(l,k) - gamma_l_prev(l,k));
+            
+                    % Legitimate rate is concave (log is handled by CVX), eavesdropper rate is linearized
+                    s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
+                end
+            end
         
             cvx_end
         
