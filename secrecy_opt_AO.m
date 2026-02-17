@@ -113,7 +113,7 @@ receiving_ang = acos( ...
 );
 
 % ELEVATION (UNCHANGED)
-el = pi/2 - (0.1)*max_alpha * rand(1, K);
+el = pi/2 - (0.05)*max_alpha * rand(1, K);
 
 
 az = (2*pi) * rand(1, K);
@@ -494,8 +494,8 @@ for i=1:size(X,1)
 
     %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
 
-    mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-    mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+    mean_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+    mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
     
     penalty = 0;
@@ -573,8 +573,8 @@ while t<=Max_iteration
 
         [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-        mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-        mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+        mean_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+        mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
       
        
@@ -618,7 +618,7 @@ end
 display('Convex Approximation with AO');
 
 max_AO_iter = 15;           % Outer AO iterations
-max_SCA_inner = 10;         % Inner SCA iterations for alpha subproblem
+max_SCA_inner = 20;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
 % === Start from the best solution found so far (CRITICAL) ===
@@ -670,8 +670,8 @@ for ao = 1:max_AO_iter
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  (Strong SCA heuristic)
     % ================================================================
     [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
-              K, Nr, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, 8);
+              K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB,max_SCA_inner);
 
     % Rebuild X
     if any_reflect
@@ -685,8 +685,8 @@ for ao = 1:max_AO_iter
         Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB, X);
 
-    current_fake = mean(mean(sc_p_lk(1:nF,:)));
-    current_real = mean(mean(sc_p_lk(nF+1:end,:)));
+    current_fake = min(min(sc_p_lk(1:nF,:)));
+    current_real = min(min(sc_p_lk(nF+1:end,:)));
 
     if current_fake > best_fake_secrecy
         best_fake_secrecy = current_fake;
@@ -710,64 +710,55 @@ fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.4f\n', best_fake_secre
 
 %% Functions
 
-function alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
+function [alpha] = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
     K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
     reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA)
-
 %% ========================= CONSTANTS =========================
-
+Rmin = 1e-8;
 Nr = length(phi_St);
-
 zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
 phase_St = exp(1j .* phi_St);
 phase_Sr = exp(1j .* phi_Sr);
 beta_St = sqrt(zeta_k_St) .* phase_St;
 beta_Sr = sqrt(zeta_k_Sr) .* phase_Sr;
-
 BW = delta_f;
 N0_dBm = -174;
 sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
 Pw_dBm = 46;
 Pw = 10^((Pw_dBm - 30)/10);
-
-AN_P_ratio = 1;
+AN_P_ratio = 1;          % Increase this (e.g. 5-10) if eavesdroppers are too strong
 noise = max(sigma2/Pw, 1e-10);
 
 %% ========================= PRECOMPUTE CHANNELS =========================
-
-Nc_k_all     = zeros(K,1);
-Nc_k_AN_all  = zeros(K,1);
-Nc_l_all     = zeros(nF,K);
-Nc_l_AN_all  = zeros(nF,K);
+Nc_k_all = zeros(K,1);
+Nc_k_AN_all = zeros(K,1);
+Nc_l_all = zeros(nF,K);
+Nc_l_AN_all = zeros(nF,K);
 
 for k = 1:K
-    
-    beta_r = beta_Sr; % adjust if reflect logic needed
-    
+     reflect_coeff = reflect(k);
+        beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
+
     Nc_k_all(k) = compute_OTFS_static_channel( ...
         0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
         HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
         beta_r, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
         h_e(:,k,1), 'vectorized');
-    
     Nc_k_AN_all(k) = compute_OTFS_static_channel( ...
         0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
         HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
         beta_r, Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), ...
         h_e(:,k,2), 'vectorized');
 end
-
 for l = 1:nF
     for k = 1:K
-        
-        beta_r = beta_Sr;
-        
+        reflect_coeff = reflect(k);
+        beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
         Nc_l_all(l,k) = compute_OTFS_static_channel( ...
             1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
             HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
             beta_r, Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), ...
             h_e(:,K+l,1), 'vectorized');
-        
         Nc_l_AN_all(l,k) = compute_OTFS_static_channel( ...
             1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
             HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
@@ -777,224 +768,303 @@ for l = 1:nF
 end
 
 %% ========================= INITIALIZATION =========================
+alpha_init = ones(K+1,1) / (K+1);
+alpha_c_init = alpha_init(1);
+alpha_pi_init = alpha_init(2:end);
+sum_pi_init = sum(alpha_pi_init);
 
+I_j_prev = zeros(K,1); I_c_prev = zeros(K,1);
+gamma_j_prev = zeros(K,1); gamma_c_prev = zeros(K,1);
+I_l_prev = zeros(nF,K); gamma_l_prev = zeros(nF,K);
 
+for k = 1:K
+    I_j_prev(k) = (sum_pi_init - alpha_pi_init(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+    gamma_j_prev(k) = (alpha_pi_init(k) * Nc_k_all(k)) / (I_j_prev(k) + noise);
 
-gamma_j_prev = ones(K,1)*0.1;
-gamma_l_prev = ones(nF,K)*0.1;
-I_j_prev     = ones(K,1)*0.1;
-I_l_prev     = ones(nF,K)*0.1;
+    I_c_prev(k) = sum_pi_init * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+    gamma_c_prev(k) = (alpha_c_init * Nc_k_all(k)) / (I_c_prev(k) + noise);
 
-gamma_c_prev = ones(K,1)*0.1;
-I_c_prev     = ones(K,1)*0.1;
-
+    for l = 1:nF
+        I_l_prev(l,k) = (sum_pi_init - alpha_pi_init(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
+        gamma_l_prev(l,k) = (alpha_pi_init(k) * Nc_l_all(l,k)) / (I_l_prev(l,k) + noise);
+    end
+end
+gamma_j_prev = max(gamma_j_prev, 1e-6);
+gamma_c_prev = max(gamma_c_prev, 1e-6);
+gamma_l_prev = max(gamma_l_prev, 1e-6);
 
 %% ========================= SCA LOOP =========================
-
 for sca_iter = 1:max_SCA
-    
     cvx_begin quiet
-        cvx_solver mosek 
+        cvx_solver mosek
+        
         variable vecAlpha(K+1) nonnegative
         variable gamma_j(K) nonnegative
         variable gamma_l(nF,K) nonnegative
         variable gamma_c(K) nonnegative
-
         variable Rc nonnegative
-        variable Rp(K) nonnegative
-        variable C_k(K) nonnegative
+        variable s_fake(nF,K)            % can be negative (we take max(0,.) later if needed)
 
+        %maximize( (1/(nF*K)) * sum(sum(s_fake)) )
 
+        maximize( min(min(s_fake)) )
 
-        variable s_fake(nF,K) nonnegative
-        
-        maximize( (1/(nF*K)) * sum(sum(s_fake)) )
-        
         subject to
-        
-        sum(vecAlpha) <= 1;
-        vecAlpha <= 1;
-        sum(C_k) <= Rc;
+            sum(vecAlpha) <= 1;
+            vecAlpha >= 1e-2;
 
-        
-        alpha_pi = vecAlpha(2:end);
-        sum_alpha_pi = sum(alpha_pi);
-        alpha_c = vecAlpha(1);
+            alpha_c = vecAlpha(1);
+            alpha_pi = vecAlpha(2:end);
+            sum_alpha_pi = sum(alpha_pi);
 
-        %% ===== QoS =====
-        for k = 1:K
-            Rp(k) + C_k(k) >= Rmin;
-        end
-
-        
-        for l = 1:nF
+            % ---------- USER-LEVEL CONSTRAINTS ----------
             for k = 1:K
-                
-                %% ===== SIGNAL & INTERFERENCE =====
-                
+ 
+                Rc <= log(1 + gamma_c(k))/log(2);
+
                 S_j = alpha_pi(k) * Nc_k_all(k);
-                I_j = (sum_alpha_pi - alpha_pi(k)) * Nc_k_all(k) ...
-                      + AN_P_ratio * Nc_k_AN_all(k);
-                
-                S_l = alpha_pi(k) * Nc_l_all(l,k);
-                I_l = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) ...
-                      + AN_P_ratio * Nc_l_AN_all(l,k);
-
-                
-
+                I_j = (sum_alpha_pi - alpha_pi(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
                 S_c = alpha_c * Nc_k_all(k);
-                
-                I_c = sum_alpha_pi * Nc_k_all(k) ...
-                      + AN_P_ratio * Nc_k_AN_all(k);
+                I_c = sum_alpha_pi * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
 
-                
-                %% ===== SINR LINEARIZATION =====
-                
-                bilinear_j = gamma_j_prev(k)*I_j ...
-                           + I_j_prev(k)*gamma_j(k) ...
-                           - gamma_j_prev(k)*I_j_prev(k);
-                
-                bilinear_j + gamma_j(k)*noise <= S_j;
-                
-                
-                bilinear_l = gamma_l_prev(l,k)*I_l ...
-                           + I_l_prev(l,k)*gamma_l(l,k) ...
-                           - gamma_l_prev(l,k)*I_l_prev(l,k);
-                
-                bilinear_l + gamma_l(l,k)*noise >= S_l;
-
-
-                bilinear_c = gamma_c_prev(k)*I_c ...
-           + I_c_prev(k)*gamma_c(k) ...
-           - gamma_c_prev(k)*I_c_prev(k);
-
-                bilinear_c + gamma_c(k)*noise <= S_c;
-
-                
-                
-                %% ===== LOG LINEARIZATION =====
-                
-                log_l_approx = log(1 + gamma_l_prev(l,k))/log(2) ...
-                    + (1/(1 + gamma_l_prev(l,k))) ...
-                    * (gamma_l(l,k) - gamma_l_prev(l,k))/log(2);
-                
-                s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
-                s_fake(l,k) >= 0;               
-
-                 
+                % Correct SCA linearization (upper bound on bilinear)
+                gamma_j_prev(k)*I_j + I_j_prev(k)*gamma_j(k) - gamma_j_prev(k)*I_j_prev(k) + gamma_j(k)*noise <= S_j;
+                gamma_c_prev(k)*I_c + I_c_prev(k)*gamma_c(k) - gamma_c_prev(k)*I_c_prev(k) + gamma_c(k)*noise <= S_c;
             end
-            
-        end
 
-        %% Common part decodability constraint.
-        for k = 1:K
-            Rc <= log(1 + gamma_c(k))/log(2);
-        end
+            % ---------- EAVESDROPPER / SECRECY CONSTRAINTS ----------
+            for l = 1:nF
+                for k = 1:K
+                    S_l = alpha_pi(k) * Nc_l_all(l,k);
+                    I_l = (sum_alpha_pi - alpha_pi(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
 
-        
+                    % Corrected: upper bound on gamma_l (same direction as legitimate users)
+                    gamma_l_prev(l,k)*I_l + I_l_prev(l,k)*gamma_l(l,k) - gamma_l_prev(l,k)*I_l_prev(l,k) + gamma_l(l,k)*noise <= S_l;
+
+                    % First-order upper bound on log(1+gamma_l) → lower bound on secrecy
+                    log_l_approx = log(1 + gamma_l_prev(l,k))/log(2) + ...
+                                   (1/((1 + gamma_l_prev(l,k))*log(2))) * (gamma_l(l,k) - gamma_l_prev(l,k));
+
+                    s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
+                end
+            end
+
     cvx_end
-    
+
     if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
-        fprintf('SCA failed at iteration %d (%s)\n', sca_iter, cvx_status);
+        fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
+        fprintf('Try increasing AN_P_ratio (e.g. to 5-10) or check channel strengths.\n');
         break;
     end
-    
-    %% ===== UPDATE FOR NEXT ITERATION =====
-    
-    alpha_pi_val = vecAlpha(2:end);
-    sum_alpha_val = sum(alpha_pi_val);
-    
-    for l = 1:nF
-        for k = 1:K
-            
-            I_j_prev(k) = (sum_alpha_val - alpha_pi_val(k)) ...
-                * Nc_k_all(k) + AN_P_ratio*Nc_k_AN_all(k);
-            
-            I_l_prev(l,k) = (sum_alpha_val - alpha_pi_val(k)) ...
-                * Nc_l_all(l,k) + AN_P_ratio*Nc_l_AN_all(l,k);
+
+    % ---------- UPDATE FOR NEXT ITERATION ----------
+    alpha_val = double(vecAlpha);
+    alpha_pi_val = alpha_val(2:end);
+    sum_pi_val = sum(alpha_pi_val);
+
+    for k = 1:K
+        gamma_j_prev(k) = double(gamma_j(k));
+        gamma_c_prev(k) = double(gamma_c(k));
+        I_j_prev(k) = (sum_pi_val - alpha_pi_val(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+        I_c_prev(k) = sum_pi_val * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+
+        for l = 1:nF
+            gamma_l_prev(l,k) = double(gamma_l(l,k));
+            I_l_prev(l,k) = (sum_pi_val - alpha_pi_val(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
         end
     end
-    
-    gamma_j_prev = gamma_j;
-    gamma_l_prev = gamma_l;
-    alpha = vecAlpha;
-    
+
+    alpha = alpha_val;
+end
+cvx_clear;
 end
 
-end
+function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
+              K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_sca)
+        cvx_clear;
+        Rmin = 1e-8;
+        Nr = length(phi_St);
+        zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
+        phase_St = exp(1j .* phi_St);
+        phase_Sr = exp(1j .* phi_Sr);
+        beta_St = sqrt(zeta_k_St) .* phase_St;
+        beta_Sr = sqrt(zeta_k_Sr) .* phase_Sr;
+        BW = delta_f;
+        N0_dBm = -174;
+        sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
+        Pw_dBm = 46;
+        Pw = 10^((Pw_dBm - 30)/10);
+        AN_P_ratio = 1;          % Increase this (e.g. 5-10) if eavesdroppers are too strong
+        noise = max(sigma2/Pw, 1e-10);
+        
+        %% ========================= PRECOMPUTE CHANNELS =========================
+        Nc_k_all = zeros(K,1);
+        Nc_k_AN_all = zeros(K,1);
+        Nc_l_all = zeros(nF,K);
+        Nc_l_AN_all = zeros(nF,K);
+        
+        for k = 1:K
+             reflect_coeff = reflect(k);
+                beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
+        
+            Nc_k_all(k) = compute_OTFS_static_channel( ...
+            0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
+            HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+            beta_r, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
+            h_e(:,k,1), 'vectorized');
+    
+            Nc_k_AN_all(k) = compute_OTFS_static_channel( ...
+                0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
+                HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                beta_r, Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), ...
+                h_e(:,k,2), 'vectorized');
+        end
+        for l = 1:nF
+            for k = 1:K
+                reflect_coeff = reflect(k);
+                beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
+                Nc_l_all(l,k) = compute_OTFS_static_channel( ...
+                    1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
+                    HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                    beta_r, Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), ...
+                    h_e(:,K+l,1), 'vectorized');
+                Nc_l_AN_all(l,k) = compute_OTFS_static_channel( ...
+                    1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
+                    HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                    beta_r, Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), ...
+                    h_e(:,K+l,2), 'vectorized');
+            end
+        end
+        
+        %% ========================= INITIALIZATION =========================
+        alpha_pi_init = alpha(2:end);
+        sum_pi_init = sum(alpha_pi_init);
+        
+        I_j_prev = zeros(K,1); I_c_prev = zeros(K,1);
+        gamma_j_prev = zeros(K,1); gamma_c_prev = zeros(K,1);
+        I_l_prev = zeros(nF,K); gamma_l_prev = zeros(nF,K);
+        
+        for k = 1:K
+            I_j_prev(k) = (sum_pi_init - alpha_pi_init(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+            gamma_j_prev(k) = (alpha_pi_init(k) * Nc_k_all(k)) / (I_j_prev(k) + noise);
+        
+            
+            for l = 1:nF
+                I_l_prev(l,k) = (sum_pi_init - alpha_pi_init(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
+                gamma_l_prev(l,k) = (alpha_pi_init(k) * Nc_l_all(l,k)) / (I_l_prev(l,k) + noise);
+            end
+        end
+        gamma_j_prev = max(gamma_j_prev, 1e-6);
+        gamma_l_prev = max(gamma_l_prev, 1e-6);
+        
+        %% ========================= SCA LOOP =========================
+        for sca_iter = 1:max_sca
+            cvx_begin quiet
+                cvx_solver mosek
+                
+                variable gamma_j(K) nonnegative
+                variable gamma_l(nF,K) nonnegative
+                variable beta_r(Nr,1) complex          
+                variable s_fake(nF,K)            % can be negative (we take max(0,.) later if needed)
+        
+                %maximize( (1/(nF*K)) * sum(sum(s_fake)) )
+        
+                maximize( min(min(s_fake)) )
+        
+                subject to
+
+                   abs(beta_r) <= 1;
+               
+                    % ---------- USER-LEVEL CONSTRAINTS ----------
+                    for k = 1:K    
+                      
+                       [V_1, V_2, term3] = compute_V(    0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                                                       Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), h_e(:,k,1));
+
+                       [V_1_AN, V_2_AN, term3_AN] = compute_V(    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+                                                       Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), h_e(:,k,2));
+
+
+    
+   
+                        Nc_k =    beta_r*V_1*beta_r' + 2*real(trace(V_2 * beta_r.')) + term3;
+
+                        AN_k =    beta_r*V_1_AN*beta_r' + 2*real(trace(V_2_AN * beta_r.')) + term3_AN;
+
+        
+                        S_j = alpha_pi(k) * Nc_k;
+                        I_j = (sum_alpha_pi - alpha_pi(k)) * Nc_k+ AN_P_ratio * AN_k;
+        
+                        % Correct SCA linearization (upper bound on bilinear)
+                        gamma_j(k)<=S_j/(I_j+noise);
+                    end
+        
+                    % ---------- EAVESDROPPER / SECRECY CONSTRAINTS ----------
+                    for l = 1:nF
+                        for k = 1:K
+
+                           [V_1_lk, V_2_lk, term3_lk] = compute_V(    1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                                                       Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), h_e(:,K+l,1));
+
+                           [V_1_AN_lk, V_2_AN_lk, term3_AN_lk] = compute_V(    1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
+                                                       Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2));
+
+
+    
+   
+                            Nc_lk =    beta_r*V_1_lk*beta_r' + 2*real(trace(V_2_lk * beta_r.')) + term3_lk;
+    
+                            AN_lk =    beta_r*V_1_AN_lk*beta_r' + 2*real(trace(V_2_AN_lk * beta_r.')) + term3_AN_lk;
+
+                            S_l = alpha_pi(k) * Nc_lk;
+                            I_l = (sum_alpha_pi - alpha_pi(k)) * Nc_lk + AN_P_ratio * AN_lk;
+
+                            gamma_l(l,k)>=S_l/(I_l+noise);
+        
+                            % Corrected: upper bound on gamma_l (same direction as legitimate users)
+                            gamma_l_prev(l,k)*I_l + I_l_prev(l,k)*gamma_l(l,k) - gamma_l_prev(l,k)*I_l_prev(l,k) + gamma_l(l,k)*noise <= S_l;
+        
+                            % First-order upper bound on log(1+gamma_l) → lower bound on secrecy
+                            log_l_approx = log(1 + gamma_l_prev(l,k))/log(2) + ...
+                                           (1/((1 + gamma_l_prev(l,k))*log(2))) * (gamma_l(l,k) - gamma_l_prev(l,k));
+        
+                            s_fake(l,k) <= log(1 + gamma_j(k))/log(2) - log_l_approx;
+                        end
+                    end
+        
+            cvx_end
+        
+            if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
+                fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
+                fprintf('Try increasing AN_P_ratio (e.g. to 5-10) or check channel strengths.\n');
+                break;
+            end
+        
+            % ---------- UPDATE FOR NEXT ITERATION ----------
+            
+            for k = 1:K
+                gamma_j_prev(k) = double(gamma_j(k));
+                I_j_prev(k) = (sum_pi_val - alpha_pi_val(k)) * Nc_k_all(k) + AN_P_ratio * Nc_k_AN_all(k);
+        
+                for l = 1:nF
+                    gamma_l_prev(l,k) = double(gamma_l(l,k));
+                    I_l_prev(l,k) = (sum_pi_val - alpha_pi_val(k)) * Nc_l_all(l,k) + AN_P_ratio * Nc_l_AN_all(l,k);
+                end
+            end
+        
+        end
+        phi_st = angle(doble(beta_r));
+
+        cvx_clear;
+  end
 
 
 
 
-function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St_init, phi_Sr_init, zeta_k_St_init, ...
-    K, Nr, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-    reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_inner)
 
-    % Use Particle Swarm for phase subproblem (SDP too heavy for large Nr)
-    any_reflect = any(reflect > 0) && any(reflect < 0);
-    
-    % Build variable vector for phi: [phi_St, phi_Sr, zeta_k_St] if any_reflect
-    if any_reflect
-        dim = 2*Nr + Nr;  % phi_St, phi_Sr, zeta
-        lb = zeros(1, dim);
-        ub = [2*pi*ones(1, 2*Nr), 10^(Active_Gain_dB/10) * ones(1, Nr)];
-        phi_var_init = [phi_St_init, phi_Sr_init, zeta_k_St_init];
-    else
-        dim = Nr;
-        lb = zeros(1, dim);
-        ub = 2*pi*ones(1, dim);
-        phi_var_init = phi_St_init;
-    end
-    
-    % Objective: negative mean fake secrecy + penalty for QoS
-    f_phi = @(phi_var) ao_objective_phi(phi_var, alpha, K, Nr, Rmin, Pe, P, Q_j, ...
-        nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-        reflect, h_rp, h_jq, h_e, Active_Gain_dB, any_reflect);
-    
-    opts = optimoptions('particleswarm', ...
-        'SwarmSize', 40, ...
-        'MaxIterations', 80, ...
-        'Display', 'off');
-    
-    phi_var_opt = particleswarm(f_phi, dim, lb, ub, opts);
-    
-    if any_reflect
-        phi_St = phi_var_opt(1:Nr);
-        phi_Sr = phi_var_opt(Nr+1:2*Nr);
-        zeta_k_St = phi_var_opt(2*Nr+1:end);
-    else
-        phi_St = phi_var_opt;
-        phi_Sr = [];
-        zeta_k_St = [];
-    end
-end
 
-function fitness = ao_objective_phi(phi_var, alpha, K, Nr, Rmin, Pe, P, Q_j, ...
-    nF, L, delta_f, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-    reflect, h_rp, h_jq, h_e, Active_Gain_dB, any_reflect)
-    
-    if any_reflect
-        phi_St = phi_var(1:Nr);
-        phi_Sr = phi_var(Nr+1:2*Nr);
-        zeta_k_St = phi_var(2*Nr+1:end);
-        x = [alpha, phi_St, phi_Sr, zeta_k_St];
-    else
-        phi_St = phi_var;
-        phi_Sr = zeros(1, Nr);  % Dummy
-        zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);  % Fixed if not mixed
-        x = [alpha, phi_St];
-    end
-    
-    [~, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an_cvx( ...
-        Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, ...
-        g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-        zeta_k_St, Active_Gain_dB, x);
-    
-    mean_fake = mean(sc_p_lk(1:nF, :), 'all');
-    penalty = 1e3 * sum(max(Rmin - R_k, 0).^2);
-    
-    fitness = -mean_fake + penalty;
-end
+
 
 
 
@@ -1080,8 +1150,8 @@ for i=1:size(X,1)
 
     %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
 
-    mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-    mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+    mean_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+    mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
     
     penalty = 0;
@@ -1149,8 +1219,8 @@ while t <= Max_iteration
 
         % Evaluate objective with updated alpha
         [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
-        mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-        mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+        mean_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+        mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
         penalty = 0;
         violation = max(Rmin - R_k, 0);
@@ -1194,8 +1264,8 @@ while t <= Max_iteration
        
         % Evaluate objective again
         [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
-        mean_fake_p_secrecy = mean(mean(sc_p_lk(1:nF,:)));
-        mean_p_secrecy = mean(mean(sc_p_lk(nF+1:end,:)));
+        mean_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+        mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
         penalty = 0;
         violation = max(Rmin - R_k, 0);
@@ -1295,15 +1365,15 @@ while t <= MNI
             Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
             Active_Gain_dB,X(i,:));
 
-        mean_fake = mean(mean(sc_p_lk(1:nF,:)));
-        mean_real = mean(mean(sc_p_lk(nF+1:end,:)));
+        min_fake = min(min(sc_p_lk(1:nF,:)));
+        min_real = min(min(sc_p_lk(nF+1:end,:)));
 
         violation = max(Rmin - R_k,0);
         penalty = -sum(violation.^2);
 
-        objective(i) = mean_fake + 1e3*penalty;
-        population_fake_secrecy_rate(i) = mean_fake;
-        population_real_secrecy_rate(i) = mean_real;
+        objective(i) = min_fake + 1e3*penalty;
+        population_fake_secrecy_rate(i) = min_fake;
+        population_real_secrecy_rate(i) = min_real;
     end
 
     %% ================= Global Best (ONLY PLACE IT UPDATES) =================
@@ -1354,16 +1424,16 @@ while t <= MNI
                 Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
                 Active_Gain_dB,v_i);
 
-            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            min_fake = min(min(sc_p_lk(1:nF,:)));
             violation = max(Rmin - R_k,0);
             penalty = -sum(violation.^2);
-            new_obj = mean_fake + 1e3*penalty;
+            new_obj = min_fake + 1e3*penalty;
 
             if new_obj > objective(i)
                 objective(i) = new_obj;
                 X(i,:) = v_i;
-                population_fake_secrecy_rate(i) = mean_fake;
-                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                population_fake_secrecy_rate(i) = min_fake;
+                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
             end
         end
     else
@@ -1395,16 +1465,16 @@ while t <= MNI
                 Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
                 Active_Gain_dB,v_i);
 
-            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            min_fake = min(min(sc_p_lk(1:nF,:)));
             violation = max(Rmin - R_k,0);
             penalty = -sum(violation.^2);
-            new_obj = mean_fake + 1e3*penalty;
+            new_obj = min_fake + 1e3*penalty;
 
             if new_obj > objective(i)
                 objective(i) = new_obj;
                 X(i,:) = v_i;
-                population_fake_secrecy_rate(i) = mean_fake;
-                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                population_fake_secrecy_rate(i) = min_fake;
+                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
             end
         end
     end
@@ -1514,13 +1584,13 @@ while t <= MNI
 
             % Evaluate after alpha substep
             [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
-            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            min_fake = min(min(sc_p_lk(1:nF,:)));
             penalty = sum(max(Rmin - R_k, 0).^2);
-            new_obj = mean_fake - 1e3 * penalty;
+            new_obj = min_fake - 1e3 * penalty;
             if new_obj > objective(i)
                 objective(i) = new_obj;
-                population_fake_secrecy_rate(i) = mean_fake;
-                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                population_fake_secrecy_rate(i) = min_fake;
+                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
                 X(i,alpha_idx) = alpha;
                 % Immediate global best check
                 if new_obj > best_objective
@@ -1544,13 +1614,13 @@ while t <= MNI
 
             % Evaluate after RIS substep
             [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
-            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            min_fake = min(min(sc_p_lk(1:nF,:)));
             penalty = sum(max(Rmin - R_k, 0).^2);
-            new_obj = mean_fake - 1e3 * penalty;
+            new_obj = min_fake - 1e3 * penalty;
             if new_obj > objective(i)
                 objective(i) = new_obj;
-                population_fake_secrecy_rate(i) = mean_fake;
-                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                population_fake_secrecy_rate(i) = min_fake;
+                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
                 X(i,ris_idx) = v_i_ris;
                 if new_obj > best_objective
                     best_objective = new_obj;
@@ -1595,16 +1665,16 @@ else
             
             [sc_c_lk, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
             
-            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            min_fake = min(min(sc_p_lk(1:nF,:)));
             penalty = sum(max(Rmin - R_k, 0).^2);
-            new_obj = mean_fake - 1e3 * penalty;
+            new_obj = min_fake - 1e3 * penalty;
 
             % Greedy Selection for Substep 1
             if new_obj > objective(i)
                 objective(i) = new_obj;
                 X(i, alpha_idx) = alpha;
-                population_fake_secrecy_rate(i) = mean_fake;
-                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                population_fake_secrecy_rate(i) = min_fake;
+                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
                 if new_obj > best_objective
                     best_objective = new_obj;
                     y_optimal = X(i,:);
@@ -1633,16 +1703,16 @@ else
      
             [sc_c_lk, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St, Active_Gain_dB, v_i);
             
-            mean_fake = mean(mean(sc_p_lk(1:nF,:)));
+            min_fake = min(min(sc_p_lk(1:nF,:)));
             penalty = sum(max(Rmin - R_k, 0).^2);
-            new_obj = mean_fake - 1e3 * penalty;
+            new_obj = min_fake - 1e3 * penalty;
 
             % Greedy Selection for Substep 2
             if new_obj > objective(i)
                 objective(i) = new_obj;
                 X(i, ris_idx) = v_i_ris;
-                population_fake_secrecy_rate(i) = mean_fake;
-                population_real_secrecy_rate(i) = mean(mean(sc_p_lk(nF+1:end,:)));
+                population_fake_secrecy_rate(i) = min_fake;
+                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
                 if new_obj > best_objective
                     best_objective = new_obj;
                     y_optimal = X(i,:);
@@ -1765,8 +1835,8 @@ function [fitness, min_fake, min_real] = objective_wrapper(x, params)
     [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = ...
         compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
 
-    min_fake = mean(mean(sc_p_lk(1:nF,:)));
-    min_real = mean(mean(sc_p_lk(nF+1:end,:)));
+    min_fake = min(min(sc_p_lk(1:nF,:)));
+    min_real = min(min(sc_p_lk(nF+1:end,:)));
 
     penalty = 1e3*sum(max(Rmin-R_k,0).^2);
     fitness = -min_fake + penalty;

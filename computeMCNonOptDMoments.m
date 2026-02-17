@@ -35,6 +35,9 @@ h_e = sqrt(gamrnd(m_e, Omega_e/m_e, [Pe,Ns])) .* exp(1i*2*pi*rand(Pe,Ns));
     
     term1 = sqrt(PLj)*term1;
 
+    norm_term1 = norm(term1,'fro').^2;
+
+   
 
     % ------------------ Construct Term2 ------------------
     B1 = zeros(Nsymb,Nsymb);
@@ -54,7 +57,7 @@ h_e = sqrt(gamrnd(m_e, Omega_e/m_e, [Pe,Ns])) .* exp(1i*2*pi*rand(Pe,Ns));
     norm_Term3 = 2*real(trace(term2'*term1));    
     
 
-    Nc_term1(n) = norm(term1,'fro').^2;
+    Nc_term1(n) = norm_term1;
 
     Nc_term2(n) = norm_term2;
 

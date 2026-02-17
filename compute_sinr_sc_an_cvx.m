@@ -139,7 +139,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
             C_k(k) = min(deficit, rate_c_available);
             rate_c_available = max(rate_c_available - C_k(k), 0);
         end
-        
+
         R_k = rate_p_vec(:) + C_k;
 
         for k = 1:K
