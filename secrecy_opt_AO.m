@@ -988,9 +988,9 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
 
     
    
-                        Nc_k =    beta_r*V_1*beta_r' + 2*real(trace(V_2 * beta_r.')) + term3;
+                        Nc_k =    beta_r'*V_1*beta_r + 2*real(trace(V_2 * beta_r)) + term3;
 
-                        AN_k =    beta_r*V_1_AN*beta_r' + 2*real(trace(V_2_AN * beta_r.')) + term3_AN;
+                        AN_k =    beta_r'*V_1_AN*beta_r + 2*real(trace(V_2_AN * beta_r)) + term3_AN;
 
         
                         S_j = alpha_pi(k) * Nc_k;
