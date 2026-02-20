@@ -38,8 +38,8 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 20; % number of rows of regularly arranged unit cells of RIS
-N_H = 20; % number of columns of regularly arranged unit cells of RIS
+N_V = 10; % number of rows of regularly arranged unit cells of RIS
+N_H = 10; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
@@ -669,7 +669,7 @@ for ao = 1:max_AO_iter
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  (Strong SCA heuristic)
     % ================================================================
-    [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
+    [phi_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
               K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB,max_SCA_inner);
 
@@ -677,7 +677,7 @@ for ao = 1:max_AO_iter
     if any_reflect
         X = [alpha, phi_Sr, phi_St, zeta_k_St];
     else
-        X = [alpha, phi_St];
+        X = [alpha, phi_St.'];
     end
 
     % Final evaluation
@@ -879,7 +879,7 @@ end
 cvx_clear;
 end
 
-function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
+function [phi_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
               K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_sca)
         cvx_clear;
@@ -893,10 +893,12 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
         BW = delta_f;
         N0_dBm = -174;
         sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
+        % Define the scaling factor
+        scaling_factor = 1 / sigma2;
         Pw_dBm = 46;
         Pw = 10^((Pw_dBm - 30)/10);
         AN_P_ratio = 1;          % Increase this (e.g. 5-10) if eavesdroppers are too strong
-        noise = max(sigma2/Pw, 1e-10);
+        noise = (sigma2/Pw)*scaling_factor;
         
         %% ========================= PRECOMPUTE CHANNELS =========================
         Nc_k_all = zeros(K,1);
@@ -908,17 +910,29 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
              reflect_coeff = reflect(k);
                 beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
         
-            Nc_k_all(k) = compute_OTFS_static_channel( ...
+            % Nc_k_all(k) = compute_SDR( ...
+            % 0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
+            % HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+            % beta_r, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
+            % h_e(:,k,1), 'loop')* scaling_factor;
+            % 
+            % Nc_k_all(k) = compute_SDR( ...
+            % 0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
+            % HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
+            % beta_r, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
+            % h_e(:,k,1), 'vectorized')* scaling_factor;
+
+             Nc_k_all(k) = compute_OTFS_static_channel( ...
             0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
             HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
             beta_r, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
-            h_e(:,k,1), 'vectorized');
+            h_e(:,k,1), 'vectorized')* scaling_factor;
     
             Nc_k_AN_all(k) = compute_OTFS_static_channel( ...
                 0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
                 HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
                 beta_r, Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), ...
-                h_e(:,k,2), 'vectorized');
+                h_e(:,k,2), 'vectorized')* scaling_factor;;
         end
         for l = 1:nF
             for k = 1:K
@@ -928,12 +942,12 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                     1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
                     HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
                     beta_r, Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), ...
-                    h_e(:,K+l,1), 'vectorized');
+                    h_e(:,K+l,1), 'vectorized')* scaling_factor;
                 Nc_l_AN_all(l,k) = compute_OTFS_static_channel( ...
                     1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
                     HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
                     beta_r, Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), ...
-                    h_e(:,K+l,2), 'vectorized');
+                    h_e(:,K+l,2), 'vectorized')* scaling_factor;
             end
         end
         
@@ -964,8 +978,8 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                 cvx_solver mosek
                 
                 % 1. Define the Augmented Matrix Variable
-                variable W(Nr+1, Nr+1) complex hermitian
-                
+               % variable W(Nr+1, Nr+1) complex hermitian
+                variable beta_r(1,Nr) complex  
                 variable gamma_j(K) nonnegative
                 variable gamma_l(nF,K) nonnegative
                 variable s_fake(nF,K)
@@ -975,10 +989,12 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                 subject to
 
                    % 2. SDR Constraints
-                    W == semidefinite(Nr+1); % Must be Positive Semidefinite
-                    W(Nr+1, Nr+1) == 1;      % The "1" in the augmented corner
-                    diag(W(1:Nr, 1:Nr)) <= 1; % Equivalent to abs(beta_r) <= 1
-               
+                    % W == semidefinite(Nr+1); % Must be Positive Semidefinite
+                    % W(Nr+1, Nr+1) == 1;      % The "1" in the augmented corner
+                    % diag(W(1:Nr, 1:Nr)) == 1; % Equivalent to abs(beta_r) <= 1
+                    
+                    abs(beta_r) <=1;
+                    
                     % ---------- USER-LEVEL CONSTRAINTS ----------
                     for k = 1:K    
                       
@@ -990,23 +1006,26 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                         
 
 
-                       V2 = gather(V2_gpu);
+                       V2 = gather(V2_gpu)*scaling_factor;
 
-                       V2_AN = gather(V2_AN_gpu);
+                       V2_AN = gather(V2_AN_gpu)*scaling_factor;
                        
-                       term3 = gather(term3_gpu);
+                       term3 = gather(term3_gpu)*scaling_factor;
 
-                       term3_AN = gather(term3_AN_gpu);
+                       term3_AN = gather(term3_AN_gpu)*scaling_factor;
 
                        % V_aug = [V1, V2'; V2, term3]
-                        V_k_aug = [V1, V2.'; conj(V2), term3];
-
-                        V_AN_k_aug = [V1_AN, V2_AN.'; conj(V2_AN), term3_AN];
+                        % V_k_aug = [V1, V2.'; conj(V2), term3]*scaling_factor;
+                        % 
+                        % V_AN_k_aug = [V1_AN, V2_AN.'; conj(V2_AN), term3_AN]*scaling_factor;
     
    
-                       % 4. Expressions are now LINEAR in W
-                        Nc_k = real(trace(V_k_aug * W));
-                        AN_k = real(trace(V_AN_k_aug * W));
+                       % 4. Quadratic expression in beta_r              
+                        Nc_k =    quad_form(beta_r', V1)  + 2*real(V2 * beta_r.') + term3;
+                        AN_k =    quad_form(beta_r', V1_AN) + 2*real(V2_AN * beta_r.') + term3_AN;
+
+                        % Nc_k = real(trace(V_k_aug * W));
+                        % AN_k = real(trace(V_AN_k_aug * W));
         
                         S_j = alpha_pi(k) * Nc_k;
                         I_j = (sum_alpha_pi - alpha_pi(k)) * Nc_k+ AN_P_ratio * AN_k;
@@ -1029,19 +1048,20 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                                                         HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
                                                         Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2));
 
-                    V2_lk = gather(V2_lk_gpu);
-                    V2_AN_lk= gather(V2_AN_lk_gpu);
-                    term3_lk = gather(term3_lk_gpu);
-                    term3_AN_lk  = gather(term3_AN_lk_gpu);
+                    V2_lk = gather(V2_lk_gpu)*scaling_factor;
+                    V2_AN_lk= gather(V2_AN_lk_gpu)*scaling_factor;
+                    term3_lk = gather(term3_lk_gpu)*scaling_factor;
+                    term3_AN_lk  = gather(term3_AN_lk_gpu)*scaling_factor;
 
                     % 2. Construct the Augmented Matrices for SDR
                     % These matrices contain all channel information (quadratic, linear, and constant)
-                    V_lk_aug = [V1_lk, V2_lk.'; conj(V2_lk), term3_lk];
-                    V_AN_lk_aug = [V1_AN_lk, V2_AN_lk.'; conj(V2_AN_lk), term3_AN_lk];
+                    % V_lk_aug = [V1_lk, V2_lk.'; conj(V2_lk), term3_lk]*scaling_factor;
+                    % V_AN_lk_aug = [V1_AN_lk, V2_AN_lk.'; conj(V2_AN_lk), term3_AN_lk]*scaling_factor;
             
-                    % 3. Calculate Signal and Interference as linear functions of W
-                    Nc_lk = real(trace(V_lk_aug * W));
-                    AN_lk = real(trace(V_AN_lk_aug * W));
+                    % 3. Quadratic expression in beta_r 
+                    
+                    Nc_lk =   quad_form(beta_r', V1_lk) + 2*real(V2_lk * beta_r.') + term3_lk;    
+                    AN_lk =   quad_form(beta_r', V1_AN_lk) + 2*real(V2_AN_lk * beta_r.') + term3_AN_lk;
             
                     S_l = alpha(k+1) * Nc_lk;
                     I_l = (sum(alpha(2:end)) - alpha(k+1)) * Nc_lk + AN_P_ratio * AN_lk;
@@ -1071,10 +1091,12 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                 break;
             end
 
-            % 5. Extract beta_r from W (Rank-1 Approximation)
-            [V_eig, D_eig] = eig(double(W));
-            beta_full = V_eig(:, end) * sqrt(D_eig(end, end)); % Principal eigenvector
-            beta_r_res = beta_full(1:Nr) / beta_full(Nr+1);    % Normalize by the augmented '1'
+            % % 5. Extract beta_r from W (Rank-1 Approximation)
+            % [V_eig, D_eig] = eig(double(W));
+            % beta_full = V_eig(:, end) * sqrt(D_eig(end, end)); % Principal eigenvector
+            % beta_r_res = beta_full(1:Nr) / beta_full(Nr+1);    % Normalize by the augmented '1'
+
+            beta_r_res = double(beta_r);
         
             % ---------- UPDATE FOR NEXT ITERATION ----------
 
@@ -1084,13 +1106,13 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                 0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
                 HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
                 beta_r_res, Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), ...
-                h_e(:,k,1), 'vectorized');
+                h_e(:,k,1), 'vectorized')* scaling_factor;
         
                 Nc_k_AN_all(k) = compute_OTFS_static_channel( ...
                     0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
                     HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
                     beta_r_res, Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), ...
-                    h_e(:,k,2), 'vectorized');
+                    h_e(:,k,2), 'vectorized')* scaling_factor;
             end
             for l = 1:nF
                 for k = 1:K
@@ -1099,12 +1121,12 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
                         1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
                         HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
                         beta_r_res, Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), ...
-                        h_e(:,K+l,1), 'vectorized');
+                        h_e(:,K+l,1), 'vectorized')* scaling_factor;
                     Nc_l_AN_all(l,k) = compute_OTFS_static_channel( ...
                         1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
                         HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
                         beta_r_res, Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), ...
-                        h_e(:,K+l,2), 'vectorized');
+                        h_e(:,K+l,2), 'vectorized')* scaling_factor;
                 end
             end
             
@@ -1119,7 +1141,7 @@ function [phi_St, phi_Sr, zeta_k_St] = optimize_phi_sca_fixed_alpha(alpha, phi_S
             end
         
         end
-        phi_St = angle(doble(beta_r_res));
+        phi_St = angle(double(beta_r_res));
 
         cvx_clear;
   end
