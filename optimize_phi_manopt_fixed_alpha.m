@@ -32,8 +32,8 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_
                                                    Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), h_e(:,k,2));
                     
 
-                   L_node(k).V1 = V1;
-                   L_node(k).V1_AN = V1_AN;
+                   L_node(k).V1 = (V1 + V1')/2;
+                   L_node(k).V1_AN = (V1_AN + V1_AN')/2;
 
                    L_node(k).V2 = gather(V2_gpu.');
                    L_node(k).V2_AN = gather(V2_AN_gpu.');
@@ -59,8 +59,8 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_
                                                             Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2));
 
 
-                        E_node(l).V1_l = V1_l;
-                        E_node(l).V1_AN_l = V1_AN_l;
+                        E_node(l).V1_l = (V1_l + V1_l')/2;
+                        E_node(l).V1_AN_l = (V1_AN_l + V1_AN_l')/2;
 
                         E_node(l).V2_l = gather(V2_l_gpu.');
                         E_node(l).V2_AN_l= gather(V2_AN_l_gpu.');
@@ -122,43 +122,38 @@ function g = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, 
     
     Nr = length(beta);
     ln2 = log(2);
-    noise_total = (sigma2/Pw);
-    
-    alpha_c = alpha(1);
+    noise_total = (sigma2/Pw);    
+ 
     alpha_pi = alpha(2:end);
     sum_alpha_pi = sum(alpha_pi);
     
     % 1. Compute all current rates and power terms
-    R_sec = zeros(nF, K);
-    T_k = zeros(K, 1); I_k = zeros(K, 1);
-    T_l = zeros(nF, K); I_l = zeros(nF, K);
+    SR = zeros(nF, K);
+    S_k = zeros(K, 1); I_k = zeros(K, 1);
+    S_l = zeros(nF, K); I_l = zeros(nF, K);
     
     for k = 1:K
         Pk = real(beta' * L_node(k).V1 * beta + 2*real(L_node(k).V2.' * beta) + L_node(k).term3);
         Ak = real(beta' * L_node(k).V1_AN * beta + 2*real(L_node(k).V2_AN.' * beta) + L_node(k).term3_AN);
         
-        I_k(k) = sum_alpha_pi * Pk + AN_ratio * Ak + noise_total;
-        T_k(k) = alpha_c * Pk + I_k(k);
+        I_k(k) = (sum_alpha_pi - alpha_pi(k)) * Pk + AN_ratio * Ak + noise_total;
+        S_k(k) = alpha_pi(k) * Pk;
         
         for l = 1:nF
             Pl = real(beta' * E_node(l).V1_l * beta + 2*real(E_node(l).V2_l.' * beta) + E_node(l).term3_l);
             Al = real(beta' * E_node(l).V1_AN_l * beta + 2*real(E_node(l).V2_AN_l.' * beta) + E_node(l).term3_AN_l);
-            
-            % Eavesdropper for common message
-            I_cl = sum_alpha_pi * Pl + AN_ratio * Al + noise_total;
-            T_cl = alpha_c * Pl + I_cl;
-            
+                     
             % Secrecy Rate for Private Message k (simplified example)
             % Adjust this logic to match your specific SINR definitions exactly
             I_l(l,k) = (sum_alpha_pi - alpha_pi(k)) * Pl + AN_ratio * Al + noise_total;
-            T_l(l,k) = alpha_pi(k) * Pl + I_l(l,k);
+            S_l(l,k) = alpha_pi(k) * Pl;
             
-            R_sec(l,k) = log2(T_k(k)/I_k(k)) - log2(T_l(l,k)/I_l(l,k));
+            SR(l,k) = log2(1 + S_k(k)/I_k(k)) - log2(1 + S_l(l,k)/I_l(l,k));
         end
     end
     
     % 2. Log-Sum-Exp Weights
-    costs = -R_sec(:);
+    costs = -SR(:);
     max_c = max(costs);
     weights = exp(s_param * (costs - max_c));
     weights = weights / sum(weights);
@@ -176,7 +171,7 @@ function g = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, 
         grad_Tk = alpha_c * grad_Pk + grad_Ik;
         
         % Component from User k's rate
-        g_user_k = (1/ln2) * (grad_Tk/T_k(k) - grad_Ik/I_k(k));
+        g_user_k = (1/ln2) * (grad_Tk/S_k(k) - grad_Ik/I_k(k));
         
         for l = 1:nF
             % Individual Gradients for Eavesdropper l
