@@ -1,37 +1,13 @@
-function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc_an(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,x)
-    %
-    % phi=[];
-    % alpha=[];
+function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc_an_manopt(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,x)
+
     alpha = x(1:K+1);
-    phi_St = wrapToPi(x(K+2:K+1+Nr));
-    phi_Sr=0;
+    beta_St = x(K+2:K+1+Nr);
 
 
     if sum(alpha) - 1> 1e-10
         error('Illegal RSMA power allocation');
     end
-    any_reflect = any(reflect > 0) && any(reflect < 0);
-
-    if any_reflect
-        phi_Sr =  wrapToPi(x(K+2+Nr:K+1+2*Nr));
-        zeta_k_St = x(K+2+2*Nr:K+1+3*Nr);
-    end
-
-    if gpuDeviceCount > 0
-         % --- GPU CHANGES: Convert x-derived vars to GPU if not already ---
-        alpha = gpuArray(alpha);  % Low-cost; ensures RSMA ops on GPU
-        phi_St = gpuArray(phi_St);
-        phi_Sr = gpuArray(phi_Sr);
-
-        zeta_k_St = gpuArray(zeta_k_St);
-    end
-    zeta_k_Sr = (10^(Active_Gain_dB/10))  - zeta_k_St;
-   
-    phase_Sr = exp(1j .* phi_Sr);  % Complex exp on GPU
-    phase_St = exp(1j .* phi_St);  % Complex exp on GPU
-
-    beta_St = sqrt(zeta_k_St) .* phase_St;  % Assuming zeta_k_Sr pre-GPU'd outside; else gpuArray it
-    beta_Sr = sqrt(zeta_k_Sr) .* phase_Sr;
+  
 
     % beta_St = sqrt(zeta_k_St).*phase;  % Uncomment if needed
 
@@ -72,8 +48,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
 
     % --- Legitimate Users ---
     for k = 1:K
-        reflect_coeff = reflect(k);
-        beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
+        beta_r = beta_St;
 
         % Channel call: Inputs already GPU'd outside, so stays on GPU
         [Nc_k] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(k,1),PLj(k,1),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,k,1),h_jq(:,:,k),h_e(:,k,1),'vectorized'); %Data Channel
@@ -95,8 +70,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
     sinr_p_l = zeros(L,K);
 
     for l=1:L
-        reflect_coeff = reflect(K+l);
-        beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
+        beta_r = beta_St;
 
         [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,1),PLj(K+l,1),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l,1),h_jq(:,:,K+l),h_e(:,K+l,1),'vectorized');
         [Nc_l_AN] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,2),PLj(K+l,2),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l,2),h_jq(:,:,K+l),h_e(:,K+l,2),'vectorized');
