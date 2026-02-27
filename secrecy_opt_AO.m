@@ -638,8 +638,8 @@ else
     zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
 end
 
-best_fake_secrecy = 0;
-best_real_secrecy = 0;
+best_fake_secrecy = -5;
+best_real_secrecy = -5;
 Convergence_curve_AO = zeros(1, max_AO_iter);
 
 fprintf('\n=== Starting Convex AO ===\n');
@@ -671,13 +671,13 @@ for ao = 1:max_AO_iter
     % ================================================================
     [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
               K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB,max_SCA_inner);
+              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB);
 
     % Rebuild X
     if any_reflect
         X = [alpha, phi_Sr, phi_St, zeta_k_St];
     else
-        X = [alpha, phi_St.'];
+        X = [alpha, phi_St(:).'];
     end
 
     % Final evaluation
