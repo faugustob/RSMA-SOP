@@ -672,6 +672,7 @@ for ao = 1:max_AO_iter
     [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
               K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB);
+    rng(3);
 
     % Rebuild X
     if any_reflect

@@ -2,6 +2,8 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_
               K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB)
 
+        rng('shuffle');
+
         Rmin = 1e-8;
         Nr = length(phi_St);
         BW = delta_f;
@@ -80,18 +82,30 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_
         problem.M = manifold;
 
         s_param = 20; % Smoothing parameter for max-min
-
        
+        % beta = manifold.rand();
+        % [R_sec,~] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+        % 
+        %   X = [alpha,beta.'];
+        % 
+        % [~,sc_p_lk,~] = compute_sinr_sc_an_manopt(Pe,P,Q_j,nF,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
+        % 
+        % f_min =  -(1/s_param) * log(sum(exp(-s_param * (R_sec)),'all'));
+        % min_Rsec = min(min(R_sec));
 
+        % grad_val = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
+         
 
         problem.cost = @(b) cost_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
-        problem = manoptAD(problem);
+        %problem = manoptAD(problem);
 
-        % problem.egrad = @(b) grad_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
+        problem.egrad = @(b) grad_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
+
+        %problem.ehess = @(b,v) hess_func(b,v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
         % 
         % % Initial guess
         b0 = manifold.rand();
-        % checkgradient(problem);
+        checkgradient(problem);
 
         % Solve
         fprintf('Starting Manifold Optimization...\n');
@@ -101,50 +115,55 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_
         
 end
 
-function R_sec = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_ratio)
- noise_total = (sigma2/Pw);
+function [R_sec,T_k,T_l,I_k,I_l,Ak,Pk,Al,Pl] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio)
+        noise_total = (sigma2/Pw);
         alpha_pi = alpha(2:end);
         sum_alpha_pi = sum(alpha_pi);
         % 1. Compute all current rates and power terms
         R_sec = zeros(nF, K);
-        T_k = zeros(K, 1); I_k = zeros(K, 1);
-        T_l = zeros(nF, K); I_l = zeros(nF, K);
+        T_k = zeros(K, 1); I_k = zeros(K, 1); Ak = zeros(K, 1); Pk = zeros(K, 1);
+        T_l = zeros(nF, K); I_l = zeros(nF, K); Pl = zeros(nF,1); Al = zeros(nF,1);
 
-        for k = 1:K
-            Pk = real(beta' * L_node(k).V1 * beta + 2*real(beta' * L_node(k).V2) + L_node(k).term3);   % you already fixed this earlier
-            Ak = real(beta' * L_node(k).V1_AN * beta + 2*real(beta' * L_node(k).V2_AN) + L_node(k).term3_AN);
+         for k = 1:K
+            Pk(k) = real(beta' * L_node(k).V1 * beta + 2*real(beta' * L_node(k).V2) + L_node(k).term3);   % you already fixed this earlier
+            Ak(k) = real(beta' * L_node(k).V1_AN * beta + 2*real(beta' * L_node(k).V2_AN) + L_node(k).term3_AN);      
+         end
+
+         for l = 1:nF
+             Pl(l) = real(beta' * E_node(l).V1_l * beta + 2*real(beta' * E_node(l).V2_l) + E_node(l).term3_l);
+             Al(l) = real(beta' * E_node(l).V1_AN_l * beta + 2*real(beta' * E_node(l).V2_AN_l) + E_node(l).term3_AN_l);      
+         end
+
+        for k = 1:K           
            
-            I_k(k) = (sum_alpha_pi - alpha_pi(k)) * Pk + AN_ratio * Ak + noise_total;
-            T_k(k) = alpha_pi(k) * Pk + I_k(k);
+            I_k(k) = (sum_alpha_pi - alpha_pi(k)) * Pk(k) + AN_P_ratio * Ak(k) + noise_total;
+            T_k(k) = alpha_pi(k) * Pk(k) + I_k(k);
        
-            for l = 1:nF
-                Pl = real(beta' * E_node(l).V1_l * beta + 2*real(beta' * E_node(l).V2_l) + E_node(l).term3_l);
-                Al = real(beta' * E_node(l).V1_AN_l * beta + 2*real(beta' * E_node(l).V2_AN_l) + E_node(l).term3_AN_l);
-               
-                I_cl =  (sum_alpha_pi - alpha_pi(k)) * Pl + AN_ratio * Al + noise_total;
-                T_cl = alpha_pi(k) * Pl + I_cl;
-               
-                I_l(l,k) = (sum_alpha_pi - alpha_pi(k)) * Pl + AN_ratio * Al + noise_total;
-                T_l(l,k) = alpha_pi(k) * Pl + I_l(l,k);
+            for l = 1:nF                             
+                          
+                I_l(l,k) = (sum_alpha_pi - alpha_pi(k)) * Pl(l) + AN_P_ratio * Al(l) + noise_total;
+                T_l(l,k) = alpha_pi(k) * Pl(l) + I_l(l,k);
                
                 R_sec(l,k) = log2(T_k(k)/I_k(k)) - log2(T_l(l,k)/I_l(l,k));
             end
         end
 end
 
-function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_ratio)
+function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio)
 
         %  X = [alpha,beta.'];
         % 
         % [~,sc_p_lk,~] = compute_sinr_sc_an_manopt(Pe,P,Q_j,nF,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
 
        
-    R_sec = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_ratio);
+    [R_sec,~] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+
     % Log-Sum-Exp smoothing for max(-R)
-    f_val =  (1/s_param) * log(sum(exp(-s_param * (R_sec)),'all'));
+    f_val =  -(1/s_param) * log(sum(exp(-s_param * (R_sec)),'all'));
+    f_val = -f_val;
 end
 
-function g = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_ratio)
+function g = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio)
     Nr = length(beta);
     ln2 = log(2);
     noise_total = (sigma2/Pw);
@@ -153,11 +172,9 @@ function g = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, 
     sum_alpha_pi = sum(alpha_pi);
    
     % 1. Compute all current rates and power terms
-    % R_sec = zeros(nF, K);
-    T_k = zeros(K, 1); I_k = zeros(K, 1);
-    T_l = zeros(nF, K); I_l = zeros(nF, K);
+  
    
-    R_sec = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_ratio);
+    [R_sec,T_k,T_l,I_k,I_l,Ak,Pk,Al,Pl] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 
     % 2. Log-Sum-Exp Weights      
     weights = exp(-s_param * (R_sec));
@@ -169,22 +186,37 @@ function g = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, 
     
     for k = 1:K
         % ==================== FIXED GRADIENT LINES ====================
-        grad_Pk = 2 * (L_node(k).V1 * beta) + 2 * L_node(k).V2;          % ← removed the '
-        grad_Ak = 2 * (L_node(k).V1_AN * beta) + 2 * L_node(k).V2_AN;    % ← removed the '
+        grad_Pk = 2 * (L_node(k).V1 * beta) + 2 * L_node(k).V2;           
+        grad_Ak = 2 * (L_node(k).V1_AN * beta) + 2 * L_node(k).V2_AN;    
         
-        grad_Ik = (sum_alpha_pi - alpha_pi(k)) * grad_Pk + AN_ratio * grad_Ak;
-        grad_Tk = alpha_pi(k) * grad_Pk + grad_Ik;
-        
-        g_user_k = (1/ln2) * (grad_Tk/T_k(k) - grad_Ik/I_k(k));
+                    
+        g_user_k = (alpha_pi(k)/(ln2*T_k(k)*I_k(k))) * ((Ak(k)+noise_total)*grad_Pk-Pk(k)*grad_Ak);
         
         for l = 1:nF
-            grad_Pl = 2 * (E_node(l).V1_l * beta) + 2 * E_node(l).V2_l;          % ← removed the '
-            grad_Al = 2 * (E_node(l).V1_AN_l * beta) + 2 * E_node(l).V2_AN_l;    % ← removed the '
+            grad_Pl = 2 * (E_node(l).V1_l * beta) + 2 * E_node(l).V2_l;          
+            grad_Al = 2 * (E_node(l).V1_AN_l * beta) + 2 * E_node(l).V2_AN_l;                
+                        
+            g_eav_l = (alpha_pi(k)/(ln2*T_l(l,k)*I_l(l,k))) * ((Al(l)+noise_total)*grad_Pl-Pl(l)*grad_Al);
             
-            grad_Il = (sum_alpha_pi - alpha_pi(k)) * grad_Pl + AN_ratio * grad_Al;
-            grad_Tl = alpha_pi(k) * grad_Pl + grad_Il;
-            
-            g_eav_l = (1/ln2) * (grad_Tl/T_l(l,k) - grad_Il/I_l(l,k));
+            g = g + weights(l,k) * (-(g_user_k - g_eav_l));
+        end
+    end
+end
+
+function h = hess_func(beta,v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio)
+      for k = 1:K
+        % ==================== FIXED GRADIENT LINES ====================
+        grad_Pk = 2 * (L_node(k).V1 * beta) + 2 * L_node(k).V2;           
+        grad_Ak = 2 * (L_node(k).V1_AN * beta) + 2 * L_node(k).V2_AN;    
+        
+                    
+        g_user_k = (alpha_pi(k)/(ln2*T_k(k)*I_k(k))) * ((Ak(k)+noise_total)*grad_Pk-Pk(k)*grad_Ak);
+        
+        for l = 1:nF
+            grad_Pl = 2 * (E_node(l).V1_l * beta) + 2 * E_node(l).V2_l;          
+            grad_Al = 2 * (E_node(l).V1_AN_l * beta) + 2 * E_node(l).V2_AN_l;                
+                        
+            g_eav_l = (alpha_pi(k)/(ln2*T_l(l,k)*I_l(l,k))) * ((Al(l)+noise_total)*grad_Pl-Pl(l)*grad_Al);
             
             g = g + weights(l,k) * (-(g_user_k - g_eav_l));
         end
