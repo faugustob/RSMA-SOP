@@ -666,11 +666,14 @@ beta = zeros(Nr,num_agents);
 
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
-    [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+   [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(i,:), K, nF, sigma2, Pw, AN_P_ratio);
     min_Rsec(i,1) = min(min(R_sec));
 end
 
-b0 = manifold.rand();
+b0 =  beta(:,min_Rsec == max(max(min_Rsec)));
+alpha = alpha(min_Rsec == max(max(min_Rsec)),:);
+
+[R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
 for ao = 1:max_AO_iter
@@ -693,14 +696,13 @@ for ao = 1:max_AO_iter
         end
 
      [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
+     [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 
 
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
     % ================================================================
-    [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,manifold,problem,b0,alpha, ...
-              K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB);
+    [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
    
 
     if(ao>1)
