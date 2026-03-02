@@ -621,11 +621,8 @@ max_AO_iter = 15;           % Outer AO iterations
 max_SCA_inner = 20;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
-% === Start from the best solution found so far (CRITICAL) ===
-X = Destination_position;   
 
 
-phi_St = 2*pi*rand(1,Nr);% transmission phases
 
 Active_Gain_dB = 0; 
 
@@ -643,6 +640,38 @@ best_real_secrecy = -5;
 Convergence_curve_AO = zeros(1, max_AO_iter);
 
 fprintf('\n=== Starting Convex AO ===\n');
+
+manifold = complexcirclefactory(Nr,1);
+problem.M = manifold;
+num_agents  = 30;
+
+%Parameters
+Rmin = 1e-8;      
+BW = delta_f;
+N0_dBm = -174;
+sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
+% Define the scaling factor
+Pw_dBm = 46;
+Pw = 10^((Pw_dBm - 30)/10);
+AN_P_ratio = 1;  
+
+
+ % ---------- CHANNELS ----------
+[L_node,E_node] = compute_channels( K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+reflect, h_rp, h_jq, h_e,  Active_Gain_dB);    
+
+
+beta = zeros(Nr,num_agents);
+
+
+for i = 1:num_agents
+    beta(:,i) = manifold.rand();
+    [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+    min_Rsec(i,1) = min(min(R_sec));
+end
+
+b0 = manifold.rand();
+phi_St = wrapToPi(angle(b0)).';
 
 for ao = 1:max_AO_iter
     
@@ -669,10 +698,14 @@ for ao = 1:max_AO_iter
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
     % ================================================================
-    [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
+    [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,manifold,problem,b0,alpha, ...
               K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
               reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB);
-    rng(3);
+   
+
+    if(ao>1)
+        b0 = exp(1i*phi_St);
+    end
 
     % Rebuild X
     if any_reflect
@@ -1074,10 +1107,6 @@ function [phi_St] = optimize_phi_sca_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_S
 
         cvx_clear;
   end
-
-
-
-
 
 
 

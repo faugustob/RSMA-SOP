@@ -1,100 +1,13 @@
-function [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_k_St, ...
-              K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB)
+function [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,problem,b0,alpha,Pw,sigma2)
 
-        rng('shuffle');
-        alpha = ones(1,K+1)/(K+1);
-
-        Rmin = 1e-8;
-        Nr = length(phi_St);
-        BW = delta_f;
-        N0_dBm = -174;
-        sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
-        % Define the scaling factor
-        Pw_dBm = 46;
-        Pw = 10^((Pw_dBm - 30)/10);
-        AN_P_ratio = 1;         % Increase this (e.g. 5-10) if eavesdroppers are too strong      
-        
-               
-        %% ========================= INITIALIZATION =========================
-        
-
-            % ---------- CHANNELS ----------
-                for k = 1:K    
-                  
-                   [V1, V2_gpu, term3_gpu] = compute_V(    0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
-                                                   Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), h_e(:,k,1));
-
-                   [V1_AN, V2_AN_gpu, term3_AN_gpu] = compute_V(    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
-                                                   Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), h_e(:,k,2));
-                    
-
-                   L_node(k).V1 = V1;
-                   L_node(k).V1_AN = V1_AN;
-
-                   L_node(k).V2 = gather(V2_gpu.');
-                   L_node(k).V2_AN = gather(V2_AN_gpu.');
-                   
-                   L_node(k).term3 = gather(term3_gpu);
-                   L_node(k).term3_AN = gather(term3_AN_gpu);
-
-                 % Nc_lk =   quad_form(beta_r', V1) + 2*real(V2 * beta_r.') + term3;    
-                 % AN_lk =   quad_form(beta_r', V1_AN) + 2*real(V2_AN * beta_r.') + term3_AN;
-    
-                    
-                end
-        
-                    % ---------- EAVESDROPPER / SECRECY CONSTRAINTS (SDR VERSION) ----------
-                for l = 1:nF
-                        % 1. Get the raw channel components
-                        [V1_l, V2_l_gpu, term3_l_gpu] = compute_V(1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
-                                                    HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
-                                                    Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), h_e(:,K+l,1));
-                                                    
-                        [V1_AN_l, V2_AN_l_gpu, term3_AN_l_gpu] = compute_V(1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
-                                                            HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
-                                                            Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2));
-
-
-                        E_node(l).V1_l = V1_l;
-                        E_node(l).V1_AN_l = V1_AN_l;
-
-                        E_node(l).V2_l = gather(V2_l_gpu.');
-                        E_node(l).V2_AN_l= gather(V2_AN_l_gpu.');
-
-                        E_node(l).term3_l = gather(term3_l_gpu);
-                        E_node(l).term3_AN_l  = gather(term3_AN_l_gpu);
-    
-                                      
-                        % 3. Quadratic expression in beta_r 
-                        
-                        % Nc_lk =   quad_form(beta_r', V1_lk) + 2*real(V2_lk * beta_r.') + term3_lk;    
-                        % AN_lk =   quad_form(beta_r', V1_AN_lk) + 2*real(V2_AN_lk * beta_r.') + term3_AN_lk;   
-                      
-                           
-                 end
-                
-       
-
-      
-        
+     
         %% ========================= MANOPT =========================
-        manifold = complexcirclefactory(Nr,1);
-        problem.M = manifold;
-        num_agents  = 30;
+        
 
-        s_param = 1e5; % Smoothing parameter for max-min
-        beta = zeros(Nr,num_agents);
-       
 
-        for i = 1:num_agents
-            beta(:,i) = manifold.rand();
-            [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-            min_Rsec(i,1) = min(min(R_sec));
-        end
 
-        b0 = beta(:,min_Rsec == max(min_Rsec));
 
+        s_param = 1e4; % Smoothing parameter for max-min
 
         % 
         %   X = [alpha,beta.'];
@@ -107,6 +20,7 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(alpha, phi_St, phi_Sr, zeta_
         % grad_val = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
          
 
+    
         problem.cost = @(b) cost_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
         %problem = manoptAD(problem);
 
@@ -233,8 +147,12 @@ function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, n
     [R_sec,~] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 
     % 2. Log-Sum-Exp Weights      
-    weights = exp(-s_param * (R_sec));
-    weights = weights / sum(weights,"all");
+    Z = -s_param * R_sec;
+
+    m = max(Z, [], "all");        % stabilization shift
+    weights = exp(Z - m);
+    
+    weights = weights / sum(weights, "all");
     grad_sec_lk = grad_R_sec(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
    
     % 3. Gradient Accumulation
@@ -259,8 +177,13 @@ function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, P
     
     % 2. Compute Log-Sum-Exp Weights (identical to grad_func)
     % We are minimizing the LSE of (-R_sec)
-    weights = exp(-s_param * (R_sec));
-    weights = weights / sum(weights, 'all');
+        % 2. Log-Sum-Exp Weights      
+    Z = -s_param * R_sec;
+
+    m = max(Z, [], "all");        % stabilization shift
+    weights = exp(Z - m);
+    
+    weights = weights / sum(weights, "all");
     
     % 3. Initialize accumulators
     g_final = zeros(Nr, 1);  % To store the total gradient
