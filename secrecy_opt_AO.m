@@ -495,7 +495,7 @@ for i=1:size(X,1)
     %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
 
     min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-    mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+    min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
     
     penalty = 0;
@@ -509,12 +509,12 @@ for i=1:size(X,1)
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
         best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = mean_p_secrecy;
+        best_real_secrecy_rate = min_p_secrecy;
     elseif Objective_values(1,i)<Destination_fitness
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
         best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = mean_p_secrecy;
+        best_real_secrecy_rate = min_p_secrecy;
     end
 
     All_objective_values(1,i)=Objective_values(1,i);
@@ -574,7 +574,7 @@ while t<=Max_iteration
         [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
         min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-        mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+        min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
       
        
@@ -593,7 +593,7 @@ while t<=Max_iteration
             Destination_position=X(i,:);
             Destination_fitness=Objective_values(1,i);
             best_fake_secrecy_rate = min_fake_p_secrecy;
-            best_real_secrecy_rate = mean_p_secrecy;
+            best_real_secrecy_rate = min_p_secrecy;
         end
     end
 
@@ -1167,7 +1167,7 @@ for i=1:size(X,1)
     %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
 
     min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-    mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+    min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
     
     penalty = 0;
@@ -1181,12 +1181,12 @@ for i=1:size(X,1)
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
         best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = mean_p_secrecy;
+        best_real_secrecy_rate = min_p_secrecy;
     elseif Objective_values(1,i)<Destination_fitness
         Destination_position=X(i,:);
         Destination_fitness=Objective_values(1,i);
         best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = mean_p_secrecy;
+        best_real_secrecy_rate = min_p_secrecy;
     end
 
     All_objective_values(1,i)=Objective_values(1,i);
@@ -1236,7 +1236,7 @@ while t <= Max_iteration
         % Evaluate objective with updated alpha
         [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
         min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-        mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+        min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
         penalty = 0;
         violation = max(Rmin - R_k, 0);
@@ -1249,7 +1249,7 @@ while t <= Max_iteration
             Destination_position = X(i,:);
             Destination_fitness = Objective_values(1,i);
             best_fake_secrecy_rate = min_fake_p_secrecy;
-            best_real_secrecy_rate = mean_p_secrecy;
+            best_real_secrecy_rate = min_p_secrecy;
         end
     end
     alpha_fixed = X(:,alpha_idx);
@@ -1281,7 +1281,7 @@ while t <= Max_iteration
         % Evaluate objective again
         [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
         min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-        mean_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+        min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
         penalty = 0;
         violation = max(Rmin - R_k, 0);
@@ -1294,7 +1294,7 @@ while t <= Max_iteration
             Destination_position = X(i,:);
             Destination_fitness = Objective_values(1,i);
             best_fake_secrecy_rate = min_fake_p_secrecy;
-            best_real_secrecy_rate = mean_p_secrecy;
+            best_real_secrecy_rate = min_p_secrecy;
         end
     end
 
@@ -1807,9 +1807,9 @@ fitness_func = @(x) objective_wrapper(x, params);
 
 % --- Post-Processing ---
 % Extract final best sum rate from the best position found
-[~, final_sec_rate,mean_p_secrecy] = objective_wrapper(best_x, params);
+[~, final_sec_rate,min_p_secrecy] = objective_wrapper(best_x, params);
 
-display(['Optimization complete. Best min. fake private sec. Rate: ', num2str(final_sec_rate),'Best min. real private sec. Rate: ', num2str(mean_p_secrecy)]);
+display(['Optimization complete. Best min. fake private sec. Rate: ', num2str(final_sec_rate),'Best min. real private sec. Rate: ', num2str(min_p_secrecy)]);
 
 % --- The Objective Function Wrapper (Local Function) ---
 function [fitness, min_fake, min_real] = objective_wrapper(x, params)
