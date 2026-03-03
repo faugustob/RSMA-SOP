@@ -685,12 +685,12 @@ for ao = 1:max_AO_iter
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
     % ================================================================
-    % alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
-    %           K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-    %           reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
+    alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
+              K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+              reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
 
 
-    [alpha] = new_optimize_alpha_cvx_fixed_phi(sigma2,Pw,L_node, E_node, beta, K, nF, max_SCA);
+    % [alpha] = new_optimize_alpha_cvx_fixed_phi(sigma2,Pw,L_node, E_node, beta, K, nF, max_SCA_inner);
     alpha = alpha.';
 
           % Rebuild X
