@@ -1,88 +1,170 @@
-function [alpha_final] = new_optimize_alpha_cvx_fixed_phi(sigma2,Pw,L_node, E_node, beta, K, nF, max_SCA)
-    %% ========================= CONSTANTS =========================
-    AN_P_ratio = 1;         
-    noise_total = (sigma2/Pw);
-    
-    %% ========================= PRECOMPUTE CHANNELS =========================
-    Pk = zeros(K, 1); Ak = zeros(K, 1);
-    Pl = zeros(nF, 1); Al = zeros(nF, 1);
-    for k = 1:K
-        Pk(k) = real(beta' * L_node(k).V1 * beta + 2*real(beta' * L_node(k).V2) + L_node(k).term3);
-        Ak(k) = real(beta' * L_node(k).V1_AN * beta + 2*real(beta' * L_node(k).V2_AN) + L_node(k).term3_AN);      
-    end
-    for l = 1:nF
-        Pl(l) = real(beta' * E_node(l).V1_l * beta + 2*real(beta' * E_node(l).V2_l) + E_node(l).term3_l);
-        Al(l) = real(beta' * E_node(l).V1_AN_l * beta + 2*real(beta' * E_node(l).V2_AN_l) + E_node(l).term3_AN_l);      
-    end
+function [alpha] = new_optimize_alpha_cvx_fixed_phi(alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+    K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA)
+%% ========================= CONSTANTS =========================
+Rmin = 1e-8;
+Nr = length(phi_St);
+zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
+phase_St = exp(1j .* phi_St);
+phase_Sr = exp(1j .* phi_Sr);
+beta_St = sqrt(zeta_k_St) .* phase_St;
+beta_Sr = sqrt(zeta_k_Sr) .* phase_Sr;
+BW = delta_f;
+N0_dBm = -174;
+sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
+Pw_dBm = 46;
+Pw = 10^((Pw_dBm - 30)/10);
+AN_P_ratio = 1;          % Increase this (e.g. 5-10) if eavesdroppers are too strong
+noise = sigma2/Pw;
 
-    %% ========================= INITIALIZATION =========================
-    % Start with a feasible uniform distribution
-    alpha_prev = ones(K+1, 1) / (K+1); 
 
-    %% ========================= SCA LOOP =========================
-    for sca_iter = 1:max_SCA
-        cvx_begin quiet
-            cvx_solver mosek
-            
-            variable vecAlpha(K+1) nonnegative
-            variable s_fake(nF, K) 
-            
-            % Expressions for readability
-            alpha_c = vecAlpha(1);
-            alpha_pi = vecAlpha(2:end);
-            sum_alpha_pi = sum(alpha_pi);
-            
-            % Previous values for linearization
-            alpha_prev_c = alpha_prev(1);
-            alpha_prev_pi = alpha_prev(2:end);
-            sum_alpha_prev_pi = sum(alpha_prev_pi);
+%% ========================= PRECOMPUTE CHANNELS =========================
+Pk = zeros(K,1);
+Ak = zeros(K,1);
+Pl = zeros(nF,1);
+Al = zeros(nF,1);
 
-            maximize( min(min(s_fake)) )
-            
-            subject to
-                sum(vecAlpha) <= 1;
-                vecAlpha >= 1e-3; % Small floor to prevent log(0)
-                
-                for k = 1:K
-                    % --- User Rate (Concave) ---
-                    % R_k = log2(1 + (alpha_k * Pk) / (Interference))
-                    % We use the log_det or log-sum-inv forms, but for SCA, 
-                    % we can simplify if we assume sum_alpha is the main interference.
-                    
-                    I_k = (sum_alpha_pi - alpha_pi(k)) * Pk(k) + AN_P_ratio * Ak(k) + noise_total;
-                    T_k = alpha_pi(k) * Pk(k) + I_k;
-                    
-                    % Linearizing the Eavesdropper part for Secrecy
-                    for l = 1:nF
-                        I_lk = (sum_alpha_pi - alpha_pi(k)) * Pl(l) + AN_P_ratio * Al(l) + noise_total;
-                        T_lk = alpha_pi(k) * Pl(l) + I_lk;
-                        
-                        % Previous values for the Eavesdropper log term
-                        I_lk_prev = (sum_alpha_prev_pi - alpha_prev_pi(k)) * Pl(l) + AN_P_ratio * Al(l) + noise_total;
-                        T_lk_prev = alpha_prev_pi(k) * Pl(l) + I_lk_prev;
-                        
-                        % --- Secrecy Rate Approximation ---
-                        % Rate_k - Rate_eve_lk
-                        % Use First-order Taylor: -log(T_lk) <= -log(T_lk_prev) - (T_lk - T_lk_prev)/T_lk_prev
-                        R_user = log(T_k)/log(2); 
-                        R_eve_approx = (log(T_lk_prev) + (T_lk - T_lk_prev)/T_lk_prev)/log(2) - log(I_lk)/log(2);
-                        
-                        s_fake(l,k) <= R_user - R_eve_approx;
-                    end
-                end
-        cvx_end
+for k = 1:K
+     reflect_coeff = reflect(k);
+        beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
+ 
+     beta = beta_r.';
+     Pk(k) = real(beta' * L_node(k).V1 * beta + 2*real(beta' * L_node(k).V2) + L_node(k).term3);   % you already fixed this earlier
+     Ak(k) = real(beta' * L_node(k).V1_AN * beta + 2*real(beta' * L_node(k).V2_AN) + L_node(k).term3_AN);    
+end
+beta =  beta_St.';
+for l = 1:nF       
+ 
+  Pl(l) = real(beta' * E_node(l).V1_l * beta + 2*real(beta' * E_node(l).V2_l) + E_node(l).term3_l);
+  Al(l) = real(beta' * E_node(l).V1_AN_l * beta + 2*real(beta' * E_node(l).V2_AN_l) + E_node(l).term3_AN_l);        
+end
+
+
+%% ========================= INITIALIZATION =========================
+tol = 1e-10;           % Convergence tolerance
+obj_prev = -inf;      % Track previous objective value
+alpha_prev = alpha_prev.';
+
+A_pos=diag(ones(size(alpha_prev)));
+A_neg = 1 - A_pos;
+
+
+
+A_neg_pi = A_neg;
+A_neg_pi(1,:)=0;
+
+scale = 1e10;
+
+noise = noise*scale;
+
+Pk = Pk * scale;
+Pl = Pl * scale;
+Ak = Ak * scale;
+Al = Al * scale;  
+
+%% ========================= SCA LOOP =========================
+for sca_iter = 1:max_SCA
+
+    % Scaling to avoid ILL Posed issue
+     
+
+   cvx_clear;
+    cvx_begin
+        cvx_solver mosek
         
-        if contains(cvx_status, 'Solved')
-            % Check for convergence
-            if norm(vecAlpha - alpha_prev) < 1e-4
-                alpha_prev = double(vecAlpha);
-                break;
+        variable vecAlpha(K+1) nonnegative   
+        variable Rc nonnegative
+        variable s_fake(nF,K)            % can be negative (we take max(0,.) later if needed)
+        variable t
+
+        %maximize( (1/(nF*K)) * sum(sum(s_fake)) )
+
+        maximize(t)
+
+        subject to
+            sum(vecAlpha) <= 1;
+            vecAlpha >= 1e-2;
+
+            
+            % ---------- USER-LEVEL CONSTRAINTS ----------
+            for k = 1:K             
+
+                               
+                I_c_prev = Pk(k)*A_neg(:,1).'*alpha_prev + AN_P_ratio * Ak(k)+noise;
+
+                S_c = Pk(k)*A_pos(:,1).'*vecAlpha;
+                I_c = Pk(k)*A_neg(:,1).'*vecAlpha + AN_P_ratio * Ak(k)+noise;
+
+                %Original : Rc <= log(S_c+I_c)/log(2)-log(I_c)/log(2);
+ 
+                Rc <= log(S_c+I_c)/log(2) ...
+                      - log(I_c_prev)/log(2) ...
+                      - (1/log(2)) * ((Pk(k)*A_neg(:,1).')/(I_c_prev)) ...
+                        * (vecAlpha-alpha_prev);          
+
+             
             end
-            alpha_prev = double(vecAlpha);
-        else
-            fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
-            break;
-        end
+
+            % ---------- EAVESDROPPER / SECRECY CONSTRAINTS ----------
+            for l = 1:nF
+                for k = 1:K
+
+                    S_l_prev = Pl(l)*A_pos(:,k+1).'*alpha_prev;
+                    I_l_prev = Pl(l)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Al(l)+noise;
+
+
+                    %S_k_prev = Pk(k)*A_pos(:,k+1).'*alpha_prev;                   
+                    I_k_prev = Pk(k)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Ak(k)+noise; 
+
+                    %S_l = Pl(l)*A_pos(:,k+1).'*vecAlpha;
+                    I_l = Pl(l)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Al(l)+noise;      
+                   
+                    S_k = Pk(k)*A_pos(:,k+1).'*vecAlpha;  
+                    I_k = Pk(k)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Ak(k)+noise; 
+
+                    % log2 I_k taylor expansion
+                    log_ik_aprox = log(I_k_prev)/log(2) ...
+                        - (1/log(2)) * ((Pk(k)*A_neg_pi(:,k+1).')/(I_k_prev)) ...
+                        * (vecAlpha-alpha_prev);
+
+                    % log2(I_l + S_l) taylor expansion 1st order
+                    log_il_sl_aprox = log(I_l_prev+S_l_prev)/log(2) ...
+                    + (1/log(2)) * ((Pl(l)*(A_neg_pi(:,k+1)+A_pos(:,k+1)).')/(I_l_prev+S_l_prev)) ...
+                    * (vecAlpha-alpha_prev);
+
+                    % original
+                    % s_fake(l,k) <= log(I_k+S_k)/log(2) - log(I_k)/log(2) - log(I_l+S_l)/log(2) + log(I_l)/log(2);
+
+                    s_fake(l,k) <= log(I_k+S_k)/log(2) + log(I_l)/log(2) - log_ik_aprox - log_il_sl_aprox;
+                   t<= s_fake(l,k);
+                end
+            end
+
+    cvx_end
+
+    if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
+        fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
+        break;
     end
-    alpha_final = alpha_prev;
+
+    % ---------- CONVERGENCE CHECK ----------
+    current_obj = double(t);
+    % Check relative change in objective and variable
+    obj_change = abs(current_obj - obj_prev) / (abs(obj_prev) + 1);
+    alpha_change = norm(double(vecAlpha) - alpha_prev) / (norm(alpha_prev) + 1);
+
+    fprintf('SCA Iter %d: Obj = %.6f, Alpha Delta = %.6e\n', sca_iter, current_obj, alpha_change);
+
+    if obj_change < tol && alpha_change < tol
+        fprintf('SCA converged at iteration %d.\n', sca_iter);
+        alpha_prev = double(vecAlpha);
+        break;
+    end
+
+    % ---------- UPDATE FOR NEXT ITERATION ----------
+    alpha_prev = double(vecAlpha);
+    obj_prev = current_obj;
+ 
+end
+alpha = double(vecAlpha);
+
 end
