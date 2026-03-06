@@ -38,8 +38,8 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 30; % number of rows of regularly arranged unit cells of RIS
-N_H = 30; % number of columns of regularly arranged unit cells of RIS
+N_V = 40; % number of rows of regularly arranged unit cells of RIS
+N_H = 40; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
