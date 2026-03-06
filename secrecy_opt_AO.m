@@ -421,7 +421,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 60;
-Max_iteration = 10;
+Max_iteration = 300;
 Rmin=0.1;
 
 % Check if more than one STAR-RIS side is being used.
@@ -617,12 +617,9 @@ end
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 display('Convex Approximation with AO');
 
-max_AO_iter = 15;           % Outer AO iterations
+max_AO_iter = Max_iteration;           % Outer AO iterations
 max_SCA = 20;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
-
-
-
 
 Active_Gain_dB = 0; 
 
@@ -644,6 +641,8 @@ fprintf('\n=== Starting Convex AO ===\n');
 manifold = complexcirclefactory(Nr,1);
 problem.M = manifold;
 num_agents  = 30;
+
+prev_cost  = -10;
 
 %Parameters
 Rmin = 1e-8;      
@@ -678,6 +677,8 @@ alpha = alpha_prev;
 [R_sec_prev,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
+min_prev = min(min(R_sec_prev));
+
 for ao = 1:max_AO_iter
 
    
@@ -692,7 +693,7 @@ for ao = 1:max_AO_iter
     %           reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
 
 
-    [alpha] = new_optimize_alpha_cvx_fixed_phi(alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+    [alpha] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA);
     alpha = alpha.';
 
@@ -705,16 +706,17 @@ for ao = 1:max_AO_iter
 
      [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
      [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+     min_next = min(min(R_sec));
 
 
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
     % ================================================================
-    [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
+    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
    
 
     if(ao>1)
-        b0 = exp(1i*phi_St);
+        b0 = exp(1i*phi_St(:));
     end
 
     % Rebuild X
@@ -732,24 +734,27 @@ for ao = 1:max_AO_iter
     current_fake = min(min(sc_p_lk(1:nF,:)));
     current_real = min(min(sc_p_lk(nF+1:end,:)));
 
-    if current_fake > best_fake_secrecy
+    if cost_opt > prev_cost
         best_fake_secrecy = current_fake;
         best_real_secrecy = current_real;
         Destination_position = X;
+        prev_cost = cost_opt;
     end
 
-    Convergence_curve_AO(ao) = best_fake_secrecy;
+   Convex_Convergence_curve_AO(t) = prev_cost;
+    Convex_Fake_Convergence_curve_AO(ao) = best_fake_secrecy;
+    Convex_Real_Convergence_curve_AO(ao) = best_real_secrecy;
 
-    fprintf('AO Iter %2d | Fake Secrecy = %.4f | Real = %.4f | Δ = %.4f\n', ...
+    fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n', ...
             ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake);
 
-    if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
-        fprintf('→ AO Converged at iteration %d\n', ao);
-        break;
-    end
+    % if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
+    %     fprintf('→ AO Converged at iteration %d\n', ao);
+    %     break;
+    % end
 end
 
-fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.4f\n', best_fake_secrecy);
+fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
 
 
 %% Functions
@@ -1589,7 +1594,7 @@ end
 figure('Color','w'); % White background
 
 % Define color palette (colorblind-friendly)
-colors = lines(5);
+colors = lines(6);
 
 % Marker interval
 markerInterval = 50;
@@ -1601,11 +1606,12 @@ plot(Convergence_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineW
 plot(HSCA_Convergence_curve(2:end), 'Color', colors(2,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','d', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve(2:end)), 'MarkerFaceColor',colors(2,:))
 plot(HSCA_Convergence_curve_AO(2:end), 'Color', colors(2,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(2,:))
 plot(PSO_Convergence_curve(1:end), 'Color', colors(5,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Convergence_curve), 'MarkerFaceColor',colors(5,:))
+plot(Convex_Convergence_curve_AO(2:end), 'Color', colors(6,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(6,:))
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
 xlabel('Iteration','FontWeight','bold','FontSize',11);
 ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
-legend('SCA','SCA-AO','HSCA','HSCA-AO','PSO','Location','best','FontSize',10);
+legend('SCA','SCA-AO','HSCA','HSCA-AO','PSO','Convex-Manifold','Location','best','FontSize',10);
 grid on;
 ax = gca;
 ax.GridAlpha = 0.3; % Lighter grid
@@ -1630,6 +1636,7 @@ plot(Fake_secrecy_rate_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle','--', 
 plot(Real_secrecy_rate_curve(2:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',1.5, 'Marker','d', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(1,:));
 plot(Real_secrecy_rate_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
 
+
 % HSCA & HSCA-AO
 plot(HSCA_Fake_secrecy_rate_curve(2:end), 'Color', colors(2,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','o', 'MarkerIndices',1:markerInterval:length(HSCA_Fake_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(2,:));
 plot(HSCA_Fake_secrecy_rate_curve_AO(2:end), 'Color', colors(2,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(HSCA_Fake_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(2,:));
@@ -1640,13 +1647,18 @@ plot(HSCA_Real_secrecy_rate_curve_AO(2:end), 'Color', colors(2,:), 'LineStyle','
 plot(PSO_Fake_secrecy_rate_curve, 'k--', 'LineWidth',1.8, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Fake_secrecy_rate_curve), 'MarkerFaceColor','k');
 plot(PSO_Real_secrecy_rate_curve, 'k-.', 'LineWidth',1.8, 'Marker','>', 'MarkerIndices',1:markerInterval:length(PSO_Real_secrecy_rate_curve), 'MarkerFaceColor','k');
 
+
+% Convex + Manopt
+plot(Convex_Fake_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Fake_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+
 title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
 xlabel('Iteration','FontWeight','bold','FontSize',11);
 ylabel('Secrecy Rate','FontWeight','bold','FontSize',11);
 legend( ...
     'SCA-fake','SCA-fake-AO','SCA-real','SCA-real-AO', ...
     'HSCA-fake','HSCA-fake-AO','HSCA-real','HSCA-real-AO', ...
-    'PSO-fake','PSO-real', ...
+    'PSO-fake','PSO-real','Convex-fake','Convex-real', ...
     'Location','best','FontSize',10);
 
 grid on;
@@ -1656,3 +1668,4 @@ ax.LineWidth = 1.1;
 box on;
 
 
+ 

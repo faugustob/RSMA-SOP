@@ -1,4 +1,4 @@
-function [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio)
+function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio)
 
      
         %% ========================= MANOPT =========================
@@ -8,6 +8,7 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,problem,b0,alp
 
 
         s_param = 1e4; % Smoothing parameter for max-min
+        lambda_penalty = 1e3;
 
         % 
         %   X = [alpha,beta.'];
@@ -22,23 +23,24 @@ function [phi_St] = optimize_phi_manopt_fixed_alpha(L_node,E_node,problem,b0,alp
         Nr = length(b0);
 
     
-        problem.cost = @(b) cost_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
+        problem.cost = @(b) cost_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty);
         %problem = manoptAD(problem);
 
-        problem.egrad = @(b) grad_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
+        problem.egrad = @(b) grad_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty);
 
-        problem.ehess = @(b,v) hess_func(b,v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
+        problem.ehess = @(b,v) hess_func(b,v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty);
         % 
         % % Initial guess
         % b0 = manifold.rand();
-        %checkhessian(problem);
+        %checkgradient(problem);
+        % checkhessian(problem);
 
         % Solve
-        fprintf('Starting Manifold Optimization...\n');
+       % fprintf('Starting Manifold Optimization...\n');
         % Define options structure
         options.tolgradnorm = 1e-8;    % Stop when the gradient norm is very small
         options.maxiter = 1e5;         % Maximum outer iterations
-        options.verbosity = 2;          % 2 shows summary, 3 shows detailed inner steps
+        options.verbosity = 0;          % 2 shows summary, 3 shows detailed inner steps
         options.linesearch = @linesearch; % Trust-regions usually manages step size via the radius
         
         % Inner iteration control (Krylov steps)
@@ -55,7 +57,7 @@ end
 
 
 
-function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio)
+function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty)
 
         %  X = [alpha,beta.'];
         % 
@@ -68,7 +70,13 @@ function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, 
     %f_val =  (1/s_param) * log(sum(exp(-s_param * (R_sec)),'all'));
     Z = -s_param * R_sec;
     m = max(Z, [], 'all');                 % stabilization shift
-    f_val = (1/s_param) * ( m + log(sum(exp(Z - m), 'all')) );
+    f_lse = (1/s_param) * ( m + log(sum(exp(Z - m), 'all')) );
+    
+    % --- NEW: Penalty Term ---
+    % Quadratic penalty for violating Rmin
+    penalty = lambda_penalty * sum(max(0, Rmin - R_sec).^2, 'all');
+    
+    f_val = f_lse + penalty;
     
 end
 
@@ -111,7 +119,7 @@ function [grad_Rsec_lk] = grad_R_sec(beta, L_node, E_node, alpha, K, nF, sigma2,
     end
 end
 
-function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio)
+function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty)
     Nr = length(beta);   
     [R_sec,~] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 
@@ -124,17 +132,31 @@ function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, n
     weights = weights / sum(weights, "all");
     grad_sec_lk = grad_R_sec(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
    
-    % 3. Gradient Accumulation
-    g = zeros(Nr, 1);   % already correct
-    
+    g_lse = zeros(Nr, 1);
     for k = 1:K   
         for l = 1:nF           
-            g = g + weights(l,k) * (-(grad_sec_lk(:,l,k)));
+            g_lse = g_lse + weights(l,k) * (-(grad_sec_lk(:,l,k)));
         end
     end
+
+    % 2. Gradient of Penalty Part
+    % d/dR [ lambda * (Rmin - R)^2 ] = -2 * lambda * (Rmin - R)
+    g_penalty = zeros(Nr, 1);
+    violation = Rmin - R_sec;
+    mask = violation > 0; % Only penalize if R_sec < Rmin
+    
+    for k = 1:K
+        for l = 1:nF
+            if mask(l,k)
+                g_penalty = g_penalty + (-2 * lambda_penalty * violation(l,k)) * grad_sec_lk(:,l,k);
+            end
+        end
+    end
+
+    g = g_lse + g_penalty;
 end
 
-function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio)
+function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty)
     Nr = length(beta);
     ln2 = log(2);
     noise_total = (sigma2/Pw);
@@ -215,6 +237,16 @@ function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, P
             % Accumulate parts
             g_final = g_final + weights(l,k) * g_lk;
             h_sum_parts = h_sum_parts + weights(l,k) * (h_lk + s_param * df_lk_v * g_lk);
+            % --- NEW: Penalty Hessian accumulation ---
+            if (Rmin - R_sec(l,k)) > 0
+                violation = Rmin - R_sec(l,k);
+                % d/dbeta [ -2 * lambda * (Rmin - R) * grad_R ]
+                % = 2 * lambda * (grad_R * grad_R')*v - 2 * lambda * (Rmin - R) * Hessian_R*v
+                
+                % Note: h_lk here is already Hessian of (-R), which is exactly what we need
+                h_penalty_lk = 2 * lambda_penalty * (real((-g_lk)' * v) * (-g_lk) + violation * h_lk);
+                h_sum_parts = h_sum_parts + h_penalty_lk;
+            end
         end
     end
     

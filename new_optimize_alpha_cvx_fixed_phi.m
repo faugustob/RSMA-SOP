@@ -1,8 +1,6 @@
-function [alpha] = new_optimize_alpha_cvx_fixed_phi(alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+function [alpha] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA)
 %% ========================= CONSTANTS =========================
-Rmin = 1e-8;
-Nr = length(phi_St);
 zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
 phase_St = exp(1j .* phi_St);
 phase_Sr = exp(1j .* phi_Sr);
@@ -43,6 +41,7 @@ end
 tol = 1e-10;           % Convergence tolerance
 obj_prev = -inf;      % Track previous objective value
 alpha_prev = alpha_prev.';
+lambda_penalty = 1e3; % Adjust based on how strictly you want to enforce Rmin
 
 A_pos=diag(ones(size(alpha_prev)));
 A_neg = 1 - A_pos;
@@ -68,7 +67,7 @@ for sca_iter = 1:max_SCA
      
 
    cvx_clear;
-    cvx_begin
+    cvx_begin quiet
         cvx_solver mosek
         
         variable vecAlpha(K+1) nonnegative   
@@ -76,13 +75,18 @@ for sca_iter = 1:max_SCA
         variable s_fake(nF,K)            % can be negative (we take max(0,.) later if needed)
         variable t
 
-        %maximize( (1/(nF*K)) * sum(sum(s_fake)) )
+        % --- NEW: Define Penalty Expression ---
+        % We use 'pos' because max(0, Rmin - s_fake) is convex
+        % We square it to create a quadratic penalty (as in your example)
+        penalty_term = sum(sum(square_pos(Rmin - s_fake)));
 
-        maximize(t)
+        % --- UPDATED: Modified Objective ---
+        % We subtract the penalty because we are maximizing
+        maximize( t - lambda_penalty * penalty_term )
 
         subject to
             sum(vecAlpha) <= 1;
-            vecAlpha >= 1e-2;
+            vecAlpha >= 1e-6;
 
             
             % ---------- USER-LEVEL CONSTRAINTS ----------
@@ -152,7 +156,7 @@ for sca_iter = 1:max_SCA
     obj_change = abs(current_obj - obj_prev) / (abs(obj_prev) + 1);
     alpha_change = norm(double(vecAlpha) - alpha_prev) / (norm(alpha_prev) + 1);
 
-    fprintf('SCA Iter %d: Obj = %.6f, Alpha Delta = %.6e\n', sca_iter, current_obj, alpha_change);
+    %fprintf('SCA Iter %d: Obj = %.6f, Alpha Delta = %.6e\n', sca_iter, current_obj, alpha_change);
 
     if obj_change < tol && alpha_change < tol
         fprintf('SCA converged at iteration %d.\n', sca_iter);
