@@ -72,13 +72,16 @@ for sca_iter = 1:max_SCA
         
         variable vecAlpha(K+1) nonnegative   
         variable Rc nonnegative
-        variable s_fake(nF,K)            % can be negative (we take max(0,.) later if needed)
+        variable Ck(K) nonnegative
+        variable Rk(K) nonnegative       
+        %variable s_fake(nF,K)            % can be negative (we take max(0,.) later if needed)
         variable t
 
         % --- NEW: Define Penalty Expression ---
         % We use 'pos' because max(0, Rmin - s_fake) is convex
         % We square it to create a quadratic penalty (as in your example)
-        penalty_term = sum(sum(square_pos(Rmin - s_fake)));
+        % penalty_term = sum(sum(square_pos(Rmin - s_fake)));
+        penalty_term = 0;
 
         % --- UPDATED: Modified Objective ---
         % We subtract the penalty because we are maximizing
@@ -86,7 +89,7 @@ for sca_iter = 1:max_SCA
 
         subject to
             sum(vecAlpha) <= 1;
-            vecAlpha >= 1e-6;
+            vecAlpha >= 1e-2;
 
             
             % ---------- USER-LEVEL CONSTRAINTS ----------
@@ -103,43 +106,54 @@ for sca_iter = 1:max_SCA
                 Rc <= log(S_c+I_c)/log(2) ...
                       - log(I_c_prev)/log(2) ...
                       - (1/log(2)) * ((Pk(k)*A_neg(:,1).')/(I_c_prev)) ...
-                        * (vecAlpha-alpha_prev);          
+                        * (vecAlpha-alpha_prev);  
+
+                sum(Ck)<=Rc;
+
+                 S_k = Pk(k)*A_pos(:,k+1).'*vecAlpha;  
+                 I_k = Pk(k)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Ak(k)+noise;
+
+                 I_k_prev = Pk(k)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Ak(k)+noise; 
+                 %S_k_prev(k) = Pk(k)*A_pos(:,k+1).'*alpha_prev; 
+
+                 Rk(k) <= log(S_k+I_k)/log(2) ...
+                      - log(I_k_prev)/log(2) ...
+                      - (1/log(2)) * ((Pk(k)*A_neg_pi(:,k+1).')/(I_k_prev)) ...
+                        * (vecAlpha-alpha_prev);
+
+                 Ck(k) + Rk(k)>=Rmin; %QoS.
 
              
             end
 
+        
             % ---------- EAVESDROPPER / SECRECY CONSTRAINTS ----------
             for l = 1:nF
-                for k = 1:K
 
-                    S_l_prev = Pl(l)*A_pos(:,k+1).'*alpha_prev;
-                    I_l_prev = Pl(l)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Al(l)+noise;
-
-
-                    %S_k_prev = Pk(k)*A_pos(:,k+1).'*alpha_prev;                   
-                    I_k_prev = Pk(k)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Ak(k)+noise; 
-
-                    %S_l = Pl(l)*A_pos(:,k+1).'*vecAlpha;
-                    I_l = Pl(l)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Al(l)+noise;      
                    
-                    S_k = Pk(k)*A_pos(:,k+1).'*vecAlpha;  
-                    I_k = Pk(k)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Ak(k)+noise; 
 
-                    % log2 I_k taylor expansion
-                    log_ik_aprox = log(I_k_prev)/log(2) ...
-                        - (1/log(2)) * ((Pk(k)*A_neg_pi(:,k+1).')/(I_k_prev)) ...
-                        * (vecAlpha-alpha_prev);
+                for k = 1:K
+                                     
 
-                    % log2(I_l + S_l) taylor expansion 1st order
-                    log_il_sl_aprox = log(I_l_prev+S_l_prev)/log(2) ...
-                    + (1/log(2)) * ((Pl(l)*(A_neg_pi(:,k+1)+A_pos(:,k+1)).')/(I_l_prev+S_l_prev)) ...
-                    * (vecAlpha-alpha_prev);
+                     S_l_prev = Pl(l)*A_pos(:,k+1).'*alpha_prev;
+                    I_l_prev = Pl(l)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Al(l)+noise;
+                  
+                    
 
+                    S_l = Pl(l)*A_pos(:,k+1).'*vecAlpha;
+                    I_l = Pl(l)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Al(l)+noise;  
+
+                                     
                     % original
                     % s_fake(l,k) <= log(I_k+S_k)/log(2) - log(I_k)/log(2) - log(I_l+S_l)/log(2) + log(I_l)/log(2);
+                    % s_fake(l,k) <= Rk(k) - log(I_l+S_l)/log(2) + log(I_l)/log(2);
 
-                    s_fake(l,k) <= log(I_k+S_k)/log(2) + log(I_l)/log(2) - log_ik_aprox - log_il_sl_aprox;
-                   t<= s_fake(l,k);
+                   grad_IlSl = Pl(l)*(A_pos(:,k+1).' + A_neg_pi(:,k+1).');
+
+                  % check below
+                   %s_fake(l,k) <= Rk(k)+ log(I_l)/log(2)- log(I_l_prev+S_l_prev)/log(2)-(1/log(2))*(grad_IlSl/(I_l_prev+S_l_prev)) * (vecAlpha-alpha_prev);
+                   t <= Rk(k)+ log(I_l)/log(2)- log(I_l_prev+S_l_prev)/log(2)-(1/log(2))*(grad_IlSl/(I_l_prev+S_l_prev)) * (vecAlpha-alpha_prev);
+                  % t<= s_fake(l,k);
                 end
             end
 
@@ -170,5 +184,6 @@ for sca_iter = 1:max_SCA
  
 end
 alpha = double(vecAlpha);
+alpha = alpha.';
 
 end

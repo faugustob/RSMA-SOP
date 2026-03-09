@@ -472,147 +472,147 @@ ub_pso = ub;
 
 
 
-Destination_position=zeros(1,dim);
-Destination_fitness=inf;
-best_fake_secrecy_rate=0;
-best_real_secrecy_rate = 0;
-
-Convergence_curve=zeros(1,Max_iteration);
-sum_rate_curve=zeros(1,Max_iteration);
-
-min_sum_secrecy = zeros(1,Max_iteration);
-
-Objective_values = zeros(1,size(X,1));
-%All_objective_values=zeros(Max_iteration,size(X,1));
-
-
-% Calculate the fitness of the first set and find the best one
-for i=1:size(X,1)
-    C_k = zeros(K,1);
-
-    [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X(i,:));
-
-    %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-
-    min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-    min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+% Destination_position=zeros(1,dim);
+% Destination_fitness=inf;
+% best_fake_secrecy_rate=0;
+% best_real_secrecy_rate = 0;
+% 
+% Convergence_curve=zeros(1,Max_iteration);
+% sum_rate_curve=zeros(1,Max_iteration);
+% 
+% min_sum_secrecy = zeros(1,Max_iteration);
+% 
+% Objective_values = zeros(1,size(X,1));
+% %All_objective_values=zeros(Max_iteration,size(X,1));
+% 
+% 
+% % Calculate the fitness of the first set and find the best one
+% for i=1:size(X,1)
+%     C_k = zeros(K,1);
+% 
+%     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X(i,:));
+% 
+%     %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
+% 
+%     min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+%     min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+% 
+% 
+%     penalty = 0;
+%     violation = max(Rmin - R_k, 0);
+%     penalty = penalty + sum(violation.^2);
+% 
+% 
+%     Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
+% 
+%     if i==1
+%         Destination_position=X(i,:);
+%         Destination_fitness=Objective_values(1,i);
+%         best_fake_secrecy_rate = min_fake_p_secrecy;
+%         best_real_secrecy_rate = min_p_secrecy;
+%     elseif Objective_values(1,i)<Destination_fitness
+%         Destination_position=X(i,:);
+%         Destination_fitness=Objective_values(1,i);
+%         best_fake_secrecy_rate = min_fake_p_secrecy;
+%         best_real_secrecy_rate = min_p_secrecy;
+%     end
+% 
+%     All_objective_values(1,i)=Objective_values(1,i);
+% end
+% 
+% 
+% 
+% %Main loop
+% t=2; % start from the second iteration since the first iteration was dedicated to calculating the fitness
+% while t<=Max_iteration
+% 
+%     % Eq. (3.4)
+%     a = 3;
+%     Max_iteration = Max_iteration;
+%     r1=a-t*((a)/Max_iteration); % r1 decreases linearly from a to 0
+% 
+%     % Update the position of solutions with respect to destination
+%     for i=1:size(X,1) % in i-th solution
+% 
+% 
+%         for j=1:size(X,2) % in j-th dimension
+% 
+%             % Update r2, r3, and r4 for Eq. (3.3)
+%             r2=(2*pi)*rand();
+%             r3=2*rand;
+%             r4=rand();
+% 
+%             % Eq. (3.3)
+%             if r4<0.5
+%                 % Eq. (3.1)
+%                 X(i,j)= X(i,j)+(r1*sin(r2)*abs(r3*Destination_position(j)-X(i,j)));
+%             else
+%                 % Eq. (3.2)
+%                 X(i,j)= X(i,j)+(r1*cos(r2)*abs(r3*Destination_position(j)-X(i,j)));
+%             end
+% 
+%         end
+%     end
+%     for i=1:size(X,1)
+% 
+% 
+% 
+% 
+%         % Check if solutions go outside the search spaceand bring them back
+%         Flag4ub=X(i,:)>ub;
+%         Flag4lb=X(i,:)<lb;
+%         X(i,:)=(X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;
+% 
+% 
+%         X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)); % Normalize to ensure sum alpha = 1;
+% 
+%         X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
+%         X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
+% 
+%         % Calculate the objective values
+% 
+%         [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
+%         sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
+%         min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+%         min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+% 
+% 
+% 
+% 
+%         penalty = 0;
+%         violation = max(Rmin - R_k, 0);
+%         penalty = penalty + sum(violation.^2);
+% 
+% 
+%         Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
+% 
+% 
+% 
+%         % Update the destination if there is a better solution
+%         if Objective_values(1,i)<Destination_fitness
+%             Destination_position=X(i,:);
+%             Destination_fitness=Objective_values(1,i);
+%             best_fake_secrecy_rate = min_fake_p_secrecy;
+%             best_real_secrecy_rate = min_p_secrecy;
+%         end
+%     end
+% 
+%     Convergence_curve(t)=-Destination_fitness;
+%     Fake_secrecy_rate_curve(t)=best_fake_secrecy_rate;
+%     Real_secrecy_rate_curve(t)=best_real_secrecy_rate;
+% 
+% 
+%     % Display the iteration and best optimum obtained so far
+%     if mod(t,1)==0
+%         display(['At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_real_secrecy_rate)]);
+%     end
+% 
+%     % Increase the iteration counter
+%     t=t+1;
 
     
-    penalty = 0;
-    violation = max(Rmin - R_k, 0);
-    penalty = penalty + sum(violation.^2);
-
-    
-    Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
-
-    if i==1
-        Destination_position=X(i,:);
-        Destination_fitness=Objective_values(1,i);
-        best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = min_p_secrecy;
-    elseif Objective_values(1,i)<Destination_fitness
-        Destination_position=X(i,:);
-        Destination_fitness=Objective_values(1,i);
-        best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = min_p_secrecy;
-    end
-
-    All_objective_values(1,i)=Objective_values(1,i);
-end
-
-
-
-%Main loop
-t=2; % start from the second iteration since the first iteration was dedicated to calculating the fitness
-while t<=Max_iteration
-
-    % Eq. (3.4)
-    a = 3;
-    Max_iteration = Max_iteration;
-    r1=a-t*((a)/Max_iteration); % r1 decreases linearly from a to 0
-
-    % Update the position of solutions with respect to destination
-    for i=1:size(X,1) % in i-th solution
-       
-
-        for j=1:size(X,2) % in j-th dimension
-
-            % Update r2, r3, and r4 for Eq. (3.3)
-            r2=(2*pi)*rand();
-            r3=2*rand;
-            r4=rand();
-
-            % Eq. (3.3)
-            if r4<0.5
-                % Eq. (3.1)
-                X(i,j)= X(i,j)+(r1*sin(r2)*abs(r3*Destination_position(j)-X(i,j)));
-            else
-                % Eq. (3.2)
-                X(i,j)= X(i,j)+(r1*cos(r2)*abs(r3*Destination_position(j)-X(i,j)));
-            end
-
-        end
-    end
-    for i=1:size(X,1)
-        
-
-
-
-        % Check if solutions go outside the search spaceand bring them back
-        Flag4ub=X(i,:)>ub;
-        Flag4lb=X(i,:)<lb;
-        X(i,:)=(X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;
-
-     
-        X(i,1:K+1) = X(i,1:K+1) ./ (sum(X(i,1:K+1), 2)); % Normalize to ensure sum alpha = 1;
-
-        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
-        X(i,1:K+1) = X(i,1:K+1) - (sum(X(i,1:K+1))-1)/(K+1);
-
-        % Calculate the objective values
-
-        [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e, zeta_k_St,Active_Gain_dB, X(i,:));
-        sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-        min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-        min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
-
-      
-       
-          
-        penalty = 0;
-        violation = max(Rmin - R_k, 0);
-        penalty = penalty + sum(violation.^2);
-    
-        
-        Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
-     
-
-
-        % Update the destination if there is a better solution
-        if Objective_values(1,i)<Destination_fitness
-            Destination_position=X(i,:);
-            Destination_fitness=Objective_values(1,i);
-            best_fake_secrecy_rate = min_fake_p_secrecy;
-            best_real_secrecy_rate = min_p_secrecy;
-        end
-    end
-
-    Convergence_curve(t)=-Destination_fitness;
-    Fake_secrecy_rate_curve(t)=best_fake_secrecy_rate;
-    Real_secrecy_rate_curve(t)=best_real_secrecy_rate;
-
-
-    % Display the iteration and best optimum obtained so far
-    if mod(t,1)==0
-        display(['At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_real_secrecy_rate)]);
-    end
-
-    % Increase the iteration counter
-    t=t+1;
-
-    
-
-end
+% 
+% end
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 display('Convex Approximation with AO');
@@ -642,10 +642,9 @@ manifold = complexcirclefactory(Nr,1);
 problem.M = manifold;
 num_agents  = 30;
 
-prev_cost  = -10;
+prev_cost  = 10;
 
 %Parameters
-Rmin = 1e-8;      
 BW = delta_f;
 N0_dBm = -174;
 sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
@@ -693,9 +692,9 @@ for ao = 1:max_AO_iter
     %           reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
 
 
-    [alpha] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+    [alpha_prev] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA);
-    alpha = alpha.';
+    alpha = alpha_prev;
 
           % Rebuild X
         if any_reflect
@@ -734,14 +733,14 @@ for ao = 1:max_AO_iter
     current_fake = min(min(sc_p_lk(1:nF,:)));
     current_real = min(min(sc_p_lk(nF+1:end,:)));
 
-    if cost_opt > prev_cost
+    if cost_opt < prev_cost
         best_fake_secrecy = current_fake;
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost_opt;
     end
 
-   Convex_Convergence_curve_AO(t) = prev_cost;
+   Convex_Convergence_curve_AO(ao) = prev_cost;
     Convex_Fake_Convergence_curve_AO(ao) = best_fake_secrecy;
     Convex_Real_Convergence_curve_AO(ao) = best_real_secrecy;
 
@@ -763,229 +762,229 @@ fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secre
 
 
 %%
-display('SCA is optimizing your problem AO');
-
-Num_agents  = Num_agents;
-Max_iteration = Max_iteration;
-Rmin=0.1;
-
-% Check if more than one STAR-RIS side is being used.
-any_reflect = any(reflect > 0) && any(reflect < 0);
-
-% Problem bounds and dimensionality
-dim = K+1+Nr;
-ub=[ones(1,K+1),2*pi*ones(1,Nr)];
-alpha_min = 1e-4;
-lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
-zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
-
-Active_Gain_dB = 0; 
-zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
-
-
-% zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
-phi_Sr = 2*pi*rand(Num_agents,Nr);
-phi_St = 2*pi*rand(Num_agents,Nr);% transmission phases
-
-
-alpha = rand(Num_agents, K+1); 
-% random values
-alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
-
-alpha = alpha - (sum(alpha,2)-1)/(K+1);
-alpha = alpha - (sum(alpha,2)-1)/(K+1);
-alpha = alpha - (sum(alpha,2)-1)/(K+1);
-
-
-X = [alpha,phi_St];
-% phi_init = -angle(h_jq(:, 1, 1) .* h_rp(:, 1, 1, 1)); 
+% display('SCA is optimizing your problem AO');
 % 
-% % phi_init is now (Nr x 1), we transpose it to fit the agent row (1 x Nr)
-% X(1, K+2:K+1+Nr) = phi_init';
-
-if any_reflect
-    dim = K+1+3*Nr;
-    ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
-    alpha_min = 1e-4;
-    lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
-    zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
-    X = [alpha,phi_Sr,phi_St,zeta_k_St];
-end
-
-
-% --- Problem Dimensions and Bounds ---
-dim_pso = dim;
-alpha_min_pso = alpha_min;
-lb_pso =lb;
-ub_pso = ub;
-
-
-
-Destination_position=zeros(1,dim);
-Destination_fitness=inf;
-best_fake_secrecy_rate=0;
-best_real_secrecy_rate = 0;
-
-Convergence_curve_AO=zeros(1,Max_iteration);
-sum_rate_curve=zeros(1,Max_iteration);
-
-min_sum_secrecy = zeros(1,Max_iteration);
-
-Objective_values = zeros(1,size(X,1));
-%All_objective_values=zeros(Max_iteration,size(X,1));
-
-
-% Calculate the fitness of the first set and find the best one
-for i=1:size(X,1)
-    C_k = zeros(K,1);
-
-    [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X(i,:));
-
-    %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
-
-    min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-    min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
-
-    
-    penalty = 0;
-    violation = max(Rmin - R_k, 0);
-    penalty = penalty + sum(violation.^2);
-
-    
-    Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
-
-    if i==1
-        Destination_position=X(i,:);
-        Destination_fitness=Objective_values(1,i);
-        best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = min_p_secrecy;
-    elseif Objective_values(1,i)<Destination_fitness
-        Destination_position=X(i,:);
-        Destination_fitness=Objective_values(1,i);
-        best_fake_secrecy_rate = min_fake_p_secrecy;
-        best_real_secrecy_rate = min_p_secrecy;
-    end
-
-    All_objective_values(1,i)=Objective_values(1,i);
-end
-
-alpha_idx = 1:(K+1);
-ris_idx = (K+2):size(X,2);
-
-% Main loop - Alternating Optimization (alpha first)
-t = 2;
-while t <= Max_iteration
-    % Eq. (3.4)
-    a = 3;
-    r1 = a - t * (a / Max_iteration);  % r1 decreases linearly
-
-    % === Substep 1: Optimize alpha first (phases/amplitudes fixed) ===
-    for i = 1:size(X, 1)
-        for j = alpha_idx  % only alpha dimensions
-            r2 = (2*pi) * rand();
-            r3 = 2 * rand();
-            r4 = rand();
-            if r4 < 0.5
-                X(i,j) = X(i,j) + (r1 * sin(r2) * abs(r3 * Destination_position(j) - X(i,j)));
-            else
-                X(i,j) = X(i,j) + (r1 * cos(r2) * abs(r3 * Destination_position(j) - X(i,j)));
-            end
-        end
-
-        % Project alpha onto simplex (sum = 1, >= alpha_min)
-             % Bound check
-        Flag4ub = X(i,alpha_idx) > ub(alpha_idx);
-        Flag4lb = X(i,alpha_idx) < lb(alpha_idx);
-        
-        X(i,alpha_idx) = ...
-            X(i,alpha_idx).*(~(Flag4ub+Flag4lb)) + ...
-            ub(alpha_idx).*Flag4ub + ...
-            lb(alpha_idx).*Flag4lb;
-
-        X(i,alpha_idx) = X(i,alpha_idx) ./ sum(X(i,alpha_idx));
-
-
-        % Optional repeated correction for floating-point precision (keep your original style)
-        X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
-        X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
-        X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
-
-        % Evaluate objective with updated alpha
-        [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
-        min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-        min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
-
-        penalty = 0;
-        violation = max(Rmin - R_k, 0);
-        penalty = penalty + sum(violation.^2);
-
-        Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
-
-        % Update global best (alpha-optimized solution)
-        if Objective_values(1,i) < Destination_fitness
-            Destination_position = X(i,:);
-            Destination_fitness = Objective_values(1,i);
-            best_fake_secrecy_rate = min_fake_p_secrecy;
-            best_real_secrecy_rate = min_p_secrecy;
-        end
-    end
-    alpha_fixed = X(:,alpha_idx);
-
-    % === Substep 2: Optimize non-alpha variables (phases/amplitudes/zeta) with new alpha fixed ===
-    for i = 1:size(X, 1)
-        X(i,alpha_idx) = alpha_fixed(i,:);
-        for j = ris_idx  % phase and zeta dimensions
-            r2 = (2*pi) * rand();
-            r3 = 2 * rand();
-            r4 = rand();
-            if r4 < 0.5
-                X(i,j) = X(i,j) + (r1 * sin(r2) * abs(r3 * Destination_position(j) - X(i,j)));
-            else
-                X(i,j) = X(i,j) + (r1 * cos(r2) * abs(r3 * Destination_position(j) - X(i,j)));
-            end
-        end
-
-        % Bound check
-        Flag4ub = X(i,ris_idx) > ub(ris_idx);
-        Flag4lb = X(i,ris_idx) < lb(ris_idx);
-        
-        X(i,ris_idx) = ...
-            X(i,ris_idx).*(~(Flag4ub+Flag4lb)) + ...
-            ub(ris_idx).*Flag4ub + ...
-            lb(ris_idx).*Flag4lb;
-
-       
-        % Evaluate objective again
-        [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
-        min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
-        min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
-
-        penalty = 0;
-        violation = max(Rmin - R_k, 0);
-        penalty = penalty + sum(violation.^2);
-
-        Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
-
-        % Update global best
-        if Objective_values(1,i) < Destination_fitness
-            Destination_position = X(i,:);
-            Destination_fitness = Objective_values(1,i);
-            best_fake_secrecy_rate = min_fake_p_secrecy;
-            best_real_secrecy_rate = min_p_secrecy;
-        end
-    end
-
-    % Record curves
-    Convergence_curve_AO(t) = -Destination_fitness;
-    Fake_secrecy_rate_curve_AO(t) = best_fake_secrecy_rate;
-    Real_secrecy_rate_curve_AO(t) = best_real_secrecy_rate;
-
-    if mod(t,1) == 0
-        display(['AO At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_real_secrecy_rate)]);
-    end
-
-    t = t + 1;
-end
+% Num_agents  = Num_agents;
+% Max_iteration = Max_iteration;
+% Rmin=0.1;
+% 
+% % Check if more than one STAR-RIS side is being used.
+% any_reflect = any(reflect > 0) && any(reflect < 0);
+% 
+% % Problem bounds and dimensionality
+% dim = K+1+Nr;
+% ub=[ones(1,K+1),2*pi*ones(1,Nr)];
+% alpha_min = 1e-4;
+% lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
+% zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
+% 
+% Active_Gain_dB = 0; 
+% zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
+% 
+% 
+% % zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
+% phi_Sr = 2*pi*rand(Num_agents,Nr);
+% phi_St = 2*pi*rand(Num_agents,Nr);% transmission phases
+% 
+% 
+% alpha = rand(Num_agents, K+1); 
+% % random values
+% alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
+% 
+% alpha = alpha - (sum(alpha,2)-1)/(K+1);
+% alpha = alpha - (sum(alpha,2)-1)/(K+1);
+% alpha = alpha - (sum(alpha,2)-1)/(K+1);
+% 
+% 
+% X = [alpha,phi_St];
+% % phi_init = -angle(h_jq(:, 1, 1) .* h_rp(:, 1, 1, 1)); 
+% % 
+% % % phi_init is now (Nr x 1), we transpose it to fit the agent row (1 x Nr)
+% % X(1, K+2:K+1+Nr) = phi_init';
+% 
+% if any_reflect
+%     dim = K+1+3*Nr;
+%     ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
+%     alpha_min = 1e-4;
+%     lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
+%     zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
+%     X = [alpha,phi_Sr,phi_St,zeta_k_St];
+% end
+% 
+% 
+% % --- Problem Dimensions and Bounds ---
+% dim_pso = dim;
+% alpha_min_pso = alpha_min;
+% lb_pso =lb;
+% ub_pso = ub;
+% 
+% 
+% 
+% Destination_position=zeros(1,dim);
+% Destination_fitness=inf;
+% best_fake_secrecy_rate=0;
+% best_real_secrecy_rate = 0;
+% 
+% Convergence_curve_AO=zeros(1,Max_iteration);
+% sum_rate_curve=zeros(1,Max_iteration);
+% 
+% min_sum_secrecy = zeros(1,Max_iteration);
+% 
+% Objective_values = zeros(1,size(X,1));
+% %All_objective_values=zeros(Max_iteration,size(X,1));
+% 
+% 
+% % Calculate the fitness of the first set and find the best one
+% for i=1:size(X,1)
+%     C_k = zeros(K,1);
+% 
+%     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X(i,:));
+% 
+%     %sum_secrecy = sc_c_lk+sc_p_lk; %Private + Common secrecy capacities.
+% 
+%     min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+%     min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+% 
+% 
+%     penalty = 0;
+%     violation = max(Rmin - R_k, 0);
+%     penalty = penalty + sum(violation.^2);
+% 
+% 
+%     Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
+% 
+%     if i==1
+%         Destination_position=X(i,:);
+%         Destination_fitness=Objective_values(1,i);
+%         best_fake_secrecy_rate = min_fake_p_secrecy;
+%         best_real_secrecy_rate = min_p_secrecy;
+%     elseif Objective_values(1,i)<Destination_fitness
+%         Destination_position=X(i,:);
+%         Destination_fitness=Objective_values(1,i);
+%         best_fake_secrecy_rate = min_fake_p_secrecy;
+%         best_real_secrecy_rate = min_p_secrecy;
+%     end
+% 
+%     All_objective_values(1,i)=Objective_values(1,i);
+% end
+% 
+% alpha_idx = 1:(K+1);
+% ris_idx = (K+2):size(X,2);
+% 
+% % Main loop - Alternating Optimization (alpha first)
+% t = 2;
+% while t <= Max_iteration
+%     % Eq. (3.4)
+%     a = 3;
+%     r1 = a - t * (a / Max_iteration);  % r1 decreases linearly
+% 
+%     % === Substep 1: Optimize alpha first (phases/amplitudes fixed) ===
+%     for i = 1:size(X, 1)
+%         for j = alpha_idx  % only alpha dimensions
+%             r2 = (2*pi) * rand();
+%             r3 = 2 * rand();
+%             r4 = rand();
+%             if r4 < 0.5
+%                 X(i,j) = X(i,j) + (r1 * sin(r2) * abs(r3 * Destination_position(j) - X(i,j)));
+%             else
+%                 X(i,j) = X(i,j) + (r1 * cos(r2) * abs(r3 * Destination_position(j) - X(i,j)));
+%             end
+%         end
+% 
+%         % Project alpha onto simplex (sum = 1, >= alpha_min)
+%              % Bound check
+%         Flag4ub = X(i,alpha_idx) > ub(alpha_idx);
+%         Flag4lb = X(i,alpha_idx) < lb(alpha_idx);
+% 
+%         X(i,alpha_idx) = ...
+%             X(i,alpha_idx).*(~(Flag4ub+Flag4lb)) + ...
+%             ub(alpha_idx).*Flag4ub + ...
+%             lb(alpha_idx).*Flag4lb;
+% 
+%         X(i,alpha_idx) = X(i,alpha_idx) ./ sum(X(i,alpha_idx));
+% 
+% 
+%         % Optional repeated correction for floating-point precision (keep your original style)
+%         X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
+%         X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
+%         X(i,alpha_idx) = X(i,alpha_idx) - (sum(X(i,alpha_idx))-1)/(K+1);
+% 
+%         % Evaluate objective with updated alpha
+%         [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
+%         min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+%         min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+% 
+%         penalty = 0;
+%         violation = max(Rmin - R_k, 0);
+%         penalty = penalty + sum(violation.^2);
+% 
+%         Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
+% 
+%         % Update global best (alpha-optimized solution)
+%         if Objective_values(1,i) < Destination_fitness
+%             Destination_position = X(i,:);
+%             Destination_fitness = Objective_values(1,i);
+%             best_fake_secrecy_rate = min_fake_p_secrecy;
+%             best_real_secrecy_rate = min_p_secrecy;
+%         end
+%     end
+%     alpha_fixed = X(:,alpha_idx);
+% 
+%     % === Substep 2: Optimize non-alpha variables (phases/amplitudes/zeta) with new alpha fixed ===
+%     for i = 1:size(X, 1)
+%         X(i,alpha_idx) = alpha_fixed(i,:);
+%         for j = ris_idx  % phase and zeta dimensions
+%             r2 = (2*pi) * rand();
+%             r3 = 2 * rand();
+%             r4 = rand();
+%             if r4 < 0.5
+%                 X(i,j) = X(i,j) + (r1 * sin(r2) * abs(r3 * Destination_position(j) - X(i,j)));
+%             else
+%                 X(i,j) = X(i,j) + (r1 * cos(r2) * abs(r3 * Destination_position(j) - X(i,j)));
+%             end
+%         end
+% 
+%         % Bound check
+%         Flag4ub = X(i,ris_idx) > ub(ris_idx);
+%         Flag4lb = X(i,ris_idx) < lb(ris_idx);
+% 
+%         X(i,ris_idx) = ...
+%             X(i,ris_idx).*(~(Flag4ub+Flag4lb)) + ...
+%             ub(ris_idx).*Flag4ub + ...
+%             lb(ris_idx).*Flag4lb;
+% 
+% 
+%         % Evaluate objective again
+%         [sc_c_lk, sc_p_lk, sc_p_kk, rate_c, rate_k, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, zeta_k_St, Active_Gain_dB, X(i,:));
+%         min_fake_p_secrecy = min(min(sc_p_lk(1:nF,:)));
+%         min_p_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+% 
+%         penalty = 0;
+%         violation = max(Rmin - R_k, 0);
+%         penalty = penalty + sum(violation.^2);
+% 
+%         Objective_values(1,i) = -min_fake_p_secrecy + 1e3 * penalty;
+% 
+%         % Update global best
+%         if Objective_values(1,i) < Destination_fitness
+%             Destination_position = X(i,:);
+%             Destination_fitness = Objective_values(1,i);
+%             best_fake_secrecy_rate = min_fake_p_secrecy;
+%             best_real_secrecy_rate = min_p_secrecy;
+%         end
+%     end
+% 
+%     % Record curves
+%     Convergence_curve_AO(t) = -Destination_fitness;
+%     Fake_secrecy_rate_curve_AO(t) = best_fake_secrecy_rate;
+%     Real_secrecy_rate_curve_AO(t) = best_real_secrecy_rate;
+% 
+%     if mod(t,1) == 0
+%         display(['AO At iteration ', num2str(t), ' the optimum fake sc is ', num2str(best_fake_secrecy_rate), ' the optimum real sc is ', num2str(best_real_secrecy_rate)]);
+%     end
+% 
+%     t = t + 1;
+% end
     
 
 
@@ -1000,189 +999,189 @@ end
 
 %%
 
-%% Hybrid SCA optimization (Brajevic et al)
-display('Hybrid SCA is optimizing your problem');
-
-SP  = Num_agents;
-MNI = Max_iteration;
-
-any_reflect = any(reflect > 0) && any(reflect < 0);
-
-Active_Gain_dB = 0;
-zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
-
-phi_Sr = 2*pi*rand(SP,Nr);
-phi_St = 2*pi*rand(SP,Nr);
-
-alpha_hsca = rand(SP, K+1);
-alpha_hsca = alpha_hsca ./ sum(alpha_hsca,2);
-for k = 1:3
-    alpha_hsca = alpha_hsca - (sum(alpha_hsca,2)-1)/(K+1);
-end
-
-X = [alpha_hsca , phi_St];
-dim_hsca = size(X,2);
-
-if any_reflect
-    zeta_k_St = (10^(Active_Gain_dB/10)) * rand(SP,Nr);
-    X = [alpha_hsca , phi_Sr , phi_St , zeta_k_St];
-    dim_hsca = size(X,2);
-end
-
-lb_hsca = lb;
-ub_hsca = ub;
-alpha_min_hsca = alpha_min;
-
-y_optimal = zeros(1,dim_hsca);
-
-objective = -inf(SP,1);
-population_fake_secrecy_rate = zeros(SP,1);
-population_real_secrecy_rate = zeros(SP,1);
-
-best_objective = -inf;
-best_mean_fake_secrecy_rate = 0;
-best_mean_real_secrecy_rate = 0;
-
-t = 1;
-a = 0.75;
-r1 = a;
-MR = 0.1;
-MR_max = 0.9;
-
-while t <= MNI
-
-    %% ================= Evaluate Population =================
-    for i = 1:SP
-        [~,sc_p_lk,~,~,~,R_k,~] = compute_sinr_sc_an( ...
-            Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq, ...
-            Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
-            Active_Gain_dB,X(i,:));
-
-        min_fake = min(min(sc_p_lk(1:nF,:)));
-        min_real = min(min(sc_p_lk(nF+1:end,:)));
-
-        violation = max(Rmin - R_k,0);
-        penalty = -sum(violation.^2);
-
-        objective(i) = min_fake + 1e3*penalty;
-        population_fake_secrecy_rate(i) = min_fake;
-        population_real_secrecy_rate(i) = min_real;
-    end
-
-    %% ================= Global Best (ONLY PLACE IT UPDATES) =================
-    [iter_best_obj, idx] = max(objective);
-
-    if iter_best_obj > best_objective
-        best_objective = iter_best_obj;
-        y_optimal = X(idx,:);
-        best_mean_fake_secrecy_rate = population_fake_secrecy_rate(idx);
-        best_mean_real_secrecy_rate = population_real_secrecy_rate(idx);
-    end
-
-    display(['HSCA Iter ',num2str(t), ...
-             ' | Fake = ',num2str(best_mean_fake_secrecy_rate), ...
-             ' | Real = ',num2str(best_mean_real_secrecy_rate)]);
-
-    %% ================= Population Update =================
-    if mod(t,2) == 0
-        % -------- Modified SCA --------
-        for i = 1:SP
-            neigh = randsample([1:i-1,i+1:SP],2);
-            r2 = 2*pi*rand(1,dim_hsca);
-            R_ij = rand(1,dim_hsca);
-            rand_i = rand;
-
-            under = R_ij < 0.5;
-            over  = ~under;
-
-            v_i = X(neigh(1),:) ...
-                + rand_i .* abs(y_optimal - X(neigh(2),:)) ...
-                + r1 .* abs(y_optimal - X(i,:)) .* ...
-                  (under.*sin(r2) + over.*cos(r2));
-
-            v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
-            v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
-
-            alpha = max(v_i(1:K+1),alpha_min_hsca);
-            alpha = alpha/sum(alpha);
-            for k=1:3
-                alpha = alpha - (sum(alpha)-1)/(K+1);
-            end
-            v_i(1:K+1) = alpha;
-
-            if sum(alpha) > 1, continue; end
-
-            [~,sc_p_lk,~,~,~,R_k,~] = compute_sinr_sc_an( ...
-                Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq, ...
-                Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
-                Active_Gain_dB,v_i);
-
-            min_fake = min(min(sc_p_lk(1:nF,:)));
-            violation = max(Rmin - R_k,0);
-            penalty = -sum(violation.^2);
-            new_obj = min_fake + 1e3*penalty;
-
-            if new_obj > objective(i)
-                objective(i) = new_obj;
-                X(i,:) = v_i;
-                population_fake_secrecy_rate(i) = min_fake;
-                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
-            end
-        end
-    else
-        % -------- ABC Strategies --------
-        for i = 1:SP
-            neigh = randsample([1:i-1,i+1:SP],2);
-            phi_i = 2*rand-1;
-
-            if rand < 0.5
-                v_i = X(i,:) + (rand(1,dim_hsca)<MR).*phi_i.*(X(i,:)-X(neigh(1),:));
-            else
-                v_i = X(i,:) + phi_i*(X(neigh(1),:)-X(neigh(2),:));
-            end
-
-            v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
-            v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
-
-            alpha = max(v_i(1:K+1),alpha_min_hsca);
-            alpha = alpha/sum(alpha);
-            for k=1:3
-                alpha = alpha - (sum(alpha)-1)/(K+1);
-            end
-            v_i(1:K+1) = alpha;
-
-            if sum(alpha) > 1, continue; end
-
-            [~,sc_p_lk,~,~,~,R_k,~] = compute_sinr_sc_an( ...
-                Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq, ...
-                Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
-                Active_Gain_dB,v_i);
-
-            min_fake = min(min(sc_p_lk(1:nF,:)));
-            violation = max(Rmin - R_k,0);
-            penalty = -sum(violation.^2);
-            new_obj = min_fake + 1e3*penalty;
-
-            if new_obj > objective(i)
-                objective(i) = new_obj;
-                X(i,:) = v_i;
-                population_fake_secrecy_rate(i) = min_fake;
-                population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
-            end
-        end
-    end
-
-    %% ================= Logging =================
-    HSCA_Convergence_curve(t)        = best_objective;
-    HSCA_Fake_secrecy_rate_curve(t)  = best_mean_fake_secrecy_rate;
-    HSCA_Real_secrecy_rate_curve(t)  = best_mean_real_secrecy_rate;
-
-    r1 = a*(1 - t/MNI);
-    MR = min(MR_max, MR + (MR_max-0.1)/(max(rand,1e-3)*MNI));
-    t = t + 1;
-end
-
-best_HSCA = best_mean_fake_secrecy_rate;
+% %% Hybrid SCA optimization (Brajevic et al)
+% display('Hybrid SCA is optimizing your problem');
+% 
+% SP  = Num_agents;
+% MNI = Max_iteration;
+% 
+% any_reflect = any(reflect > 0) && any(reflect < 0);
+% 
+% Active_Gain_dB = 0;
+% zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
+% 
+% phi_Sr = 2*pi*rand(SP,Nr);
+% phi_St = 2*pi*rand(SP,Nr);
+% 
+% alpha_hsca = rand(SP, K+1);
+% alpha_hsca = alpha_hsca ./ sum(alpha_hsca,2);
+% for k = 1:3
+%     alpha_hsca = alpha_hsca - (sum(alpha_hsca,2)-1)/(K+1);
+% end
+% 
+% X = [alpha_hsca , phi_St];
+% dim_hsca = size(X,2);
+% 
+% if any_reflect
+%     zeta_k_St = (10^(Active_Gain_dB/10)) * rand(SP,Nr);
+%     X = [alpha_hsca , phi_Sr , phi_St , zeta_k_St];
+%     dim_hsca = size(X,2);
+% end
+% 
+% lb_hsca = lb;
+% ub_hsca = ub;
+% alpha_min_hsca = alpha_min;
+% 
+% y_optimal = zeros(1,dim_hsca);
+% 
+% objective = -inf(SP,1);
+% population_fake_secrecy_rate = zeros(SP,1);
+% population_real_secrecy_rate = zeros(SP,1);
+% 
+% best_objective = -inf;
+% best_mean_fake_secrecy_rate = 0;
+% best_mean_real_secrecy_rate = 0;
+% 
+% t = 1;
+% a = 0.75;
+% r1 = a;
+% MR = 0.1;
+% MR_max = 0.9;
+% 
+% while t <= MNI
+% 
+%     %% ================= Evaluate Population =================
+%     for i = 1:SP
+%         [~,sc_p_lk,~,~,~,R_k,~] = compute_sinr_sc_an( ...
+%             Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq, ...
+%             Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
+%             Active_Gain_dB,X(i,:));
+% 
+%         min_fake = min(min(sc_p_lk(1:nF,:)));
+%         min_real = min(min(sc_p_lk(nF+1:end,:)));
+% 
+%         violation = max(Rmin - R_k,0);
+%         penalty = -sum(violation.^2);
+% 
+%         objective(i) = min_fake + 1e3*penalty;
+%         population_fake_secrecy_rate(i) = min_fake;
+%         population_real_secrecy_rate(i) = min_real;
+%     end
+% 
+%     %% ================= Global Best (ONLY PLACE IT UPDATES) =================
+%     [iter_best_obj, idx] = max(objective);
+% 
+%     if iter_best_obj > best_objective
+%         best_objective = iter_best_obj;
+%         y_optimal = X(idx,:);
+%         best_mean_fake_secrecy_rate = population_fake_secrecy_rate(idx);
+%         best_mean_real_secrecy_rate = population_real_secrecy_rate(idx);
+%     end
+% 
+%     display(['HSCA Iter ',num2str(t), ...
+%              ' | Fake = ',num2str(best_mean_fake_secrecy_rate), ...
+%              ' | Real = ',num2str(best_mean_real_secrecy_rate)]);
+% 
+%     %% ================= Population Update =================
+%     if mod(t,2) == 0
+%         % -------- Modified SCA --------
+%         for i = 1:SP
+%             neigh = randsample([1:i-1,i+1:SP],2);
+%             r2 = 2*pi*rand(1,dim_hsca);
+%             R_ij = rand(1,dim_hsca);
+%             rand_i = rand;
+% 
+%             under = R_ij < 0.5;
+%             over  = ~under;
+% 
+%             v_i = X(neigh(1),:) ...
+%                 + rand_i .* abs(y_optimal - X(neigh(2),:)) ...
+%                 + r1 .* abs(y_optimal - X(i,:)) .* ...
+%                   (under.*sin(r2) + over.*cos(r2));
+% 
+%             v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
+%             v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
+% 
+%             alpha = max(v_i(1:K+1),alpha_min_hsca);
+%             alpha = alpha/sum(alpha);
+%             for k=1:3
+%                 alpha = alpha - (sum(alpha)-1)/(K+1);
+%             end
+%             v_i(1:K+1) = alpha;
+% 
+%             if sum(alpha) > 1, continue; end
+% 
+%             [~,sc_p_lk,~,~,~,R_k,~] = compute_sinr_sc_an( ...
+%                 Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq, ...
+%                 Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
+%                 Active_Gain_dB,v_i);
+% 
+%             min_fake = min(min(sc_p_lk(1:nF,:)));
+%             violation = max(Rmin - R_k,0);
+%             penalty = -sum(violation.^2);
+%             new_obj = min_fake + 1e3*penalty;
+% 
+%             if new_obj > objective(i)
+%                 objective(i) = new_obj;
+%                 X(i,:) = v_i;
+%                 population_fake_secrecy_rate(i) = min_fake;
+%                 population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
+%             end
+%         end
+%     else
+%         % -------- ABC Strategies --------
+%         for i = 1:SP
+%             neigh = randsample([1:i-1,i+1:SP],2);
+%             phi_i = 2*rand-1;
+% 
+%             if rand < 0.5
+%                 v_i = X(i,:) + (rand(1,dim_hsca)<MR).*phi_i.*(X(i,:)-X(neigh(1),:));
+%             else
+%                 v_i = X(i,:) + phi_i*(X(neigh(1),:)-X(neigh(2),:));
+%             end
+% 
+%             v_i = (v_i<lb_hsca).*(2*lb_hsca-v_i)+(v_i>=lb_hsca).*v_i;
+%             v_i = (v_i>ub_hsca).*(2*ub_hsca-v_i)+(v_i<=ub_hsca).*v_i;
+% 
+%             alpha = max(v_i(1:K+1),alpha_min_hsca);
+%             alpha = alpha/sum(alpha);
+%             for k=1:3
+%                 alpha = alpha - (sum(alpha)-1)/(K+1);
+%             end
+%             v_i(1:K+1) = alpha;
+% 
+%             if sum(alpha) > 1, continue; end
+% 
+%             [~,sc_p_lk,~,~,~,R_k,~] = compute_sinr_sc_an( ...
+%                 Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq, ...
+%                 Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St, ...
+%                 Active_Gain_dB,v_i);
+% 
+%             min_fake = min(min(sc_p_lk(1:nF,:)));
+%             violation = max(Rmin - R_k,0);
+%             penalty = -sum(violation.^2);
+%             new_obj = min_fake + 1e3*penalty;
+% 
+%             if new_obj > objective(i)
+%                 objective(i) = new_obj;
+%                 X(i,:) = v_i;
+%                 population_fake_secrecy_rate(i) = min_fake;
+%                 population_real_secrecy_rate(i) = min(min(sc_p_lk(nF+1:end,:)));
+%             end
+%         end
+%     end
+% 
+%     %% ================= Logging =================
+%     HSCA_Convergence_curve(t)        = best_objective;
+%     HSCA_Fake_secrecy_rate_curve(t)  = best_mean_fake_secrecy_rate;
+%     HSCA_Real_secrecy_rate_curve(t)  = best_mean_real_secrecy_rate;
+% 
+%     r1 = a*(1 - t/MNI);
+%     MR = min(MR_max, MR + (MR_max-0.1)/(max(rand,1e-3)*MNI));
+%     t = t + 1;
+% end
+% 
+% best_HSCA = best_mean_fake_secrecy_rate;
 
 
 
@@ -1600,18 +1599,21 @@ colors = lines(6);
 markerInterval = 50;
 
 % Plot each curve with markers every 5 points
-plot(Convergence_curve(2:end), 'Color', colors(1,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convergence_curve(2:end)), 'MarkerFaceColor',colors(1,:))
-hold on;
-plot(Convergence_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:))
-plot(HSCA_Convergence_curve(2:end), 'Color', colors(2,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','d', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve(2:end)), 'MarkerFaceColor',colors(2,:))
+% plot(Convergence_curve(2:end), 'Color', colors(1,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convergence_curve(2:end)), 'MarkerFaceColor',colors(1,:))
+% plot(Convergence_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:))
+% plot(HSCA_Convergence_curve(2:end), 'Color', colors(2,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','d', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve(2:end)), 'MarkerFaceColor',colors(2,:))
 plot(HSCA_Convergence_curve_AO(2:end), 'Color', colors(2,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(2,:))
+hold on;
+
 plot(PSO_Convergence_curve(1:end), 'Color', colors(5,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Convergence_curve), 'MarkerFaceColor',colors(5,:))
 plot(Convex_Convergence_curve_AO(2:end), 'Color', colors(6,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(6,:))
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
 xlabel('Iteration','FontWeight','bold','FontSize',11);
 ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
-legend('SCA','SCA-AO','HSCA','HSCA-AO','PSO','Convex-Manifold','Location','best','FontSize',10);
+%legend('SCA','SCA-AO','HSCA','HSCA-AO','PSO','Convex-Manifold','Location','best','FontSize',10);
+legend('HSCA-AO','PSO','Convex-Manifold','Location','best','FontSize',10);
+
 grid on;
 ax = gca;
 ax.GridAlpha = 0.3; % Lighter grid
@@ -1631,16 +1633,16 @@ plotWithMarker = @(y, color, style) plot(y, 'Color', color, 'LineStyle', style, 
 hold on;
 
 % SCA & SCA-AO
-plot(Fake_secrecy_rate_curve(2:end), 'Color', colors(1,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Fake_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(1,:));
-plot(Fake_secrecy_rate_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Fake_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
-plot(Real_secrecy_rate_curve(2:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',1.5, 'Marker','d', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(1,:));
-plot(Real_secrecy_rate_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+% plot(Fake_secrecy_rate_curve(2:end), 'Color', colors(1,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Fake_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(1,:));
+% plot(Fake_secrecy_rate_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Fake_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+% plot(Real_secrecy_rate_curve(2:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',1.5, 'Marker','d', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(1,:));
+% plot(Real_secrecy_rate_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
 
 
 % HSCA & HSCA-AO
-plot(HSCA_Fake_secrecy_rate_curve(2:end), 'Color', colors(2,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','o', 'MarkerIndices',1:markerInterval:length(HSCA_Fake_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(2,:));
+% plot(HSCA_Fake_secrecy_rate_curve(2:end), 'Color', colors(2,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','o', 'MarkerIndices',1:markerInterval:length(HSCA_Fake_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(2,:));
 plot(HSCA_Fake_secrecy_rate_curve_AO(2:end), 'Color', colors(2,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(HSCA_Fake_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(2,:));
-plot(HSCA_Real_secrecy_rate_curve(2:end), 'Color', colors(2,:), 'LineStyle','-.', 'LineWidth',1.5, 'Marker','d', 'MarkerIndices',1:markerInterval:length(HSCA_Real_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(2,:));
+% plot(HSCA_Real_secrecy_rate_curve(2:end), 'Color', colors(2,:), 'LineStyle','-.', 'LineWidth',1.5, 'Marker','d', 'MarkerIndices',1:markerInterval:length(HSCA_Real_secrecy_rate_curve(2:end)), 'MarkerFaceColor',colors(2,:));
 plot(HSCA_Real_secrecy_rate_curve_AO(2:end), 'Color', colors(2,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Real_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(2,:));
 
 % PSO
@@ -1649,15 +1651,18 @@ plot(PSO_Real_secrecy_rate_curve, 'k-.', 'LineWidth',1.8, 'Marker','>', 'MarkerI
 
 
 % Convex + Manopt
-plot(Convex_Fake_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Fake_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
-plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Real_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+plot(Convex_Fake_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
 
 title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
 xlabel('Iteration','FontWeight','bold','FontSize',11);
 ylabel('Secrecy Rate','FontWeight','bold','FontSize',11);
-legend( ...
-    'SCA-fake','SCA-fake-AO','SCA-real','SCA-real-AO', ...
-    'HSCA-fake','HSCA-fake-AO','HSCA-real','HSCA-real-AO', ...
+% legend( ...
+%     'SCA-fake','SCA-fake-AO','SCA-real','SCA-real-AO', ...
+%     'HSCA-fake','HSCA-fake-AO','HSCA-real','HSCA-real-AO', ...
+%     'PSO-fake','PSO-real','Convex-fake','Convex-real', ...
+%     'Location','best','FontSize',10);
+legend('HSCA-fake-AO','HSCA-real-AO', ...
     'PSO-fake','PSO-real','Convex-fake','Convex-real', ...
     'Location','best','FontSize',10);
 
