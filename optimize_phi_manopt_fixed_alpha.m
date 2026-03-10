@@ -32,7 +32,7 @@ function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,
         % 
         % % Initial guess
         % b0 = manifold.rand();
-        %checkgradient(problem);
+        % checkgradient(problem);
         % checkhessian(problem);
 
         % Solve
@@ -75,7 +75,7 @@ function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, 
     % --- NEW: Penalty Term ---
     % Quadratic penalty for violating Rmin
     penalty = lambda_penalty * sum(max(0, Rmin - R_sec).^2, 'all');
-    
+    penalty = 0;
     f_val = f_lse + penalty;
     
 end
@@ -152,6 +152,8 @@ function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, n
             end
         end
     end
+
+    g_penalty = zeros(Nr, 1);
 
     g = g_lse + g_penalty;
 end
@@ -245,6 +247,7 @@ function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, P
                 
                 % Note: h_lk here is already Hessian of (-R), which is exactly what we need
                 h_penalty_lk = 2 * lambda_penalty * (real((-g_lk)' * v) * (-g_lk) + violation * h_lk);
+                h_penalty_lk = zeros(size(h_penalty_lk));
                 h_sum_parts = h_sum_parts + h_penalty_lk;
             end
         end

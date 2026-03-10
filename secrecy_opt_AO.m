@@ -4,7 +4,7 @@ cvx_clear;
 Ns = 1e6; % number of samples for Monte Carlo simulation
 rng(3);
 
-transmissionType = 'zakr';
+transmissionType = 'mc';
 
 c = physconst('LightSpeed'); % speed of light
 f_c = 10e9; % frequency
@@ -25,7 +25,7 @@ nF = 5; % Number of fake eavesdroppers
 L = 1; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
-delta_f = 100e3;      % Subcarrier spacing (Hz)
+delta_f = 200e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
 B = 10e6;        % [Hz] ← Use this
 Tf      = 14*T;      % 14-symbol frame (~1 ms)
@@ -421,7 +421,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 60;
-Max_iteration = 1000;
+Max_iteration = 20;
 Rmin=0.1;
 
 % Check if more than one STAR-RIS side is being used.
@@ -700,7 +700,7 @@ for ao = 1:max_AO_iter
     %           reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
 
 
-    [alpha_prev] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+    [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA);
     alpha = alpha_prev;
 
@@ -711,11 +711,12 @@ for ao = 1:max_AO_iter
             X = [alpha, phi_St];
         end
 
-     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
+     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
      [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
      min_next = min(min(R_sec));
 
 
+  
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
     % ================================================================
@@ -734,9 +735,16 @@ for ao = 1:max_AO_iter
     end
 
     % Final evaluation
-    [~, sc_p_lk, ~, ~, ~, R_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, ...
+    [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, ...
         Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB, X);
+
+    rate_p_vec = log2(1 + sinr_p_k); 
+    Rk = rate_p_vec(:) + Ck;
+
+    if(any(Rk<Rmin))
+        x=0;
+    end
 
     current_fake = min(min(sc_p_lk(1:nF,:)));
     current_real = min(min(sc_p_lk(nF+1:end,:)));

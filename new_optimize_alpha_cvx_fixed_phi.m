@@ -1,4 +1,4 @@
-function [alpha] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+function [alpha,Ck_out] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA)
 %% ========================= CONSTANTS =========================
 zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
@@ -189,5 +189,6 @@ for sca_iter = 1:max_SCA
 end
 alpha = double(vecAlpha);
 alpha = alpha.';
+Ck_out = double(Ck);
 
 end
