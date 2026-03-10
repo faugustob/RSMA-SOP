@@ -421,7 +421,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 60;
-Max_iteration = 600;
+Max_iteration = 1000;
 Rmin=0.1;
 
 % Check if more than one STAR-RIS side is being used.
@@ -618,7 +618,7 @@ ub_pso = ub;
 display('Convex Approximation with AO');
 
 max_AO_iter = Max_iteration;           % Outer AO iterations
-max_SCA = 20;         % Inner SCA iterations for alpha subproblem
+max_SCA = 3;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
 Active_Gain_dB = 0; 
@@ -640,7 +640,7 @@ fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
 problem.M = manifold;
-num_agents  = 30;
+num_agents  = Num_agents;
 
 prev_cost  = 10;
 
@@ -664,11 +664,19 @@ beta = zeros(Nr,num_agents);
 
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
-   [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(i,:), K, nF, sigma2, Pw, AN_P_ratio);
+   [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(1,:), K, nF, sigma2, Pw, AN_P_ratio);
     min_Rsec(i,1) = min(min(R_sec));
 end
 
 b0 =  beta(:,min_Rsec == max(max(min_Rsec)));
+
+
+for i = 1:num_agents
+    beta(:,i) = manifold.rand();
+   [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha(i,:), K, nF, sigma2, Pw, AN_P_ratio);
+    min_Rsec(i,1) = min(min(R_sec));
+end
+
 alpha_prev = alpha(min_Rsec == max(max(min_Rsec)),:);
 
 alpha = alpha_prev;
@@ -714,9 +722,9 @@ for ao = 1:max_AO_iter
     [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
    
 
-    if(ao>1)
-        b0 = exp(1i*phi_St(:));
-    end
+   
+    b0 = exp(1i*phi_St(:));
+   
 
     % Rebuild X
     if any_reflect
@@ -740,7 +748,7 @@ for ao = 1:max_AO_iter
         prev_cost = cost_opt;
     end
 
-   Convex_Convergence_curve_AO(ao) = prev_cost;
+   Convex_Convergence_curve_AO(ao) = -prev_cost;
     Convex_Fake_Convergence_curve_AO(ao) = best_fake_secrecy;
     Convex_Real_Convergence_curve_AO(ao) = best_real_secrecy;
 

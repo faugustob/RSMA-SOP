@@ -38,7 +38,7 @@ end
 
 
 %% ========================= INITIALIZATION =========================
-tol = 1e-10;           % Convergence tolerance
+tol = 1e-6;           % Convergence tolerance
 obj_prev = -inf;      % Track previous objective value
 alpha_prev = alpha_prev.';
 lambda_penalty = 1e3; % Adjust based on how strictly you want to enforce Rmin
@@ -108,7 +108,7 @@ for sca_iter = 1:max_SCA
                       - (1/log(2)) * ((Pk(k)*A_neg(:,1).')/(I_c_prev)) ...
                         * (vecAlpha-alpha_prev);  
 
-                sum(Ck)<=Rc;
+                
 
                  S_k = Pk(k)*A_pos(:,k+1).'*vecAlpha;  
                  I_k = Pk(k)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Ak(k)+noise;
@@ -121,11 +121,15 @@ for sca_iter = 1:max_SCA
                       - (1/log(2)) * ((Pk(k)*A_neg_pi(:,k+1).')/(I_k_prev)) ...
                         * (vecAlpha-alpha_prev);
 
-                 Ck(k) + Rk(k)>=Rmin; %QoS.
+                 
 
              
             end
+            sum(Ck)<=Rc;
 
+            for k=1:K
+                Ck(k) + Rk(k)>=Rmin; %QoS.
+            end
         
             % ---------- EAVESDROPPER / SECRECY CONSTRAINTS ----------
             for l = 1:nF
