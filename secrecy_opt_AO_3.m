@@ -560,7 +560,7 @@ for ao = 1:max_AO_iter
 
 
     [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
-    K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA);
+    K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
     alpha = alpha_prev;
 
           % Rebuild X

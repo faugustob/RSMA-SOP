@@ -1,5 +1,5 @@
 function [alpha,Ck_out] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
-    K, nF, reflect,  delta_f, Active_Gain_dB, max_SCA)
+    K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA)
 %% ========================= CONSTANTS =========================
 zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
 phase_St = exp(1j .* phi_St);
@@ -11,7 +11,6 @@ N0_dBm = -174;
 sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
 Pw_dBm = 46;
 Pw = 10^((Pw_dBm - 30)/10);
-AN_P_ratio = 1;          % Increase this (e.g. 5-10) if eavesdroppers are too strong
 noise = sigma2/Pw;
 
 
@@ -38,7 +37,7 @@ end
 
 
 %% ========================= INITIALIZATION =========================
-tol = 1e-6;           % Convergence tolerance
+tol = 1e-10;           % Convergence tolerance
 obj_prev = -inf;      % Track previous objective value
 alpha_prev = alpha_prev.';
 lambda_penalty = 1e3; % Adjust based on how strictly you want to enforce Rmin
@@ -89,7 +88,7 @@ for sca_iter = 1:max_SCA
 
         subject to
             sum(vecAlpha) <= 1;
-            vecAlpha >= 1e-2;
+            vecAlpha >= 0;
 
             
             % ---------- USER-LEVEL CONSTRAINTS ----------

@@ -73,7 +73,7 @@ function [V_1, V_2, term3] = compute_V(I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h
         end
     end
 
-    b = I * h_e(:);   % Pe x 1
+    b = I * conj(h_e(:));   % Pe x 1
 
     V_2 = sqrt(PLj)*sqrt(Plos)*b' * G_BA * M_2 ;
 
