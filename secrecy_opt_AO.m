@@ -25,7 +25,7 @@ nF = 5; % Number of fake eavesdroppers
 L = 1; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
-delta_f = 200e3;      % Subcarrier spacing (Hz)
+delta_f = 100e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
 B = 10e6;        % [Hz] ← Use this
 Tf      = 14*T;      % 14-symbol frame (~1 ms)
@@ -303,7 +303,7 @@ max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);
 
 % Compute M and N based on the parameters
 [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
-M = max(M, 64); N = max(N, 12);  % Minimum practical size
+M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
 
 
