@@ -186,7 +186,7 @@ while sca_iter > 0
     cvx_end
 
     if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
-        fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
+       % fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
         Rmin_current = Rmin_current * reduction_factor;
         sca_iter = sca_iter + 1; % Replace repetition loop for the failed status.
         continue;
