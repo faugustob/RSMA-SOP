@@ -7,7 +7,7 @@ function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,
 
 
 
-        s_param = 100; % Smoothing parameter for max-min
+        s_param = 50; % Smoothing parameter for max-min
         lambda_penalty = 1e3;
 
         % 
@@ -38,8 +38,8 @@ function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,
         % Solve
        % fprintf('Starting Manifold Optimization...\n');
         % Define options structure
-        options.tolgradnorm = 1e-10;    % Stop when the gradient norm is very small
-        options.maxiter = 1e4;         % Maximum outer iterations
+        options.tolgradnorm = 1e-4;    % Stop when the gradient norm is very small
+        options.maxiter = 30;         % Maximum outer iterations
         options.verbosity = 0;          % 2 shows summary, 3 shows detailed inner steps
         options.linesearch = @linesearch; % Trust-regions usually manages step size via the radius
         

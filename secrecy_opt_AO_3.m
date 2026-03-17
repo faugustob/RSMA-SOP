@@ -469,7 +469,7 @@ dim_pso = dim;
 alpha_min_pso = alpha_min;
 lb_pso =lb;
 ub_pso = ub;
-
+ AN_P_ratio = 2;  
 
 
 
@@ -570,7 +570,7 @@ for ao = 1:max_AO_iter
             X = [alpha, phi_St];
         end
 
-     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
+     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X);
      [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
      min_next = min(min(R_sec));
 
@@ -596,7 +596,7 @@ for ao = 1:max_AO_iter
     % Final evaluation
     [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, ...
         Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-        zeta_k_St, Active_Gain_dB, X);
+        zeta_k_St, Active_Gain_dB, AN_P_ratio, X);
 
     rate_p_vec = log2(1 + sinr_p_k); 
     Rk = rate_p_vec(:) + Ck;

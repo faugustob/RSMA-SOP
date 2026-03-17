@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 20; % number of samples for Monte Carlo simulation
+Ns = 100; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -20,7 +20,7 @@ K_h = 1;  % number of high speed legit users % 50 km/h
 K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 5; % Number of fake eavesdroppers
+nF = 4; % Number of fake eavesdroppers
 
 L = 1; % number of eavesdroppers
 
@@ -120,13 +120,6 @@ receiving_ang = acos( ...
 m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
 omega_p = (1/P)*ones(1,P); % spread parameter
 
-nF_vec = 1:1:10;
-
-
-for mc_iter = 1:Ns
-for nF_idx = 1:length(nF_vec)
-    nF = nF_vec(nF_idx);
-
 % from STAR-RIS to users and eavesdroppers (one value for each path and 
 % each receiver, and assume same for each RIS element):
 m_q = 1*ones(K+nF+L,Q_j); % shape parameter
@@ -157,6 +150,13 @@ vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
 
+
+
+PSO_Convergence_curve = [];
+PSO_Fake_secrecy_rate_curve = [];
+PSO_Real_secrecy_rate_curve = [];
+
+for mc_iter = 1:Ns
 g_pq = zeros(P,Q_j,K+nF+L);
 Plos = zeros(K+nF+L,nSat);
 PLj = zeros(K+nF+L,nSat);
@@ -166,7 +166,6 @@ h_jq = zeros(Nr, Q_j,K+nF+L);
 h_e = zeros(Pe,K+nF+L,nSat);
 taus_ku = zeros(Pe,K);
 nus_ku = zeros(Pe,K);
-
 
 % ELEVATION (UNCHANGED)
 el = pi/2 - (0.05)*max_alpha * rand(1, K);
@@ -419,7 +418,7 @@ end
 
 display('SCA is optimizing your problem');
 
-Num_agents  = 100;
+Num_agents  = 30;
 Max_iteration = 20;
 Rmin=0;
 
@@ -429,7 +428,7 @@ any_reflect = any(reflect > 0) && any(reflect < 0);
 % Problem bounds and dimensionality
 dim = K+1+Nr;
 ub=[ones(1,K+1),2*pi*ones(1,Nr)];
-alpha_min = 1e-4;
+alpha_min = 1e-8;
 lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
 zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
 
@@ -503,6 +502,7 @@ num_agents  = Num_agents;
 num_agents  = 1;
 
 prev_cost  = 10;
+prev_min_Rk = -10;
 
 %Parameters
 BW = delta_f;
@@ -601,6 +601,7 @@ for ao = 1:max_AO_iter
 
     rate_p_vec = log2(1 + sinr_p_k); 
     Rk = rate_p_vec(:) + Ck;
+
    
 
     current_fake = min(min(sc_p_lk(1:nF,:)));
@@ -611,11 +612,13 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost_opt;
+        prev_min_Rk = min(Rk);
     end
 
-    Convex_Convergence_curve_AO(mc_iter,nF_idx,ao) = -prev_cost;
-    Convex_Fake_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_fake_secrecy;
-    Convex_Real_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_real_secrecy;
+    Convex_min_Rk(mc_iter,ao) = prev_min_Rk;
+    Convex_Convergence_curve_AO(mc_iter,ao) = -prev_cost;
+    Convex_Fake_Convergence_curve_AO(mc_iter,ao) = best_fake_secrecy;
+    Convex_Real_Convergence_curve_AO(mc_iter,ao) = best_real_secrecy;
 
     fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n', ...
             ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake);
@@ -628,13 +631,14 @@ end
 
 fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
 
-end
-end
 
 
+
+
+end
 
  %% Plot
- Convergence Curve with Markers
+% Convergence Curve with Markers
 figure('Color','w'); % White background
 
 % Define color palette 
@@ -648,17 +652,18 @@ colors = [0, 0.4470, 0.7410;      % Blue
 markerInterval = 50;
 
 
-Convex_Convergence_curve_AO = mean(Convex_Convergence_curve_AO(:,:,end));
-Convex_Fake_Convergence_curve_AO = mean(Convex_Fake_Convergence_curve_AO(:,:,end));
-Convex_Real_Convergence_curve_AO = mean(Convex_Real_Convergence_curve_AO(:,:,end));
-
+Convex_Convergence_curve_AO = mean(Convex_Convergence_curve_AO,1);
+Convex_Fake_Convergence_curve_AO = mean(Convex_Fake_Convergence_curve_AO,1);
+Convex_Real_Convergence_curve_AO = mean(Convex_Real_Convergence_curve_AO,1);
+Convex_min_Rk_curve = mean(Convex_min_Rk,1);
 
 hold on;
+
 plot(Convex_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(3,:))
 
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('Nf','FontWeight','bold','FontSize',11);
+xlabel('Iteration','FontWeight','bold','FontSize',11);
 ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
 legend('Convex-Manifold','Location','best','FontSize',10);
 
@@ -668,7 +673,7 @@ ax.GridAlpha = 0.3; % Lighter grid
 ax.LineWidth = 1.1; % Thicker axes
 box on;
 
-%% Fake & Real Secrecy Rate Curve with Markers
+% Fake & Real Secrecy Rate Curve with Markers
 figure('Color','w');
 
 % Marker definitions
@@ -684,6 +689,7 @@ hold on;
 % Convex + Manopt
 plot(Convex_Fake_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
 plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_min_Rk_curve(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(Convex_min_Rk_curve), 'MarkerFaceColor',colors(3,:))
 
 
 
@@ -691,7 +697,7 @@ title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12)
 xlabel('Iteration','FontWeight','bold','FontSize',11);
 ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
-legend('Convex-fake','Convex-real', ...
+legend('Convex-fake','Convex-real','Min-private-rate', ...
     'Location','best','FontSize',10);
 
 grid on;

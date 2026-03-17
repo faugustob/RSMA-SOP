@@ -1,4 +1,4 @@
-function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc_an(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,x)
+function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l, sinr_p_l] = compute_sinr_sc_an(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,x)
     %
     % phi=[];
     % alpha=[];
@@ -48,7 +48,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
 
     Pw_dBm = 46; % LEO RF transmit power (10 W)
     Pw = 10^((Pw_dBm-30)/10); % Watts
-    AN_P_ratio = 1;
+ 
 
     % 1. Define RIS Noise parameters
     NF_ris = 0; % Noise Figure of the RIS amplifiers (in dB)

@@ -37,7 +37,7 @@ end
 
 
 %% ========================= INITIALIZATION =========================
-tol = 1e-10;           % Convergence tolerance
+tol = 1e-6;           % Convergence tolerance
 obj_prev = -inf;      % Track previous objective value
 alpha_prev = alpha_prev.';
 lambda_penalty = 1e3; % Adjust based on how strictly you want to enforce Rmin
@@ -50,14 +50,31 @@ A_neg = 1 - A_pos;
 A_neg_pi = A_neg;
 A_neg_pi(1,:)=0;
 
-scale = 1e10;
+%% ========================= ADAPTIVE RANGE-CENTERING =========================
+% Combine all power-related terms
+all_terms = [Pk(:); Ak(:); Pl(:); Al(:); noise];
+valid_terms = all_terms(all_terms > 0);
 
-noise = noise*scale;
+if ~isempty(valid_terms)
+    % Find the exponent boundaries
+    log_min = log10(min(valid_terms));
+    log_max = log10(max(valid_terms));
+    
+    % Center the exponents around 10^0 (1)
+    % For your values (-17 and -5), the midpoint is -11.
+    % This will scale 1e-17 up to 1e-6 and 1e-5 up to 1e6.
+    scale_exp = -(log_min + log_max) / 2;
+    scale = 10^scale_exp;
+else
+    scale = 1;
+end
 
+% Apply the scale
+noise = noise * scale;
 Pk = Pk * scale;
 Pl = Pl * scale;
 Ak = Ak * scale;
-Al = Al * scale;  
+Al = Al * scale;
 
 %% ========================= SCA LOOP =========================
 for sca_iter = 1:max_SCA
@@ -88,7 +105,7 @@ for sca_iter = 1:max_SCA
 
         subject to
             sum(vecAlpha) <= 1;
-            vecAlpha >= 0;
+            vecAlpha >= 1e-8;
 
             
             % ---------- USER-LEVEL CONSTRAINTS ----------
