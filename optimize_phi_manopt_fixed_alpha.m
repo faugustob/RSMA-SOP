@@ -46,7 +46,7 @@ function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,
         % Inner iteration control (Krylov steps)
         % Since your Hessian is perfect, we can allow more inner iterations 
         % to solve the sub-problem more accurately.
-        options.maxinner = Nr * 2; 
+        options.maxinner = Nr/2; 
         
         % Execute with options
         [beta_opt, cost_opt, info] = trustregions(problem, b0, options);

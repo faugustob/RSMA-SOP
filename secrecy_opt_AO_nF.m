@@ -38,8 +38,8 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 40; % number of rows of regularly arranged unit cells of RIS
-N_H = 40; % number of columns of regularly arranged unit cells of RIS
+N_V = 20; % number of rows of regularly arranged unit cells of RIS
+N_H = 20; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
@@ -122,6 +122,10 @@ omega_p = (1/P)*ones(1,P); % spread parameter
 
 nF_vec = 1:1:10;
 
+Convex_min_Rk= zeros(Ns,10,20);
+Convex_Convergence_curve_AO = zeros(Ns,10,20);
+Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
+Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
 
 for mc_iter = 1:Ns
 for nF_idx = 1:length(nF_vec)
@@ -421,7 +425,7 @@ display('SCA is optimizing your problem');
 
 Num_agents  = 100;
 Max_iteration = 20;
-Rmin=0;
+Rmin=1e-2;
 
 % Check if more than one STAR-RIS side is being used.
 any_reflect = any(reflect > 0) && any(reflect < 0);
@@ -451,23 +455,23 @@ alpha = alpha - (sum(alpha,2)-1)/(K+1);
 alpha = alpha - (sum(alpha,2)-1)/(K+1);
 
 
-X = [alpha,phi_St];
-
-if any_reflect
-    dim = K+1+3*Nr;
-    ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
-    alpha_min = 1e-4;
-    lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
-    zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
-    X = [alpha,phi_Sr,phi_St,zeta_k_St];
-end
-
-
-% --- Problem Dimensions and Bounds ---
-dim_pso = dim;
-alpha_min_pso = alpha_min;
-lb_pso =lb;
-ub_pso = ub;
+% X = [alpha,phi_St];
+% 
+% if any_reflect
+%     dim = K+1+3*Nr;
+%     ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
+%     alpha_min = 1e-4;
+%     lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
+%     zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
+%     X = [alpha,phi_Sr,phi_St,zeta_k_St];
+% end
+% 
+% 
+% % --- Problem Dimensions and Bounds ---
+% dim_pso = dim;
+% alpha_min_pso = alpha_min;
+% lb_pso =lb;
+% ub_pso = ub;
 
 AN_P_ratio = 1;  
 
@@ -550,30 +554,8 @@ for ao = 1:max_AO_iter
 
    
     
-    prev_fake = best_fake_secrecy;
-    
-    % ================================================================
-    % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
-    % ================================================================
-    % alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
-    %           K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-    %           reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
-
-
-    [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
-    K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
-    alpha = alpha_prev;
-
-          % Rebuild X
-        if any_reflect
-            X = [alpha, phi_Sr, phi_St, zeta_k_St];
-        else
-            X = [alpha, phi_St];
-        end
-
-     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X);
-     [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-     min_next = min(min(R_sec));
+    prev_fake = best_fake_secrecy;  
+   
 
 
   
@@ -585,6 +567,20 @@ for ao = 1:max_AO_iter
 
    
     b0 = exp(1i*phi_St(:));
+
+
+
+     % ================================================================
+    % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
+    % ================================================================
+
+    [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+    K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
+    alpha = alpha_prev;
+
+        
+     [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+     min_next = min(min(R_sec));
    
 
     % Rebuild X
@@ -601,6 +597,7 @@ for ao = 1:max_AO_iter
 
     rate_p_vec = log2(1 + sinr_p_k); 
     Rk = rate_p_vec(:) + Ck;
+
    
 
     current_fake = min(min(sc_p_lk(1:nF,:)));
@@ -611,11 +608,13 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost_opt;
+        prev_min_Rk = min(Rk);
     end
 
-    Convex_Convergence_curve_AO(mc_iter,nF_idx,ao) = -prev_cost;
-    Convex_Fake_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_fake_secrecy;
-    Convex_Real_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_real_secrecy;
+    Convex_min_Rk(mc_iter,ao) = prev_min_Rk;
+    Convex_Convergence_curve_AO(mc_iter,ao) = -prev_cost;
+    Convex_Fake_Convergence_curve_AO(mc_iter,ao) = best_fake_secrecy;
+    Convex_Real_Convergence_curve_AO(mc_iter,ao) = best_real_secrecy;
 
     fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n', ...
             ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake);
@@ -626,6 +625,7 @@ for ao = 1:max_AO_iter
     % end
 end
 
+
 fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
 
 end
@@ -634,7 +634,7 @@ end
 
 
  %% Plot
- Convergence Curve with Markers
+% Convergence Curve with Markers
 figure('Color','w'); % White background
 
 % Define color palette 
@@ -648,9 +648,9 @@ colors = [0, 0.4470, 0.7410;      % Blue
 markerInterval = 50;
 
 
-Convex_Convergence_curve_AO = mean(Convex_Convergence_curve_AO(:,:,end));
-Convex_Fake_Convergence_curve_AO = mean(Convex_Fake_Convergence_curve_AO(:,:,end));
-Convex_Real_Convergence_curve_AO = mean(Convex_Real_Convergence_curve_AO(:,:,end));
+Convex_Convergence_curve_AO = mean(Convex_Convergence_curve_AO(:,:,end),1);
+Convex_Fake_Convergence_curve_AO = mean(Convex_Fake_Convergence_curve_AO(:,:,end),1);
+Convex_Real_Convergence_curve_AO = mean(Convex_Real_Convergence_curve_AO(:,:,end),1);
 
 
 hold on;
@@ -668,7 +668,7 @@ ax.GridAlpha = 0.3; % Lighter grid
 ax.LineWidth = 1.1; % Thicker axes
 box on;
 
-%% Fake & Real Secrecy Rate Curve with Markers
+% Fake & Real Secrecy Rate Curve with Markers
 figure('Color','w');
 
 % Marker definitions
@@ -688,7 +688,7 @@ plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle',
 
 
 title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('Iteration','FontWeight','bold','FontSize',11);
+xlabel('Number of fake Eve','FontWeight','bold','FontSize',11);
 ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
 legend('Convex-fake','Convex-real', ...

@@ -156,6 +156,12 @@ PSO_Convergence_curve = [];
 PSO_Fake_secrecy_rate_curve = [];
 PSO_Real_secrecy_rate_curve = [];
 
+
+Convex_min_Rk= zeros(Ns,20);
+Convex_Convergence_curve_AO = zeros(Ns,20);
+Convex_Fake_Convergence_curve_AO = zeros(Ns,20);
+Convex_Real_Convergence_curve_AO = zeros(Ns,20);
+
 for mc_iter = 1:Ns
 g_pq = zeros(P,Q_j,K+nF+L);
 Plos = zeros(K+nF+L,nSat);
@@ -420,7 +426,7 @@ display('SCA is optimizing your problem');
 
 Num_agents  = 30;
 Max_iteration = 20;
-Rmin=0;
+Rmin=1e-2;
 
 % Check if more than one STAR-RIS side is being used.
 any_reflect = any(reflect > 0) && any(reflect < 0);
@@ -550,30 +556,8 @@ for ao = 1:max_AO_iter
 
    
     
-    prev_fake = best_fake_secrecy;
-    
-    % ================================================================
-    % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
-    % ================================================================
-    % alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
-    %           K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-    %           reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
-
-
-    [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
-    K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
-    alpha = alpha_prev;
-
-          % Rebuild X
-        if any_reflect
-            X = [alpha, phi_Sr, phi_St, zeta_k_St];
-        else
-            X = [alpha, phi_St];
-        end
-
-     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X);
-     [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-     min_next = min(min(R_sec));
+    prev_fake = best_fake_secrecy;  
+   
 
 
   
@@ -585,6 +569,20 @@ for ao = 1:max_AO_iter
 
    
     b0 = exp(1i*phi_St(:));
+
+
+
+     % ================================================================
+    % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
+    % ================================================================
+
+    [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+    K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
+    alpha = alpha_prev;
+
+        
+     [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+     min_next = min(min(R_sec));
    
 
     % Rebuild X

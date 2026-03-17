@@ -76,8 +76,14 @@ Pl = Pl * scale;
 Ak = Ak * scale;
 Al = Al * scale;
 
+Rmin_orig = Rmin;
+Rmin_current = Rmin;
+reduction_factor = 0.95;
+
+sca_iter = max_SCA;
+
 %% ========================= SCA LOOP =========================
-for sca_iter = 1:max_SCA
+while sca_iter > 0
 
     % Scaling to avoid ILL Posed issue
      
@@ -144,7 +150,7 @@ for sca_iter = 1:max_SCA
             sum(Ck)<=Rc;
 
             for k=1:K
-                Ck(k) + Rk(k)>=Rmin; %QoS.
+                Ck(k) + Rk(k)>=Rmin_current; %QoS.
             end
         
             % ---------- EAVESDROPPER / SECRECY CONSTRAINTS ----------
@@ -181,7 +187,9 @@ for sca_iter = 1:max_SCA
 
     if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
         fprintf('SCA failed at iter %d: %s\n', sca_iter, cvx_status);
-        break;
+        Rmin_current = Rmin_current * reduction_factor;
+        sca_iter = sca_iter + 1; % Replace repetition loop for the failed status.
+        continue;
     end
 
     % ---------- CONVERGENCE CHECK ----------
@@ -193,7 +201,7 @@ for sca_iter = 1:max_SCA
     %fprintf('SCA Iter %d: Obj = %.6f, Alpha Delta = %.6e\n', sca_iter, current_obj, alpha_change);
 
     if obj_change < tol && alpha_change < tol
-        fprintf('SCA converged at iteration %d.\n', sca_iter);
+        %fprintf('SCA converged at iteration %d.\n', sca_iter);
         alpha_prev = double(vecAlpha);
         break;
     end
@@ -201,10 +209,21 @@ for sca_iter = 1:max_SCA
     % ---------- UPDATE FOR NEXT ITERATION ----------
     alpha_prev = double(vecAlpha);
     obj_prev = current_obj;
+
+    sca_iter = sca_iter - 1;
  
 end
-alpha = double(vecAlpha);
-alpha = alpha.';
-Ck_out = double(Ck);
+% ========== FINAL SAFETY CHECK ==========
+if ~strcmp(cvx_status,'Solved') && ~strcmp(cvx_status,'Inaccurate/Solved')
+    fprintf('WARNING: Even after adaptation final solve failed. Using previous alpha.\n');
+    alpha = alpha_prev.';   % fallback to input
+    Ck_out = zeros(K,1);
+else
+    alpha = double(vecAlpha).';
+    Ck_out = double(Ck);
+    if Rmin_current<Rmin_orig
+        fprintf('SUCCESS with adapted Rmin = %.4f (original was %.4f)\n', Rmin_current, Rmin_orig);
+    end
+end
 
 end
