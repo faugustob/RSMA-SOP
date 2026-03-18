@@ -1,8 +1,8 @@
 clear; clc;
 cvx_clear;
 
-Ns = 1e6; % number of samples for Monte Carlo simulation
-rng(3);
+Ns = 200; % number of samples for Monte Carlo simulation
+%rng(3);
 
 transmissionType = 'mc';
 
@@ -38,9 +38,7 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 40; % number of rows of regularly arranged unit cells of RIS
-N_H = 40; % number of columns of regularly arranged unit cells of RIS
-Nr = N_V * N_H; % total number of unit cells of RIS
+
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
 d_y = floor(lambda/2 * 1000) / 1000; % vertical size of RIS element
@@ -79,7 +77,7 @@ S_radius  = R_earth+LEO_altitude;
 
 S_sph = [ S_azimuth, S_elevation, S_radius]; % location of LEO satellite in spherical coordinates
 
-AN_elevation = pi/2-max_theta*(0.009);
+AN_elevation = pi/2-max_theta*(0.1);
 AN_azimuth  = pi/4 -pi;
 AN_radius  = S_radius;
 
@@ -87,11 +85,12 @@ AN_radius  = S_radius;
 AN_sph = [ AN_azimuth, AN_elevation, AN_radius]; % location of AN LEO satellite in spherical coordinates
 
 [S_x, S_y, S_z] = sph2cart(S_sph(1), S_sph(2), S_sph(3));
-S_xyz = [S_x;S_y;S_z];
+S_xyz = [S_x;S_y;S_z]; %[-1.4e4,-1.4e4,6.6e6]
 
 
 [AN_x, AN_y, AN_z] = sph2cart(AN_sph(1), AN_sph(2), AN_sph(3));
 AN_xyz = [AN_x;AN_y;AN_z];
+
 
 S_v = 7800;
 R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this to be origin;
@@ -111,6 +110,69 @@ receiving_ang = acos( ...
         (S_xyz  - R_xyz) / norm(S_xyz  - R_xyz,'fro') ...
     ) ...
 );
+
+% Nakagami Parameters:
+
+% from LEO satellite to STAR-RIS (one value for each path and assume same
+% for each RIS element):
+m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
+omega_p = (1/P)*ones(1,P); % spread parameter
+
+nF_vec = 1:1:10;
+
+% Convex_min_Rk= zeros(Ns,10,20);
+% Convex_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
+
+for mc_iter = 1:Ns
+for nF_idx = 1:length(nF_vec)
+    nF = nF_vec(nF_idx);
+
+N_V = 20; % number of rows of regularly arranged unit cells of RIS
+N_H = 20; % number of columns of regularly arranged unit cells of RIS
+Nr = N_V * N_H; % total number of unit cells of RIS
+
+% from STAR-RIS to users and eavesdroppers (one value for each path and 
+% each receiver, and assume same for each RIS element):
+m_q = 1*ones(K+nF+L,Q_j); % shape parameter
+omega_q = (1/Q_j)*ones(K+nF+L,Q_j); % spread parameter
+% note: m_j_1(1:K,:) and omega_j_q(1:K,:) are for legit users
+% and m_j_1(K+1:end,:) and omega_j_q(K+1:end,:) are for eavesdroppers
+% direct channel from LEO satellite to Eve (one value for each path and
+% each eavesdropper)
+
+m_e = 1*ones(K+nF+L,Pe); % shape parameter
+omega_e = (1/Pe)*ones(K+nF+L,Pe); % spread parameter
+
+% ============================================================
+% Earth-centered positions and velocities (LEO → RIS)
+% ============================================================
+
+% Orbit geometry
+orbit_normal = [1; 0; 0];
+Rs = norm(S_xyz);
+
+omega_orb = (S_v / Rs) * orbit_normal;
+
+% Satellite velocity (ECI)
+vS = cross(omega_orb, S_xyz);
+
+% RIS velocity due to Earth rotation (ECI)
+vR = [0;0;0];
+
+sigma_ang = deg2rad(30);   % angular spread
+
+g_pq = zeros(P,Q_j,K+nF+L);
+Plos = zeros(K+nF+L,nSat);
+PLj = zeros(K+nF+L,nSat);
+
+h_rp = zeros(Nr, P,K+nF+L,nSat);
+h_jq = zeros(Nr, Q_j,K+nF+L);
+h_e = zeros(Pe,K+nF+L,nSat);
+taus_ku = zeros(Pe,K);
+nus_ku = zeros(Pe,K);
+
 
 % ELEVATION (UNCHANGED)
 el = pi/2 - (0.05)*max_alpha * rand(1, K);
@@ -150,68 +212,13 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
 
 
-% Nakagami Parameters:
-
-% from LEO satellite to STAR-RIS (one value for each path and assume same
-% for each RIS element):
-m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
-omega_p = (1/P)*ones(1,P); % spread parameter
-
-% from STAR-RIS to users and eavesdroppers (one value for each path and 
-% each receiver, and assume same for each RIS element):
-m_q = 1*ones(K+nF+L,Q_j); % shape parameter
-omega_q = (1/Q_j)*ones(K+nF+L,Q_j); % spread parameter
-% note: m_j_1(1:K,:) and omega_j_q(1:K,:) are for legit users
-% and m_j_1(K+1:end,:) and omega_j_q(K+1:end,:) are for eavesdroppers
-% direct channel from LEO satellite to Eve (one value for each path and
-% each eavesdropper)
-
-m_e = 1*ones(K+nF+L,Pe); % shape parameter
-omega_e = (1/Pe)*ones(K+nF+L,Pe); % spread parameter
-% note: if we want different paths to have different parameters, or legit
-% users and eavesdroppers to have different parameters, modify the above
-% matrices correspondingly, but ensure the shape doesn't change
-
-
-% STAR-RIS phase and magnitude of each RIS element
-
-
-% note: beta_r will have shape (Ns,Nr,K+nF+L)
-
-
-
-% ============================================================
-% Earth-centered positions and velocities (LEO → RIS)
-% ============================================================
-
-% Orbit geometry
-orbit_normal = [1; 0; 0];
-Rs = norm(S_xyz);
-
-omega_orb = (S_v / Rs) * orbit_normal;
-
-% Satellite velocity (ECI)
-vS = cross(omega_orb, S_xyz);
-
-% RIS velocity due to Earth rotation (ECI)
-vR = [0;0;0];
-
-sigma_ang = deg2rad(30);   % angular spread
 
 % Satellite to RIS delays and doppler coefficients.
 [taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
 
 
-g_pq = zeros(P,Q_j,K+nF+L);
-Plos = zeros(K+nF+L,nSat);
-PLj = zeros(K+nF+L,nSat);
 
-h_rp = zeros(Nr, P,K+nF+L,nSat);
-h_jq = zeros(Nr, Q_j,K+nF+L);
-h_e = zeros(Pe,K+nF+L,nSat);
-taus_ku = zeros(Pe,K);
-nus_ku = zeros(Pe,K);
 
 %OTFS Per User channel conditions
 for k =1:K
@@ -239,7 +246,7 @@ for k =1:K
     
     PLj(k,1) = compute_ris_PL(lambda,N_V,N_H,S_xyz,User_k_loc,R_xyz,RIS_normal,F,F_tx,F_rx,G,G_t,G_r);
     PLj(k,2) = compute_ris_PL(lambda,N_V,N_H,AN_xyz,User_k_loc,R_xyz,RIS_normal,F,F_tx,F_rx,G,G_t,G_r);
-    Ns=1;
+   
   
 
      % direction in xy (away from ris)
@@ -296,16 +303,17 @@ for k =1:K
             
 end
 
-% % % Max tau and nu
-max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
-max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
+% % % % Max tau and nu
+% max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
+% max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
 
 
-% Compute M and N based on the parameters
-[M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
-M = max(M, 64); N = max(N, 20);  % Minimum practical size
+% % Compute M and N based on the parameters
+% [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
+% M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-
+M = 100;
+N = 16;
 
 Nsymb = M*N; 
 
@@ -345,9 +353,7 @@ for l=1:nF+L
 
         PLj(K+l,1) = compute_ris_PL(lambda,N_V,N_H,S_xyz,User_l_loc,R_xyz,RIS_normal,F,F_tx,F_rx,G,G_t,G_r);
         PLj(K+l,2) = compute_ris_PL(lambda,N_V,N_H,AN_xyz,User_l_loc,R_xyz,RIS_normal,F,F_tx,F_rx,G,G_t,G_r);
-
-         
-        Ns=1;
+    
 
         % RIS → UAV radial direction
         u_re = User_l_loc - R_xyz;
@@ -420,9 +426,9 @@ end
 
 display('SCA is optimizing your problem');
 
-Num_agents  = 60;
+Num_agents  = 100;
 Max_iteration = 20;
-Rmin=0.1;
+Rmin=1e-2;
 
 % Check if more than one STAR-RIS side is being used.
 any_reflect = any(reflect > 0) && any(reflect < 0);
@@ -452,24 +458,25 @@ alpha = alpha - (sum(alpha,2)-1)/(K+1);
 alpha = alpha - (sum(alpha,2)-1)/(K+1);
 
 
-X = [alpha,phi_St];
+% X = [alpha,phi_St];
+% 
+% if any_reflect
+%     dim = K+1+3*Nr;
+%     ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
+%     alpha_min = 1e-4;
+%     lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
+%     zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
+%     X = [alpha,phi_Sr,phi_St,zeta_k_St];
+% end
+% 
+% 
+% % --- Problem Dimensions and Bounds ---
+% dim_pso = dim;
+% alpha_min_pso = alpha_min;
+% lb_pso =lb;
+% ub_pso = ub;
 
-if any_reflect
-    dim = K+1+3*Nr;
-    ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
-    alpha_min = 1e-4;
-    lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
-    zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
-    X = [alpha,phi_Sr,phi_St,zeta_k_St];
-end
-
-
-% --- Problem Dimensions and Bounds ---
-dim_pso = dim;
-alpha_min_pso = alpha_min;
-lb_pso =lb;
-ub_pso = ub;
- AN_P_ratio = 2;  
+AN_P_ratio = 1;  
 
 
 
@@ -500,6 +507,7 @@ fprintf('\n=== Starting Convex AO ===\n');
 manifold = complexcirclefactory(Nr,1);
 problem.M = manifold;
 num_agents  = Num_agents;
+num_agents  = 1;
 
 prev_cost  = 10;
 
@@ -510,7 +518,7 @@ sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
 % Define the scaling factor
 Pw_dBm = 46;
 Pw = 10^((Pw_dBm - 30)/10);
-AN_P_ratio = 1;  
+
 
 
  % ---------- CHANNELS ----------
@@ -540,7 +548,7 @@ alpha_prev = alpha(min_Rsec == max(max(min_Rsec)),:);
 
 alpha = alpha_prev;
 
-[R_sec_prev,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+[R_sec_prev,rate_p,rate_c,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
 min_prev = min(min(R_sec_prev));
@@ -549,37 +557,27 @@ for ao = 1:max_AO_iter
 
    
     
-    prev_fake = best_fake_secrecy;
-    
+    prev_fake = best_fake_secrecy;    
+
+
+
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
     % ================================================================
-    % alpha = optimize_alpha_cvx_fixed_phi(phi_St, phi_Sr, zeta_k_St, ...
-    %           K, nF, L, Rmin, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
-    %           reflect, h_rp, h_jq, h_e, delta_f, Active_Gain_dB, max_SCA_inner);
-
 
     [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
     alpha = alpha_prev;
 
-          % Rebuild X
-        if any_reflect
-            X = [alpha, phi_Sr, phi_St, zeta_k_St];
-        else
-            X = [alpha, phi_St];
-        end
-
-     [sc_c_lk,sc_p_lk,sc_p_kk,rate_c,rate_k,R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X);
+        
      [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
      min_next = min(min(R_sec));
 
 
-  
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
     % ================================================================
-    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
+    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
    
 
    
@@ -596,14 +594,12 @@ for ao = 1:max_AO_iter
     % Final evaluation
     [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, ...
         Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-        zeta_k_St, Active_Gain_dB, AN_P_ratio, X);
+        zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
     rate_p_vec = log2(1 + sinr_p_k); 
     Rk = rate_p_vec(:) + Ck;
 
-    if(any(Rk<Rmin))
-        x=0;
-    end
+   
 
     current_fake = min(min(sc_p_lk(1:nF,:)));
     current_real = min(min(sc_p_lk(nF+1:end,:)));
@@ -613,14 +609,16 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost_opt;
+        prev_min_Rk = min(Rk);
     end
 
-   Convex_Convergence_curve_AO(ao) = -prev_cost;
-    Convex_Fake_Convergence_curve_AO(ao) = best_fake_secrecy;
-    Convex_Real_Convergence_curve_AO(ao) = best_real_secrecy;
+    Convex_min_Rk(mc_iter,nF_idx,ao) = prev_min_Rk;
+    Convex_Convergence_curve_AO(mc_iter,nF_idx,ao) = -prev_cost;
+    Convex_Fake_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_fake_secrecy;
+    Convex_Real_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_real_secrecy;
 
-    fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n', ...
-            ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake);
+   fprintf('AO Iter %2d | Fake Secrecy = %.8f | Δ = %.8f | Ns = %2d | nF = %2d\n ', ...
+            ao, best_fake_secrecy, best_fake_secrecy - prev_fake,mc_iter,nF_idx);
 
     % if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
     %     fprintf('→ AO Converged at iteration %d\n', ao);
@@ -628,45 +626,42 @@ for ao = 1:max_AO_iter
     % end
 end
 
+
 fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
 
+end
+end
 
 
 
-
-
-
-
-
-
-
-
-
-%% Plot
-%% Convergence Curve with Markers
+ %% Plot
+% Convergence Curve with Markers
 figure('Color','w'); % White background
 
-% Define color palette (colorblind-friendly)
-colors = lines(6);
+% Define color palette 
+colors = [0, 0.4470, 0.7410;      % Blue
+          0.8500, 0.3250, 0.0980; % Orange/Red
+          0.4660, 0.6740, 0.1880; % Green
+          0.4940, 0.1840, 0.5560]; % Purple
+
 
 % Marker interval
 markerInterval = 50;
 
-% Plot each curve with markers every 5 points
-% plot(Convergence_curve(2:end), 'Color', colors(1,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convergence_curve(2:end)), 'MarkerFaceColor',colors(1,:))
-% plot(Convergence_curve_AO(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:))
-% plot(HSCA_Convergence_curve(2:end), 'Color', colors(2,:), 'LineStyle','-', 'LineWidth',1.8, 'Marker','d', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve(2:end)), 'MarkerFaceColor',colors(2,:))
-% plot(HSCA_Convergence_curve_AO(2:end), 'Color', colors(2,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(2,:))
-hold on;
+Convex_min_Rk_mean = mean(Convex_min_Rk(:,:,end),1);
+Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO(:,:,end),1);
+Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO(:,:,end),1);
+Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO(:,:,end),1);
 
-% plot(PSO_Convergence_curve(1:end), 'Color', colors(5,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Convergence_curve), 'MarkerFaceColor',colors(5,:))
-plot(Convex_Convergence_curve_AO(2:end), 'Color', colors(6,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(6,:))
+
+hold on;
+plot(Convex_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
+
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('Iteration','FontWeight','bold','FontSize',11);
+xlabel('Nf','FontWeight','bold','FontSize',11);
 ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
-%legend('SCA','SCA-AO','HSCA','HSCA-AO','PSO','Convex-Manifold','Location','best','FontSize',10);
-legend('HSCA-AO','PSO','Convex-Manifold','Location','best','FontSize',10);
+legend('Convex-Manifold','Location','best','FontSize',10);
 
 grid on;
 ax = gca;
@@ -674,7 +669,7 @@ ax.GridAlpha = 0.3; % Lighter grid
 ax.LineWidth = 1.1; % Thicker axes
 box on;
 
-%% Fake & Real Secrecy Rate Curve with Markers
+% Fake & Real Secrecy Rate Curve with Markers
 figure('Color','w');
 
 % Marker definitions
@@ -688,15 +683,17 @@ hold on;
 
 
 % Convex + Manopt
-plot(Convex_Fake_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
-plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle',':', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_min_Rk_mean(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+plot(Convex_Fake_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_Real_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+
+
 
 title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('Iteration','FontWeight','bold','FontSize',11);
-ylabel('Secrecy Rate','FontWeight','bold','FontSize',11);
+xlabel('Number of fake Eve','FontWeight','bold','FontSize',11);
+ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
-legend('HSCA-fake-AO','HSCA-real-AO', ...
-    'PSO-fake','PSO-real','Convex-fake','Convex-real', ...
+legend('Min_rate','Convex-fake','Convex-real', ...
     'Location','best','FontSize',10);
 
 grid on;
@@ -705,5 +702,3 @@ ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
 
-
- 
