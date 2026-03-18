@@ -157,10 +157,10 @@ PSO_Fake_secrecy_rate_curve = [];
 PSO_Real_secrecy_rate_curve = [];
 
 
-Convex_min_Rk= zeros(Ns,20);
-Convex_Convergence_curve_AO = zeros(Ns,20);
-Convex_Fake_Convergence_curve_AO = zeros(Ns,20);
-Convex_Real_Convergence_curve_AO = zeros(Ns,20);
+% Convex_min_Rk= zeros(Ns,20);
+% Convex_Convergence_curve_AO = zeros(Ns,20);
+% Convex_Fake_Convergence_curve_AO = zeros(Ns,20);
+% Convex_Real_Convergence_curve_AO = zeros(Ns,20);
 
 for mc_iter = 1:Ns
 g_pq = zeros(P,Q_j,K+nF+L);
@@ -1056,23 +1056,23 @@ colors = [0, 0.4470, 0.7410;      % Blue
 % Marker interval
 markerInterval = 50;
 
-PSO_Convergence_curve = mean(PSO_Convergence_curve,1);
-PSO_Fake_secrecy_rate_curve = mean(PSO_Fake_secrecy_rate_curve,1);
-PSO_Real_secrecy_rate_curve = mean(PSO_Real_secrecy_rate_curve,1);
+PSO_Convergence_curve_mean = mean(PSO_Convergence_curve,1);
+PSO_Fake_secrecy_rate_curve_mean = mean(PSO_Fake_secrecy_rate_curve,1);
+PSO_Real_secrecy_rate_curve_mean = mean(PSO_Real_secrecy_rate_curve,1);
 
-HSCA_Convergence_curve_AO = mean(HSCA_Convergence_curve_AO,1);
-HSCA_Fake_secrecy_rate_curve_AO = mean(HSCA_Fake_secrecy_rate_curve_AO,1);
-HSCA_Real_secrecy_rate_curve_AO = mean(HSCA_Real_secrecy_rate_curve_AO,1);
+HSCA_Convergence_curve_AO_mean = mean(HSCA_Convergence_curve_AO,1);
+HSCA_Fake_secrecy_rate_curve_AO_mean = mean(HSCA_Fake_secrecy_rate_curve_AO,1);
+HSCA_Real_secrecy_rate_curve_AO_mean = mean(HSCA_Real_secrecy_rate_curve_AO,1);
 
-Convex_Convergence_curve_AO = mean(Convex_Convergence_curve_AO,1);
-Convex_Fake_Convergence_curve_AO = mean(Convex_Fake_Convergence_curve_AO,1);
-Convex_Real_Convergence_curve_AO = mean(Convex_Real_Convergence_curve_AO,1);
-Convex_min_Rk_curve = mean(Convex_min_Rk,1);
+Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO,1);
+Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO,1);
+Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO,1);
+Convex_min_Rk_curve_mean = mean(Convex_min_Rk,1);
 
 hold on;
-plot(HSCA_Convergence_curve_AO(2:end), 'Color', colors(4,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(4,:))
-plot(PSO_Convergence_curve(1:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Convergence_curve), 'MarkerFaceColor',colors(1,:))
-plot(Convex_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(3,:))
+plot(HSCA_Convergence_curve_AO_mean(2:end), 'Color', colors(4,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(4,:))
+plot(PSO_Convergence_curve_mean(1:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Convergence_curve), 'MarkerFaceColor',colors(1,:))
+plot(Convex_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(3,:))
 
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
@@ -1099,18 +1099,18 @@ plotWithMarker = @(y, color, style) plot(y, 'Color', color, 'LineStyle', style, 
 hold on;
 
 % HSCA & HSCA-AO
-plot(HSCA_Fake_secrecy_rate_curve_AO(2:end), 'Color', colors(4,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(HSCA_Fake_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(4,:));
-plot(HSCA_Real_secrecy_rate_curve_AO(2:end), 'Color', colors(4,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Real_secrecy_rate_curve_AO(2:end)), 'MarkerFaceColor',colors(4,:));
+plot(HSCA_Fake_secrecy_rate_curve_AO_mean(2:end), 'Color', colors(4,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(HSCA_Fake_secrecy_rate_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(4,:));
+plot(HSCA_Real_secrecy_rate_curve_AO_mean(2:end), 'Color', colors(4,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Real_secrecy_rate_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(4,:));
 
 % PSO
-plot(PSO_Fake_secrecy_rate_curve, 'k--', 'LineWidth',1.8, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Fake_secrecy_rate_curve), 'MarkerFaceColor','k');
-plot(PSO_Real_secrecy_rate_curve, 'k-.', 'LineWidth',1.8, 'Marker','>', 'MarkerIndices',1:markerInterval:length(PSO_Real_secrecy_rate_curve), 'MarkerFaceColor','k');
+plot(PSO_Fake_secrecy_rate_curve_mean, 'k--', 'LineWidth',1.8, 'Marker','v', 'MarkerIndices',1:markerInterval:length(PSO_Fake_secrecy_rate_curve_mean), 'MarkerFaceColor','k');
+plot(PSO_Real_secrecy_rate_curve_mean, 'k-.', 'LineWidth',1.8, 'Marker','>', 'MarkerIndices',1:markerInterval:length(PSO_Real_secrecy_rate_curve_mean), 'MarkerFaceColor','k');
 
 
 % Convex + Manopt
-plot(Convex_Fake_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
-plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
-plot(Convex_min_Rk_curve(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(Convex_min_Rk_curve), 'MarkerFaceColor',colors(3,:))
+plot(Convex_Fake_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_Real_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_min_Rk_curve_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(Convex_min_Rk_curve), 'MarkerFaceColor',colors(3,:))
 
 
 
@@ -1119,7 +1119,7 @@ xlabel('Iteration','FontWeight','bold','FontSize',11);
 ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
 legend('HSCA-fake-AO','HSCA-real-AO', ...
-    'PSO-fake','PSO-real','Convex-fake','Convex-real','Min-private-rate', ...
+    'PSO-fake','PSO-real','Convex-fake','Convex-real','Min-rate', ...
     'Location','best','FontSize',10);
 
 grid on;
