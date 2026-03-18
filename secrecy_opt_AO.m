@@ -303,13 +303,16 @@ for k =1:K
 end
 
 % % % Max tau and nu
-max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
-max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
+% max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
+% max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
+% 
+% 
+% % Compute M and N based on the parameters
+% [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
+% M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-
-% Compute M and N based on the parameters
-[M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
-M = max(M, 64); N = max(N, 20);  % Minimum practical size
+M=100;
+N=14;
 
 
 
@@ -618,8 +621,8 @@ for ao = 1:max_AO_iter
     Convex_Fake_Convergence_curve_AO(mc_iter,ao) = best_fake_secrecy;
     Convex_Real_Convergence_curve_AO(mc_iter,ao) = best_real_secrecy;
 
-    fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n | Ns = %3d ', ...
-            ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake,mc_iter);
+    fprintf('AO Iter %2d | Fake Secrecy = %.8f | Δ = %.8f | Ns = %2d\n ', ...
+            ao, best_fake_secrecy, best_fake_secrecy - prev_fake,mc_iter);
 
     % if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
     %     fprintf('→ AO Converged at iteration %d\n', ao);
@@ -917,7 +920,7 @@ params.Active_Gain_dB = Active_Gain_dB;
 options = optimoptions('particleswarm', ...
     'SwarmSize', 30, ...
     'MaxIterations', Max_iteration, ...
-    'Display', 'iter', ...
+    'Display', 'none', ...
      'OutputFcn', @psoOutputFcn );%, ...
     % 'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
 
