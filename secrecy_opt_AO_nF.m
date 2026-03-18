@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 100; % number of samples for Monte Carlo simulation
+Ns = 200; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -122,10 +122,10 @@ omega_p = (1/P)*ones(1,P); % spread parameter
 
 nF_vec = 1:1:10;
 
-Convex_min_Rk= zeros(Ns,10,20);
-Convex_Convergence_curve_AO = zeros(Ns,10,20);
-Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
-Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_min_Rk= zeros(Ns,10,20);
+% Convex_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
 
 for mc_iter = 1:Ns
 for nF_idx = 1:length(nF_vec)
@@ -301,16 +301,17 @@ for k =1:K
             
 end
 
-% % % Max tau and nu
-max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
-max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
+% % % % Max tau and nu
+% max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
+% max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
 
 
-% Compute M and N based on the parameters
-[M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
-M = max(M, 64); N = max(N, 20);  % Minimum practical size
+% % Compute M and N based on the parameters
+% [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
+% M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-
+M = 100;
+N = 16;
 
 Nsymb = M*N; 
 
@@ -611,10 +612,10 @@ for ao = 1:max_AO_iter
         prev_min_Rk = min(Rk);
     end
 
-    Convex_min_Rk(mc_iter,ao) = prev_min_Rk;
-    Convex_Convergence_curve_AO(mc_iter,ao) = -prev_cost;
-    Convex_Fake_Convergence_curve_AO(mc_iter,ao) = best_fake_secrecy;
-    Convex_Real_Convergence_curve_AO(mc_iter,ao) = best_real_secrecy;
+    Convex_min_Rk(mc_iter,nF_idx,ao) = prev_min_Rk;
+    Convex_Convergence_curve_AO(mc_iter,nF_idx,ao) = -prev_cost;
+    Convex_Fake_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_fake_secrecy;
+    Convex_Real_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_real_secrecy;
 
     fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n', ...
             ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake);
@@ -647,14 +648,14 @@ colors = [0, 0.4470, 0.7410;      % Blue
 % Marker interval
 markerInterval = 50;
 
-
-Convex_Convergence_curve_AO = mean(Convex_Convergence_curve_AO(:,:,end),1);
-Convex_Fake_Convergence_curve_AO = mean(Convex_Fake_Convergence_curve_AO(:,:,end),1);
-Convex_Real_Convergence_curve_AO = mean(Convex_Real_Convergence_curve_AO(:,:,end),1);
+Convex_min_Rk_mean = mean(Convex_min_Rk(:,:,end),1);
+Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO(:,:,end),1);
+Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO(:,:,end),1);
+Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO(:,:,end),1);
 
 
 hold on;
-plot(Convex_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(3,:))
+plot(Convex_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
 
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
@@ -682,8 +683,9 @@ hold on;
 
 
 % Convex + Manopt
-plot(Convex_Fake_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
-plot(Convex_Real_Convergence_curve_AO(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_min_Rk_mean(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+plot(Convex_Fake_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_Real_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
 
 
 
@@ -691,7 +693,7 @@ title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12)
 xlabel('Number of fake Eve','FontWeight','bold','FontSize',11);
 ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
-legend('Convex-fake','Convex-real', ...
+legend('Min_rate','Convex-fake','Convex-real', ...
     'Location','best','FontSize',10);
 
 grid on;
