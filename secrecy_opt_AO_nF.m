@@ -615,8 +615,8 @@ for ao = 1:max_AO_iter
     Convex_Fake_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_fake_secrecy;
     Convex_Real_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_real_secrecy;
 
-    fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n', ...
-            ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake);
+   fprintf('AO Iter %2d | Fake Secrecy = %.8f | Real = %.8f | Δ = %.8f\n | Ns = %3d ', ...
+            ao, best_fake_secrecy, best_real_secrecy, best_fake_secrecy - prev_fake,mc_iter);
 
     % if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
     %     fprintf('→ AO Converged at iteration %d\n', ao);
