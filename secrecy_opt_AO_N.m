@@ -658,6 +658,7 @@ markerInterval = 50;
 % Data Processing for 3D Plot
 % Averaging over mc_iter (dim 1) and selecting last ao (dim 4)
 % Resulting matrices will be [nV_idx x nH_idx]
+Z_R = squeeze(mean(Convex_min_Rk(:,:,:,end), 1));
 Z_conv = squeeze(mean(Convex_Convergence_curve_AO(:,:,:,end), 1));
 Z_fake = squeeze(mean(Convex_Fake_Convergence_curve_AO(:,:,:,end), 1));
 Z_real = squeeze(mean(Convex_Real_Convergence_curve_AO(:,:,:,end), 1));
@@ -699,3 +700,24 @@ box on;
 % Add a legend if you plot multiple surfaces
 % legend('Real Secrecy Rate', 'Fake Secrecy Rate', 'Location', 'best');
 
+figure;
+% Plotting the Real Secrecy Rate
+surf(X, Y, Z_R, 'FaceAlpha', 0.8, 'EdgeColor', 'interp');
+hold on;
+
+% Optional: Plot the Fake Secrecy Rate as a mesh or transparent surface
+% mesh(X, Y, Z_fake, 'EdgeColor', 'r', 'FaceAlpha', 0.1); 
+
+% Aesthetics
+title('Average Min-Rate vs. nV and nH','FontWeight','bold','FontSize',12);
+xlabel('nH Index','FontWeight','bold','FontSize',11);
+ylabel('nV Index','FontWeight','bold','FontSize',11);
+zlabel('Min Rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+
+% Enhancing the view
+grid on;
+view(45, 30); % Adjust camera angle: view(azimuth, elevation)
+colorbar;      % Shows the scale of the Z-axis
+ax = gca;
+ax.LineWidth = 1.1;
+box on;
