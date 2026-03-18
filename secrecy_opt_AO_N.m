@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 200; % number of samples for Monte Carlo simulation
+Ns = 40; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -20,7 +20,7 @@ K_h = 1;  % number of high speed legit users % 50 km/h
 K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 5; % Number of fake eavesdroppers
+nF = 4; % Number of fake eavesdroppers
 
 L = 1; % number of eavesdroppers
 
@@ -99,6 +99,34 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 
 
 
+
+% Nakagami Parameters:
+
+% from LEO satellite to STAR-RIS (one value for each path and assume same
+% for each RIS element):
+m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
+omega_p = (1/P)*ones(1,P); % spread parameter
+
+nV_vec = 20:4:40;
+nH_vec = 20:4:40;
+
+% Convex_min_Rk= zeros(Ns,10,20);
+% Convex_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
+
+for mc_iter = 1:Ns
+for nV_idx = 1:length(nV_vec)
+for nH_idx = 1:length(nH_vec)
+    N_V = nV_vec(nV_idx);
+    N_H = nH_vec(nH_idx);
+
+%N_V = 20; % number of rows of regularly arranged unit cells of RIS
+%N_H = 20; % number of columns of regularly arranged unit cells of RIS
+Nr = N_V * N_H; % total number of unit cells of RIS
+
+
+
 RIS_size_x = N_H * d_x;
 RIS_size_y = N_V * d_y;
 
@@ -110,28 +138,6 @@ receiving_ang = acos( ...
         (S_xyz  - R_xyz) / norm(S_xyz  - R_xyz,'fro') ...
     ) ...
 );
-
-% Nakagami Parameters:
-
-% from LEO satellite to STAR-RIS (one value for each path and assume same
-% for each RIS element):
-m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
-omega_p = (1/P)*ones(1,P); % spread parameter
-
-nF_vec = 1:1:10;
-
-% Convex_min_Rk= zeros(Ns,10,20);
-% Convex_Convergence_curve_AO = zeros(Ns,10,20);
-% Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
-% Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
-
-for mc_iter = 1:Ns
-for nF_idx = 1:length(nF_vec)
-    nF = nF_vec(nF_idx);
-
-N_V = 20; % number of rows of regularly arranged unit cells of RIS
-N_H = 20; % number of columns of regularly arranged unit cells of RIS
-Nr = N_V * N_H; % total number of unit cells of RIS
 
 % from STAR-RIS to users and eavesdroppers (one value for each path and 
 % each receiver, and assume same for each RIS element):
@@ -612,13 +618,13 @@ for ao = 1:max_AO_iter
         prev_min_Rk = min(Rk);
     end
 
-    Convex_min_Rk(mc_iter,nF_idx,ao) = prev_min_Rk;
-    Convex_Convergence_curve_AO(mc_iter,nF_idx,ao) = -prev_cost;
-    Convex_Fake_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_fake_secrecy;
-    Convex_Real_Convergence_curve_AO(mc_iter,nF_idx,ao) = best_real_secrecy;
+    Convex_min_Rk(mc_iter,nV_idx,nH_idx,ao) = prev_min_Rk;
+    Convex_Convergence_curve_AO(mc_iter,nV_idx,nH_idx,ao) = -prev_cost;
+    Convex_Fake_Convergence_curve_AO(mc_iter,nV_idx,nH_idx,ao) = best_fake_secrecy;
+    Convex_Real_Convergence_curve_AO(mc_iter,nV_idx,nH_idx,ao) = best_real_secrecy;
 
-   fprintf('AO Iter %2d | Fake Secrecy = %.8f | Δ = %.8f | Ns = %2d | nF = %2d\n ', ...
-            ao, best_fake_secrecy, best_fake_secrecy - prev_fake,mc_iter,nF_idx);
+   fprintf('AO Iter %2d | Fake Secrecy = %.8f | Δ = %.8f | Ns = %2d | N_H = %2d|N_V = %2d\n ', ...
+            ao, best_fake_secrecy, best_fake_secrecy - prev_fake,mc_iter,N_H,N_V);
 
     % if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
     %     fprintf('→ AO Converged at iteration %d\n', ao);
@@ -629,6 +635,7 @@ end
 
 fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
 
+end
 end
 end
 
@@ -648,57 +655,47 @@ colors = [0, 0.4470, 0.7410;      % Blue
 % Marker interval
 markerInterval = 50;
 
-Convex_min_Rk_mean = mean(Convex_min_Rk(:,:,end),1);
-Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO(:,:,end),1);
-Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO(:,:,end),1);
-Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO(:,:,end),1);
+% Data Processing for 3D Plot
+% Averaging over mc_iter (dim 1) and selecting last ao (dim 4)
+% Resulting matrices will be [nV_idx x nH_idx]
+Z_conv = squeeze(mean(Convex_Convergence_curve_AO(:,:,:,end), 1));
+Z_fake = squeeze(mean(Convex_Fake_Convergence_curve_AO(:,:,:,end), 1));
+Z_real = squeeze(mean(Convex_Real_Convergence_curve_AO(:,:,:,end), 1));
+
+% Define your X and Y axis scales based on your simulation parameters
+% Replace nV_vectors and nH_vectors with your actual range (e.g., 1:10)
+nV_axis = 1:size(Z_conv, 1); 
+nH_axis = 1:size(Z_conv, 2);
+[X, Y] = meshgrid(nH_axis, nV_axis);
 
 
-hold on;
-plot(Convex_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
+%% 3D Visualization
+figure('Color','w','Name','3D Secrecy Analysis');
 
+% Define color map
+colormap(parula); 
 
-title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('Nf','FontWeight','bold','FontSize',11);
-ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
-legend('Convex-Manifold','Location','best','FontSize',10);
-
-grid on;
-ax = gca;
-ax.GridAlpha = 0.3; % Lighter grid
-ax.LineWidth = 1.1; % Thicker axes
-box on;
-
-% Fake & Real Secrecy Rate Curve with Markers
-figure('Color','w');
-
-% Marker definitions
-markers = {'o','s','d','^','v','>','<','p','h','x'};
-markerCount = 1;
-
-% Helper function for plotting with marker cycling
-plotWithMarker = @(y, color, style) plot(y, 'Color', color, 'LineStyle', style, 'LineWidth',1.5, 'Marker', markers{markerCount}, 'MarkerIndices',1:markerInterval:length(y), 'MarkerFaceColor',color);
-
+% Plotting the Real Secrecy Rate
+surf(X, Y, Z_real, 'FaceAlpha', 0.8, 'EdgeColor', 'interp');
 hold on;
 
+% Optional: Plot the Fake Secrecy Rate as a mesh or transparent surface
+% mesh(X, Y, Z_fake, 'EdgeColor', 'r', 'FaceAlpha', 0.1); 
 
-% Convex + Manopt
-plot(Convex_min_Rk_mean(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
-plot(Convex_Fake_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
-plot(Convex_Real_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+% Aesthetics
+title('Average Secrecy Rate vs. nV and nH','FontWeight','bold','FontSize',12);
+xlabel('nH Index','FontWeight','bold','FontSize',11);
+ylabel('nV Index','FontWeight','bold','FontSize',11);
+zlabel('Secrecy Rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
-
-
-title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('Number of fake Eve','FontWeight','bold','FontSize',11);
-ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
-
-legend('Min_rate','Convex-fake','Convex-real', ...
-    'Location','best','FontSize',10);
-
+% Enhancing the view
 grid on;
+view(45, 30); % Adjust camera angle: view(azimuth, elevation)
+colorbar;      % Shows the scale of the Z-axis
 ax = gca;
-ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
+
+% Add a legend if you plot multiple surfaces
+% legend('Real Secrecy Rate', 'Fake Secrecy Rate', 'Location', 'best');
 
