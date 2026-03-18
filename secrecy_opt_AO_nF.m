@@ -546,7 +546,7 @@ alpha_prev = alpha(min_Rsec == max(max(min_Rsec)),:);
 
 alpha = alpha_prev;
 
-[R_sec_prev,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+[R_sec_prev,rate_p,rate_c,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
 min_prev = min(min(R_sec_prev));
@@ -555,23 +555,11 @@ for ao = 1:max_AO_iter
 
    
     
-    prev_fake = best_fake_secrecy;  
-   
+    prev_fake = best_fake_secrecy;    
 
 
-  
+
     % ================================================================
-    % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
-    % ================================================================
-    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
-   
-
-   
-    b0 = exp(1i*phi_St(:));
-
-
-
-     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
     % ================================================================
 
@@ -582,6 +570,16 @@ for ao = 1:max_AO_iter
         
      [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
      min_next = min(min(R_sec));
+
+
+    % ================================================================
+    % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
+    % ================================================================
+    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
+   
+
+   
+    b0 = exp(1i*phi_St(:));
    
 
     % Rebuild X
