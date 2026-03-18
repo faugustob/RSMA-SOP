@@ -547,42 +547,42 @@ alpha_prev = alpha(min_Rsec == max(max(min_Rsec)),:);
 
 alpha = alpha_prev;
 
-[R_sec_prev,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+[R_sec_prev,rate_p,rate_c,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
 min_prev = min(min(R_sec_prev));
+%Ck = rate_c/K;
 
 for ao = 1:max_AO_iter
 
    
     
-    prev_fake = best_fake_secrecy;  
-   
-
+    prev_fake = best_fake_secrecy;    
 
   
+
     % ================================================================
-    % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
-    % ================================================================
-    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
-   
-
-   
-    b0 = exp(1i*phi_St(:));
-
-
-
-     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
     % ================================================================
 
     [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
     alpha = alpha_prev;
-
         
      [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-     min_next = min(min(R_sec));
+     min_next = min(min(R_sec));   
+
+
+    % ================================================================
+    % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
+    % ================================================================
+    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
+   
+
+   
+    b0 = exp(1i*phi_St(:));
+
+
    
 
     % Rebuild X
@@ -915,11 +915,11 @@ params.Active_Gain_dB = Active_Gain_dB;
 % --- PSO Options ---
 % You can adjust SwarmSize and MaxIterations to match your original SCA settings
 options = optimoptions('particleswarm', ...
-    'SwarmSize', 50, ...
+    'SwarmSize', 30, ...
     'MaxIterations', Max_iteration, ...
     'Display', 'iter', ...
-     'OutputFcn', @psoOutputFcn, ...
-    'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
+     'OutputFcn', @psoOutputFcn );%, ...
+    % 'PlotFcn', @(optimValues,state) myCustomPlot(optimValues,state));
 
 % --- Define the Objective Function Wrapper ---
 % We pass all your environment variables into the function handle
