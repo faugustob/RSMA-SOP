@@ -684,13 +684,13 @@ markerInterval = 50;
 
 
 % Step 1: Identify rows where all entries in feasible_record are true
-all_true_rows = all(feasible_record, 2); % returns a logical column vector
+valid_records_Qtd = sum(feasible_record, 1); % returns a logical column vector
 
 % Step 2: Compute means only for the selected rows
-Convex_min_Rk_mean = mean(Convex_min_Rk(all_true_rows, :), 1);
-Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO(all_true_rows, :), 1);
-Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO(all_true_rows, :), 1);
-Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO(all_true_rows, :), 1);
+Convex_min_Rk_mean = sum(Convex_min_Rk.*feasible_record,1)./valid_records_Qtd;
+Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
+Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd;  
+Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
 
 
 hold on;
