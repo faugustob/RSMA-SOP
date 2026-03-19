@@ -554,7 +554,6 @@ min_prev = min(min(R_sec_prev));
 Ck = max(0, Rmin - rate_p);
 
 feasible_ao = true;      % track feasibility of this realization
-xi_record = [];          % optional: track violation over AO
 
 for ao = 1:max_AO_iter
 
@@ -586,7 +585,7 @@ for ao = 1:max_AO_iter
     alpha = alpha_prev;
 
     % Track feasibility
-    xi_record(mc_iter,ao) = feasible_flag;
+   feasible_record(mc_iter,ao) = feasible_flag;
 
    [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
