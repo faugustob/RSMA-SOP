@@ -657,10 +657,10 @@ for ao = 1:max_AO_iter
     % ================================================================
     % Convergence
     % ================================================================
-    if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
-        fprintf('→ AO Converged at iteration %d\n', ao);
-        break;
-    end
+    % if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
+    %     fprintf('→ AO Converged at iteration %d\n', ao);
+    %     break;
+    % end
 
 end
 
