@@ -583,9 +583,7 @@ for ao = 1:max_AO_iter
         K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
     alpha = alpha_prev;
-
-    % Track feasibility
-   feasible_record(mc_iter,ao) = feasible_flag;
+   
 
    [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
@@ -654,6 +652,9 @@ for ao = 1:max_AO_iter
     end
 
 end
+
+ % Track feasibility
+ feasible_record(mc_iter,nF_idx) = feasible_flag;
 
  Convex_min_Rk(mc_iter,nF_idx) = prev_min_Rk;
  Convex_Convergence_curve_AO(mc_iter,nF_idx) = -prev_cost;

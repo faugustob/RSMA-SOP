@@ -663,7 +663,8 @@ for ao = 1:max_AO_iter
     end
 
 end
-
+ % Track feasibility
+feasible_record(mc_iter,nF_idx) = feasible_flag;
 Convex_min_Rk(mc_iter,nV_idx) = prev_min_Rk;
 Convex_Convergence_curve_AO(mc_iter,nV_idx,ao) = -prev_cost;
 Convex_Fake_Convergence_curve_AO(mc_iter,nV_idx) = best_fake_secrecy;
