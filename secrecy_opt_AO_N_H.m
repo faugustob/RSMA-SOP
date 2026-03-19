@@ -107,8 +107,9 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
 omega_p = (1/P)*ones(1,P); % spread parameter
 
-nV_vec = 20:4:40;
-nH_vec = 20:4:40;
+nV_vec = 20:1:30;
+nH_vec = 20:2:40;
+N_V=20;
 
 % Convex_min_Rk= zeros(Ns,10,20);
 % Convex_Convergence_curve_AO = zeros(Ns,10,20);
@@ -116,9 +117,9 @@ nH_vec = 20:4:40;
 % Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
 
 for mc_iter = 1:Ns
-for nV_idx = 1:length(nV_vec)
+%for nV_idx = 1:length(nV_vec)
 for nH_idx = 1:length(nH_vec)
-    N_V = nV_vec(nV_idx);
+    %N_V = nV_vec(nV_idx);
     N_H = nH_vec(nH_idx);
 
 %N_V = 20; % number of rows of regularly arranged unit cells of RIS
@@ -618,10 +619,10 @@ for ao = 1:max_AO_iter
         prev_min_Rk = min(Rk);
     end
 
-    Convex_min_Rk(mc_iter,nV_idx,nH_idx,ao) = prev_min_Rk;
-    Convex_Convergence_curve_AO(mc_iter,nV_idx,nH_idx,ao) = -prev_cost;
-    Convex_Fake_Convergence_curve_AO(mc_iter,nV_idx,nH_idx,ao) = best_fake_secrecy;
-    Convex_Real_Convergence_curve_AO(mc_iter,nV_idx,nH_idx,ao) = best_real_secrecy;
+    Convex_min_Rk(mc_iter,nV_idx,ao) = prev_min_Rk;
+    Convex_Convergence_curve_AO(mc_iter,nV_idx,ao) = -prev_cost;
+    Convex_Fake_Convergence_curve_AO(mc_iter,nV_idx,ao) = best_fake_secrecy;
+    Convex_Real_Convergence_curve_AO(mc_iter,nV_idx,ao) = best_real_secrecy;
 
    fprintf('AO Iter %2d | Fake Secrecy = %.8f | Δ = %.8f | Ns = %2d | N_H = %2d|N_V = %2d\n ', ...
             ao, best_fake_secrecy, best_fake_secrecy - prev_fake,mc_iter,N_H,N_V);
@@ -637,9 +638,90 @@ fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secre
 
 end
 end
-end
+%end
 
 
+
+%  %% Plot
+% % Convergence Curve with Markers
+% figure('Color','w'); % White background
+% 
+% % Define color palette 
+% colors = [0, 0.4470, 0.7410;      % Blue
+%           0.8500, 0.3250, 0.0980; % Orange/Red
+%           0.4660, 0.6740, 0.1880; % Green
+%           0.4940, 0.1840, 0.5560]; % Purple
+% 
+% 
+% % Marker interval
+% markerInterval = 50;
+% 
+% % Data Processing for 3D Plot
+% % Averaging over mc_iter (dim 1) and selecting last ao (dim 4)
+% % Resulting matrices will be [nV_idx x nH_idx]
+% Z_R = squeeze(mean(Convex_min_Rk(:,:,:,end), 1));
+% Z_conv = squeeze(mean(Convex_Convergence_curve_AO(:,:,:,end), 1));
+% Z_fake = squeeze(mean(Convex_Fake_Convergence_curve_AO(:,:,:,end), 1));
+% Z_real = squeeze(mean(Convex_Real_Convergence_curve_AO(:,:,:,end), 1));
+% 
+% % Define your X and Y axis scales based on your simulation parameters
+% % Replace nV_vectors and nH_vectors with your actual range (e.g., 1:10)
+% nV_axis = 1:size(Z_conv, 1); 
+% nH_axis = 1:size(Z_conv, 2);
+% [X, Y] = meshgrid(nH_axis, nV_axis);
+% 
+% 
+% %% 3D Visualization
+% figure('Color','w','Name','3D Secrecy Analysis');
+% 
+% % Define color map
+% colormap(parula); 
+% 
+% % Plotting the Real Secrecy Rate
+% surf(X, Y, Z_real, 'FaceAlpha', 0.8, 'EdgeColor', 'interp');
+% hold on;
+% 
+% % Optional: Plot the Fake Secrecy Rate as a mesh or transparent surface
+% % mesh(X, Y, Z_fake, 'EdgeColor', 'r', 'FaceAlpha', 0.1); 
+% 
+% % Aesthetics
+% title('Average Secrecy Rate vs. nV and nH','FontWeight','bold','FontSize',12);
+% xlabel('nH Index','FontWeight','bold','FontSize',11);
+% ylabel('nV Index','FontWeight','bold','FontSize',11);
+% zlabel('Secrecy Rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+% 
+% % Enhancing the view
+% grid on;
+% view(45, 30); % Adjust camera angle: view(azimuth, elevation)
+% colorbar;      % Shows the scale of the Z-axis
+% ax = gca;
+% ax.LineWidth = 1.1;
+% box on;
+% 
+% % Add a legend if you plot multiple surfaces
+% % legend('Real Secrecy Rate', 'Fake Secrecy Rate', 'Location', 'best');
+% 
+% figure;
+% % Plotting the Real Secrecy Rate
+% surf(X, Y, Z_R, 'FaceAlpha', 0.8, 'EdgeColor', 'interp');
+% hold on;
+% 
+% % Optional: Plot the Fake Secrecy Rate as a mesh or transparent surface
+% % mesh(X, Y, Z_fake, 'EdgeColor', 'r', 'FaceAlpha', 0.1); 
+% 
+% % Aesthetics
+% title('Average Min-Rate vs. nV and nH','FontWeight','bold','FontSize',12);
+% xlabel('nH Index','FontWeight','bold','FontSize',11);
+% ylabel('nV Index','FontWeight','bold','FontSize',11);
+% zlabel('Min Rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+% 
+% % Enhancing the view
+% grid on;
+% view(45, 30); % Adjust camera angle: view(azimuth, elevation)
+% colorbar;      % Shows the scale of the Z-axis
+% ax = gca;
+% ax.LineWidth = 1.1;
+% box on;
 
  %% Plot
 % Convergence Curve with Markers
@@ -655,69 +737,56 @@ colors = [0, 0.4470, 0.7410;      % Blue
 % Marker interval
 markerInterval = 50;
 
-% Data Processing for 3D Plot
-% Averaging over mc_iter (dim 1) and selecting last ao (dim 4)
-% Resulting matrices will be [nV_idx x nH_idx]
-Z_R = squeeze(mean(Convex_min_Rk(:,:,:,end), 1));
-Z_conv = squeeze(mean(Convex_Convergence_curve_AO(:,:,:,end), 1));
-Z_fake = squeeze(mean(Convex_Fake_Convergence_curve_AO(:,:,:,end), 1));
-Z_real = squeeze(mean(Convex_Real_Convergence_curve_AO(:,:,:,end), 1));
-
-% Define your X and Y axis scales based on your simulation parameters
-% Replace nV_vectors and nH_vectors with your actual range (e.g., 1:10)
-nV_axis = 1:size(Z_conv, 1); 
-nH_axis = 1:size(Z_conv, 2);
-[X, Y] = meshgrid(nH_axis, nV_axis);
+Convex_min_Rk_mean = mean(Convex_min_Rk(:,:,end),1);
+Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO(:,:,end),1);
+Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO(:,:,end),1);
+Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO(:,:,end),1);
 
 
-%% 3D Visualization
-figure('Color','w','Name','3D Secrecy Analysis');
-
-% Define color map
-colormap(parula); 
-
-% Plotting the Real Secrecy Rate
-surf(X, Y, Z_real, 'FaceAlpha', 0.8, 'EdgeColor', 'interp');
 hold on;
+plot(Convex_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
 
-% Optional: Plot the Fake Secrecy Rate as a mesh or transparent surface
-% mesh(X, Y, Z_fake, 'EdgeColor', 'r', 'FaceAlpha', 0.1); 
 
-% Aesthetics
-title('Average Secrecy Rate vs. nV and nH','FontWeight','bold','FontSize',12);
-xlabel('nH Index','FontWeight','bold','FontSize',11);
-ylabel('nV Index','FontWeight','bold','FontSize',11);
-zlabel('Secrecy Rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+title('Convergence Curve','FontWeight','bold','FontSize',12);
+xlabel('N_H','FontWeight','bold','FontSize',11);
+ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
+legend('Convex-Manifold','Location','best','FontSize',10);
 
-% Enhancing the view
 grid on;
-view(45, 30); % Adjust camera angle: view(azimuth, elevation)
-colorbar;      % Shows the scale of the Z-axis
 ax = gca;
-ax.LineWidth = 1.1;
+ax.GridAlpha = 0.3; % Lighter grid
+ax.LineWidth = 1.1; % Thicker axes
 box on;
 
-% Add a legend if you plot multiple surfaces
-% legend('Real Secrecy Rate', 'Fake Secrecy Rate', 'Location', 'best');
+% Fake & Real Secrecy Rate Curve with Markers
+figure('Color','w');
 
-figure;
-% Plotting the Real Secrecy Rate
-surf(X, Y, Z_R, 'FaceAlpha', 0.8, 'EdgeColor', 'interp');
+% Marker definitions
+markers = {'o','s','d','^','v','>','<','p','h','x'};
+markerCount = 1;
+
+% Helper function for plotting with marker cycling
+plotWithMarker = @(y, color, style) plot(y, 'Color', color, 'LineStyle', style, 'LineWidth',1.5, 'Marker', markers{markerCount}, 'MarkerIndices',1:markerInterval:length(y), 'MarkerFaceColor',color);
+
 hold on;
 
-% Optional: Plot the Fake Secrecy Rate as a mesh or transparent surface
-% mesh(X, Y, Z_fake, 'EdgeColor', 'r', 'FaceAlpha', 0.1); 
 
-% Aesthetics
-title('Average Min-Rate vs. nV and nH','FontWeight','bold','FontSize',12);
-xlabel('nH Index','FontWeight','bold','FontSize',11);
-ylabel('nV Index','FontWeight','bold','FontSize',11);
-zlabel('Min Rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+% Convex + Manopt
+plot(Convex_min_Rk_mean(2:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(1,:));
+plot(Convex_Fake_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_Real_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(3,:));
 
-% Enhancing the view
+
+
+title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
+xlabel('Number of fake Eve','FontWeight','bold','FontSize',11);
+ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+
+legend('Min_rate','Convex-fake','Convex-real', ...
+    'Location','best','FontSize',10);
+
 grid on;
-view(45, 30); % Adjust camera angle: view(azimuth, elevation)
-colorbar;      % Shows the scale of the Z-axis
 ax = gca;
+ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
