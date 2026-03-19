@@ -1101,10 +1101,15 @@ HSCA_Convergence_curve_AO_mean = mean(HSCA_Convergence_curve_AO,1);
 HSCA_Fake_secrecy_rate_curve_AO_mean = mean(HSCA_Fake_secrecy_rate_curve_AO,1);
 HSCA_Real_secrecy_rate_curve_AO_mean = mean(HSCA_Real_secrecy_rate_curve_AO,1);
 
-Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO,1);
-Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO,1);
-Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO,1);
-Convex_min_Rk_curve_mean = mean(Convex_min_Rk,1);
+
+% Step 1: Identify rows where all entries in feasible_record are true
+all_true_rows = all(feasible_record, 2); % returns a logical column vector
+
+% Step 2: Compute means only for the selected rows
+Convex_min_Rk_mean = mean(Convex_min_Rk(all_true_rows, :), 1);
+Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO(all_true_rows, :), 1);
+Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO(all_true_rows, :), 1);
+Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO(all_true_rows, :), 1);
 
 hold on;
 plot(HSCA_Convergence_curve_AO_mean(2:end), 'Color', colors(4,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(4,:))

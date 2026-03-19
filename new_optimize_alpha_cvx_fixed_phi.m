@@ -118,7 +118,7 @@ while sca_iter > 0
 
     if ~status_ok
         % fallback: keep previous alpha and continue
-        warning('Subproblem failed — keeping previous alpha');
+       % warning('Subproblem failed — keeping previous alpha');
         sca_iter = sca_iter - 1;
         continue;
     end
@@ -155,7 +155,7 @@ end
         fprintf('WARNING: Final solve failed.\n');
         alpha    = alpha_prev.';
         Ck_out   = zeros(K,1);
-    
+        xi_val = 10;
         feasible_flag = false;
     end 
    

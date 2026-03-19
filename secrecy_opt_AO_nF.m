@@ -426,7 +426,7 @@ display('SCA is optimizing your problem');
 
 Num_agents  = 100;
 Max_iteration = 20;
-Rmin=1e-2;
+Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
 any_reflect = any(reflect > 0) && any(reflect < 0);
@@ -682,10 +682,15 @@ colors = [0, 0.4470, 0.7410;      % Blue
 % Marker interval
 markerInterval = 50;
 
-Convex_min_Rk_mean = mean(Convex_min_Rk,1);
-Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO,1);
-Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO,1);
-Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO,1);
+
+% Step 1: Identify rows where all entries in feasible_record are true
+all_true_rows = all(feasible_record, 2); % returns a logical column vector
+
+% Step 2: Compute means only for the selected rows
+Convex_min_Rk_mean = mean(Convex_min_Rk(all_true_rows, :), 1);
+Convex_Convergence_curve_AO_mean = mean(Convex_Convergence_curve_AO(all_true_rows, :), 1);
+Convex_Fake_Convergence_curve_AO_mean = mean(Convex_Fake_Convergence_curve_AO(all_true_rows, :), 1);
+Convex_Real_Convergence_curve_AO_mean = mean(Convex_Real_Convergence_curve_AO(all_true_rows, :), 1);
 
 
 hold on;
