@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 2; % number of samples for Monte Carlo simulation
+Ns = 200; % number of samples for Monte Carlo simulation
 %rng(1);
 
 transmissionType = 'mc';
@@ -538,16 +538,15 @@ beta = zeros(Nr,num_agents);
 
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
-   [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(1,:), K, nF, sigma2, Pw, AN_P_ratio);
+   [R_sec,rate_p,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(1,:), K, nF, sigma2, Pw, AN_P_ratio);
     min_Rsec(i,1) = min(min(R_sec));
 end
 
 b0 =  beta(:,min_Rsec == max(max(min_Rsec)));
 
 
-for i = 1:num_agents
-    beta(:,i) = manifold.rand();
-   [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha(i,:), K, nF, sigma2, Pw, AN_P_ratio);
+for i = 1:num_agents   
+   [R_sec,rate_p,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha(i,:), K, nF, sigma2, Pw, AN_P_ratio);
     min_Rsec(i,1) = min(min(R_sec));
 end
 
@@ -560,58 +559,81 @@ phi_St = wrapToPi(angle(b0)).';
 
 min_prev = min(min(R_sec_prev));
 
+Ck = max(0, Rmin - rate_p);
+
+feasible_ao = true;      % track feasibility of this realization
+xi_record = [];          % optional: track violation over AO
+
 for ao = 1:max_AO_iter
 
+    prev_fake = best_fake_secrecy;
+  
+
    
-    
-    prev_fake = best_fake_secrecy;    
 
+    % ================================================================
+    % 2. SUBPROBLEM 2: Optimize RIS Phases Φ
+    % ================================================================
+    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(...
+        Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
+
+    b0 = exp(1i*phi_St(:));
 
 
     % ================================================================
-    % 1. SUBPROBLEM 1: Optimize Power Allocation α  (CVX + SCA)
+    % 1. SUBPROBLEM 1: Optimize Power Allocation α
     % ================================================================
+    [alpha_prev,Ck,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(...
+        Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+        K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
-    [alpha_prev,Ck] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
-    K, nF, reflect,  delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
     alpha = alpha_prev;
 
-        
-     [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-     min_next = min(min(R_sec));
+    % Track feasibility
+    xi_record(mc_iter,ao) = feasible_flag;
 
+    if ~feasible_flag
+        feasible_ao = false;        
+    end
 
     % ================================================================
-    % 2. SUBPROBLEM 2: Optimize RIS Phases Φ  
+    % Build X
     % ================================================================
-    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
-   
-
-   
-    b0 = exp(1i*phi_St(:));
-   
-
-    % Rebuild X
     if any_reflect
         X = [alpha, phi_Sr, phi_St, zeta_k_St];
     else
         X = [alpha, phi_St(:).'];
     end
 
+    % ================================================================
     % Final evaluation
-    [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(Pe, P, Q_j, nF+L, K, delta_f, ...
-        Plos, PLj, Nr, HB, HA, g_pq, Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+    % ================================================================
+    [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+        Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
+        Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
-    rate_p_vec = log2(1 + sinr_p_k); 
-    Rk = rate_p_vec(:) + Ck;
+    rate_p_vec = log2(1 + sinr_p_k);
 
-   
+    % ================================================================
+    % Handle feasibility properly
+    % ================================================================
+    if feasible_flag
+        Rk = rate_p_vec(:) + Ck;
 
-    current_fake = min(min(sc_p_lk(1:nF,:)));
-    current_real = min(min(sc_p_lk(nF+1:end,:)));
+        current_fake = min(min(sc_p_lk(1:nF,:)));
+        current_real = min(min(sc_p_lk(nF+1:end,:)));
+    else
+        % Treat as outage
+        Rk = zeros(K,1);
+        current_fake = 0;
+        current_real = 0;
+    end
 
-    if cost_opt < prev_cost
+    % ================================================================
+    % Update best solution
+    % ================================================================
+    if feasible_flag && cost_opt < prev_cost
         best_fake_secrecy = current_fake;
         best_real_secrecy = current_real;
         Destination_position = X;
@@ -619,15 +641,22 @@ for ao = 1:max_AO_iter
         prev_min_Rk = min(Rk);
     end
 
-    
+    % ================================================================
+    % Logging
+    % ================================================================
+    fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
+             'max(xi)=%.2e | Ns=%2d\n'], ...
+            ao, feasible_flag, best_fake_secrecy, ...
+            best_fake_secrecy - prev_fake, max(xi_val), mc_iter);
 
-   fprintf('AO Iter %2d | Fake Secrecy = %.8f | Δ = %.8f | Ns = %2d | N_H = %2d|N_V = %2d\n ', ...
-            ao, best_fake_secrecy, best_fake_secrecy - prev_fake,mc_iter,N_H,N_V);
-
-    if abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
+    % ================================================================
+    % Convergence
+    % ================================================================
+    if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
         fprintf('→ AO Converged at iteration %d\n', ao);
         break;
     end
+
 end
 
 Convex_min_Rk(mc_iter,nV_idx) = prev_min_Rk;

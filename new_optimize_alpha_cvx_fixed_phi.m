@@ -1,4 +1,4 @@
-function [alpha,Ck_out] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+function [alpha,Ck_out,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA)
 %% ========================= CONSTANTS =========================
 zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
@@ -32,7 +32,7 @@ end
 tol = 1e-6;
 obj_prev = -inf;
 alpha_prev = alpha_prev.';                  % column vector
-lambda_penalty = 1e3;
+lambda_penalty = 10;
 A_pos = diag(ones(size(alpha_prev)));
 A_neg = 1 - A_pos;
 A_neg_pi = A_neg;
@@ -48,21 +48,10 @@ else
 end
 noise = noise * scale; Pk = Pk*scale; Pl = Pl*scale; Ak = Ak*scale; Al = Al*scale;
 
-Rmin_orig = Rmin;
-Rmin_current = Rmin;
-reduction_factor = 0.95;
 
 %% ========================= SCA LOOP (safe retry version) =========================
 sca_iter = max_SCA;
-adapt_count_rmin = 0;               % renamed for clarity
-max_adapt_rmin    = 500;
 
-alpha_lb = 1e-8;                    % initial lower bound
-adapt_count_lb   = 0;
-max_adapt_lb     = 50;               % usually 3–6 is more than enough
-lb_reduction     = 0.1;             % aggressive: 1e-8 → 1e-9 → 1e-10 → ...
-
-adapted_lb_once = false;
 
 while sca_iter > 0
     cvx_clear;
@@ -72,14 +61,15 @@ while sca_iter > 0
         variable Rc nonnegative
         variable Ck(K) nonnegative
         variable Rk(K) nonnegative
+        variable xi(K) nonnegative
         variable t
 
-        penalty_term = 0;
+        penalty_term = sum(xi);
         maximize( t - lambda_penalty * penalty_term )
 
         subject to
             sum(vecAlpha) <= 1;
-            vecAlpha >= 1e-8;
+            %vecAlpha >= 0;
 
             % USER-LEVEL CONSTRAINTS
             for k = 1:K
@@ -104,7 +94,7 @@ while sca_iter > 0
 
             sum(Ck) <= Rc;
             for k=1:K
-                Ck(k) + Rk(k) >= Rmin_current;
+                Ck(k) + Rk(k) + xi(k) >= Rmin;
             end
 
             % SECRECY CONSTRAINTS
@@ -127,41 +117,21 @@ while sca_iter > 0
     status_ok = strcmp(cvx_status,'Solved') || strcmp(cvx_status,'Inaccurate/Solved');
 
     if ~status_ok
-        % fprintf('SCA iter %d failed (status: %s)\n', sca_iter, cvx_status);
-
-        if adapt_count_rmin < max_adapt_rmin
-            % Stage 1: reduce Rmin (your existing logic)
-            Rmin_current = max(0, Rmin_current * reduction_factor);
-            adapt_count_rmin = adapt_count_rmin + 1;
-           % fprintf('  → Rmin lowered to %.6f (attempt %d/%d)\n', ...
-                    %Rmin_current, adapt_count_rmin, max_adapt_rmin);
-            continue;
-        else
-            % Stage 2: Rmin already very low → try relaxing vecAlpha lower bound
-            if adapt_count_lb < max_adapt_lb
-                old_lb = alpha_lb;
-                alpha_lb = alpha_lb * lb_reduction;
-                adapt_count_lb = adapt_count_lb + 1;
-                adapted_lb_once = true;
-
-                %fprintf('  → vecAlpha lower bound relaxed: %.2e → %.2e (attempt %d/%d)\n', ...
-                       % old_lb, alpha_lb, adapt_count_lb, max_adapt_lb);
-                continue;                   % retry same sca_iter slot
-            else
-                fprintf('  Max adaptations (Rmin + alpha_lb) reached. Giving up.\n');
-                break;
-            end
-        end
+        % fallback: keep previous alpha and continue
+        warning('Subproblem failed — keeping previous alpha');
+        sca_iter = sca_iter - 1;
+        continue;
     end
+    
+ 
+    
 
     % ---------- successful solve → convergence check & update ----------
     current_obj = double(t);
     obj_change   = abs(current_obj - obj_prev) / (abs(obj_prev) + 1);
     alpha_change = norm(double(vecAlpha) - alpha_prev) / (norm(alpha_prev) + 1);
 
-    if obj_change < tol && alpha_change < tol
-        fprintf('Converged at iter %d (Rmin=%.6f, alpha_lb=%.2e)\n', ...
-                sca_iter, Rmin_current, alpha_lb);
+    if obj_change < tol && alpha_change < tol        
         alpha_prev = double(vecAlpha);
         break;
     end
@@ -170,27 +140,23 @@ while sca_iter > 0
     obj_prev   = current_obj;
     sca_iter   = sca_iter - 1;
 end
-    
+
+       
     % ========== FINAL SAFETY & REPORTING ==========
     status_ok = strcmp(cvx_status,'Solved') || strcmp(cvx_status,'Inaccurate/Solved');
     
-    if ~status_ok
-        fprintf('WARNING: Final solve still failed after all adaptations.\n');
-        alpha    = alpha_prev.';           % last known good point
-        Ck_out   = zeros(K,1);
-    else
+     if status_ok
         alpha    = double(vecAlpha).';
         Ck_out   = double(Ck);
-    end
     
-    % Summary print
-    if Rmin_current < Rmin_orig || adapted_lb_once
-        fprintf('Adapted solution: Rmin = %.6f (orig %.6f), alpha_lb = %.2e\n', ...
-                Rmin_current, Rmin_orig, alpha_lb);
-        if ~status_ok
-            fprintf('  (but final solve was infeasible → using previous feasible alpha)\n');
-        end
+        xi_val = double(xi);
+        feasible_flag = max(xi_val) < 1e-4;
     else
-        %fprintf('Solution with original Rmin and default alpha lower bound.\n');
-    end
+        fprintf('WARNING: Final solve failed.\n');
+        alpha    = alpha_prev.';
+        Ck_out   = zeros(K,1);
+    
+        feasible_flag = false;
+    end 
+   
 end
