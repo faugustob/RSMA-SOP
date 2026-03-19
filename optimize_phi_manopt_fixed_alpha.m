@@ -122,7 +122,7 @@ function [grad_Rsec_lk, g_user_all] = grad_R_sec(beta, L_node, E_node, alpha, K,
     noise_total = (sigma2/Pw);
     alpha_pi = alpha(2:end);    
    
-    [~,~,~,T_k,T_l,I_k,I_l,Ak,Pk,Al,Pl] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+    [~,~,T_k,T_l,I_k,I_l,Ak,Pk,Al,Pl] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
     grad_Rsec_lk = zeros(Nr, nF, K);
     g_user_all   = zeros(Nr, K); 
@@ -160,7 +160,7 @@ function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, P
     noise_total = (sigma2 / Pw);
     alpha_pi = alpha(2:end);
     
-    [R_sec, rate_p, ~, T_k, T_l, I_k, I_l, Ak, Pk, Al, Pl] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+    [R_sec,rate_p,T_k,T_l,I_k,I_l,Ak,Pk,Al,Pl] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
     Z = -s_param * R_sec;
     m = max(Z, [], "all");

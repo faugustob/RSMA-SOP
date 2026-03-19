@@ -524,7 +524,7 @@ Pw = 10^((Pw_dBm - 30)/10);
 
 
  % ---------- CHANNELS ----------
-[L_node,E_node] = compute_channels( K, Nr, nF, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
+[L_node,E_node] = compute_channels( K, Nr, nF+L, Pe, P, Q_j, Plos, PLj, HB, HA, g_pq, Nsymb, ...
 reflect, h_rp, h_jq, h_e,  Active_Gain_dB);    
 
 
@@ -550,7 +550,7 @@ alpha_prev = alpha(min_Rsec == max(max(min_Rsec)),:);
 
 alpha = alpha_prev;
 
-[R_sec_prev,rate_p,rate_c,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+[R_sec_prev,rate_p,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
 min_prev = min(min(R_sec_prev));
@@ -575,6 +575,10 @@ for ao = 1:max_AO_iter
 
     b0 = exp(1i*phi_St(:));
 
+    [R_sec_next,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+    
+    min_next = min(min(R_sec_next));
+
 
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α
@@ -588,9 +592,9 @@ for ao = 1:max_AO_iter
     % Track feasibility
     xi_record(mc_iter,ao) = feasible_flag;
 
-    if ~feasible_flag
-        feasible_ao = false;        
-    end
+   [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+    
+    min_next2 = min(min(R_sec_next2));
 
     % ================================================================
     % Build X

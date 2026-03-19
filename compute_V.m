@@ -70,7 +70,7 @@ function [V_1, V_2, term3] = compute_V(I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,h
             M_1 = h_rp(:, P_idx).' .* h_jq(:, Q_idx).' .* g_pq(g_indices);
         
             % Force V_1 to be real to clean up 10^-37 noise
-            V_1 = PLj * real(M_1' * Gram_1 * M_1); 
+            V_1 = PLj * M_1' * Gram_1 * M_1; 
         
             HB_flat = reshape(HB, [], Pe);
             b_coeffs = I * h_e(:);
