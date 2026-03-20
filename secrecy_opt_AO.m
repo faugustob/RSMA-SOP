@@ -1152,7 +1152,7 @@ plot(PSO_Real_secrecy_rate_curve_mean, 'k-.', 'LineWidth',1.8, 'Marker','>', 'Ma
 % Convex + Manopt
 plot(Convex_Fake_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
 plot(Convex_Real_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
-plot(Convex_min_Rk_curve_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(Convex_min_Rk_curve), 'MarkerFaceColor',colors(3,:))
+plot(Convex_min_Rk_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(Convex_min_Rk_mean), 'MarkerFaceColor',colors(3,:))
 
 
 
@@ -1170,13 +1170,49 @@ ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
 
-num_feas   = valid_records_Qtd;
-num_unfeas = Ns - valid_records_Qtd;
+% Store everything in a struct
+Results = struct();
 
-figure('Color','w');
-bar(nF_vec, [num_feas' num_unfeas'], 'grouped');
-title('Feasible vs Unfeasible (last AO iteration)');
-xlabel('Number of fake Eves');
-ylabel('Count (out of 200)');
-legend('Feasible','Unfeasible','Location','best');
-grid on; box on;
+% Original variables
+Results.PSO_Convergence_curve = PSO_Convergence_curve;
+Results.PSO_Fake_secrecy_rate_curve = PSO_Fake_secrecy_rate_curve;
+Results.PSO_Real_secrecy_rate_curve = PSO_Real_secrecy_rate_curve;
+
+Results.HSCA_Convergence_curve_AO = HSCA_Convergence_curve_AO;
+Results.HSCA_Fake_secrecy_rate_curve_AO = HSCA_Fake_secrecy_rate_curve_AO;
+Results.HSCA_Real_secrecy_rate_curve_AO = HSCA_Real_secrecy_rate_curve_AO;
+
+Results.Convex_min_Rk = Convex_min_Rk;
+Results.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
+Results.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
+Results.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
+
+Results.feasible_record = feasible_record;
+
+% Mean values
+Results.PSO_Convergence_curve_mean = PSO_Convergence_curve_mean;
+Results.PSO_Fake_secrecy_rate_curve_mean = PSO_Fake_secrecy_rate_curve_mean;
+Results.PSO_Real_secrecy_rate_curve_mean = PSO_Real_secrecy_rate_curve_mean;
+
+Results.HSCA_Convergence_curve_AO_mean = HSCA_Convergence_curve_AO_mean;
+Results.HSCA_Fake_secrecy_rate_curve_AO_mean = HSCA_Fake_secrecy_rate_curve_AO_mean;
+Results.HSCA_Real_secrecy_rate_curve_AO_mean = HSCA_Real_secrecy_rate_curve_AO_mean;
+
+Results.Convex_min_Rk_mean = Convex_min_Rk_mean;
+Results.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
+Results.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
+Results.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
+
+% Save everything in one file
+save('Variables.mat', 'Results', '-v7.3');
+
+% num_feas   = valid_records_Qtd;
+% num_unfeas = Ns - valid_records_Qtd;
+% 
+% figure('Color','w');
+% bar(nF_vec, [num_feas' num_unfeas'], 'grouped');
+% title('Feasible vs Unfeasible (last AO iteration)');
+% xlabel('Number of fake Eves');
+% ylabel('Count (out of 200)');
+% legend('Feasible','Unfeasible','Location','best');
+% grid on; box on;
