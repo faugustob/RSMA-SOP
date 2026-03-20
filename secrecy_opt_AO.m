@@ -1204,7 +1204,7 @@ Results.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO
 Results.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
 
 % Save everything in one file
-save('Variables.mat', 'Results', '-v7.3');
+save('Convex_opt_AO_comparison.mat', 'Results', '-v7.3');
 
 % num_feas   = valid_records_Qtd;
 % num_unfeas = Ns - valid_records_Qtd;
