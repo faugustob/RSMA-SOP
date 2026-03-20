@@ -108,7 +108,7 @@ m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
 omega_p = (1/P)*ones(1,P); % spread parameter
 
 nV_vec = 20:1:30;
-nH_vec = 20:2:40;
+nH_vec = 20:1:30;
 N_V=20;
 
 % Convex_min_Rk= zeros(Ns,10,20);
