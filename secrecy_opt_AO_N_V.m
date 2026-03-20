@@ -650,9 +650,9 @@ for ao = 1:max_AO_iter
     % Logging
     % ================================================================
     fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | Ns=%2d\n'], ...
+             'max(xi)=%.2e | N_V=%2d| Ns=%2d\n'], ...
             ao, feasible_flag, best_fake_secrecy, ...
-            best_fake_secrecy - prev_fake, max(xi_val), mc_iter);
+            best_fake_secrecy - prev_fake, max(xi_val),nV_idx, mc_iter);
 
     % ================================================================
     % Convergence
@@ -773,14 +773,15 @@ colors = [0, 0.4470, 0.7410;      % Blue
 % Marker interval
 markerInterval = 50;
 
-% Step 1: Identify rows where all entries in feasible_record are true
-valid_records_Qtd = sum(feasible_record, 1); % returns a logical column vector
+% Step 1: Identify valid records
+valid_records_Qtd = sum(feasible_record, 1);
 
-% Step 2: Compute means only for the selected rows
-Convex_min_Rk_mean = sum(Convex_min_Rk.*feasible_record,1)./valid_records_Qtd;
-Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
-Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd;  
-Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
+% Step 2: Compute conditional means
+Convex_min_Rk_mean = sum(Convex_min_Rk .* feasible_record,1) ./ valid_records_Qtd;
+Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO .* feasible_record,1) ./ valid_records_Qtd; 
+Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO .* feasible_record,1) ./ valid_records_Qtd;  
+Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO .* feasible_record,1) ./ valid_records_Qtd;
+
 
 
 hold on;
@@ -830,3 +831,23 @@ ax = gca;
 ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
+
+% Store in struct
+NVResults = struct();
+
+% Original data
+NVResults.Convex_min_Rk = Convex_min_Rk;
+NVResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
+NVResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
+NVResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
+NVResults.feasible_record = feasible_record;
+
+% Processed data
+NVResults.valid_records_Qtd = valid_records_Qtd;
+NVResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
+NVResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
+NVResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
+NVResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
+
+% Save
+save('N_VResults.mat', 'NVResults', '-v7.3');
