@@ -825,3 +825,23 @@ ax = gca;
 ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
+
+% Store in struct
+NHResults = struct();
+
+% Original data
+NHResults.Convex_min_Rk = Convex_min_Rk;
+NHResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
+NHResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
+NHResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
+NHResults.feasible_record = feasible_record;
+
+% Processed data
+NHResults.valid_records_Qtd = valid_records_Qtd;
+NHResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
+NHResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
+NHResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
+NHResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
+
+% Save
+save('N_HResults.mat', 'NHResults', '-v7.3');
