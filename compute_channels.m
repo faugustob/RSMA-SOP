@@ -3,10 +3,10 @@ function [L_node,E_node] = compute_channels( K, Nr, nF, Pe, P, Q_j, Plos, PLj, H
     for k = 1:K    
                   
        [V1, V2_gpu, term3_gpu] = compute_V(    0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
-                                       Nsymb, h_rp(:,:,k,1), h_jq(:,:,k), h_e(:,k,1),'vectorized');   
+                                       Nsymb, h_rp(:,:,1), h_jq(:,:,k), h_e(:,k,1),'vectorized');   
 
        [V1_AN, V2_AN_gpu, term3_AN_gpu] = compute_V(    0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), ...
-                                       Nsymb, h_rp(:,:,k,2), h_jq(:,:,k), h_e(:,k,2),'vectorized');
+                                       Nsymb, h_rp(:,:,2), h_jq(:,:,k), h_e(:,k,2),'vectorized');
         
 
        L_node(k).V1 = V1;
@@ -29,11 +29,11 @@ function [L_node,E_node] = compute_channels( K, Nr, nF, Pe, P, Q_j, Plos, PLj, H
             % 1. Get the raw channel components
             [V1_l, V2_l_gpu, term3_l_gpu] = compute_V(1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
                                         HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
-                                        Nsymb, h_rp(:,:,K+l,1), h_jq(:,:,K+l), h_e(:,K+l,1),'vectorized');
+                                        Nsymb, h_rp(:,:,1), h_jq(:,:,K+l), h_e(:,K+l,1),'vectorized');
                                         
             [V1_AN_l, V2_AN_l_gpu, term3_AN_l_gpu] = compute_V(1, Pe, P, Q_j, Plos(K+l,2), PLj(K+l,2), Nr, ...
                                                 HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), ...
-                                                Nsymb, h_rp(:,:,K+l,2), h_jq(:,:,K+l), h_e(:,K+l,2),'vectorized');
+                                                Nsymb, h_rp(:,:,2), h_jq(:,:,K+l), h_e(:,K+l,2),'vectorized');
 
 
             E_node(l).V1_l = V1_l;

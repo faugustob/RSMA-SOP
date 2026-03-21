@@ -225,6 +225,12 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
 
 
+%Channels
+for p = 1:P
+    % Scale parameter theta = omega/m
+    h_rp(:, p,1) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Data carrying channel
+    h_rp(:, p,2) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Noise carrying channel
+end
 
 
 %OTFS Per User channel conditions
@@ -290,12 +296,6 @@ for k =1:K
     taus_ku(:,k) = taus_u; 
     nus_ku(:,k) = nus_u; 
    
-    %Channels
-    for p = 1:P
-        % Scale parameter theta = omega/m
-        h_rp(:, p,k,1) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Data carrying channel
-        h_rp(:, p,k,2) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Noise carrying channel
-    end
 
     
     for q = 1:Q_j
@@ -388,14 +388,7 @@ for l=1:nF+L
         c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, sigma_ang);
 
 
-        %Channels
-        for p = 1:P
-            % Scale parameter theta = omega/m
-            h_rp(:, p,K+l,1) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1));
-            h_rp(:, p,K+l,2) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1));
-        end
-    
-    
+       
         
         for q = 1:Q_j
             h_jq(:, q,K+l) = sqrt(gamrnd(m_q(K+l,q), omega_q(q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));

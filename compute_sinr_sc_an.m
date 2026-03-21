@@ -76,8 +76,8 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
         beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
 
         % Channel call: Inputs already GPU'd outside, so stays on GPU
-        [Nc_k] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(k,1),PLj(k,1),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,k,1),h_jq(:,:,k),h_e(:,k,1),'vectorized'); %Data Channel
-        [Nc_k_AN] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(k,2),PLj(k,2),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,k,2),h_jq(:,:,k),h_e(:,k,2),'vectorized'); %Data Channel
+        [Nc_k] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(k,1),PLj(k,1),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,1),h_jq(:,:,k),h_e(:,k,1),'vectorized'); %Data Channel
+        [Nc_k_AN] = compute_OTFS_static_channel(0,Pe,P,Q_j,Plos(k,2),PLj(k,2),Nr,HB(:,:,:,k),HA(:,:,:,:,k),g_pq(:,:,k),beta_r,Nsymb,h_rp(:,:,2),h_jq(:,:,k),h_e(:,k,2),'vectorized'); %Data Channel
 
         % RSMA SINR Logic: Common message sees all private power as interference
         signal_c = alpha_c * Nc_k;
@@ -98,8 +98,8 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
         reflect_coeff = reflect(K+l);
         beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
 
-        [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,1),PLj(K+l,1),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l,1),h_jq(:,:,K+l),h_e(:,K+l,1),'vectorized');
-        [Nc_l_AN] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,2),PLj(K+l,2),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,K+l,2),h_jq(:,:,K+l),h_e(:,K+l,2),'vectorized');
+        [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,1),PLj(K+l,1),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,1),h_jq(:,:,K+l),h_e(:,K+l,1),'vectorized');
+        [Nc_l_AN] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,2),PLj(K+l,2),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,2),h_jq(:,:,K+l),h_e(:,K+l,2),'vectorized');
 
         signal_c_l = alpha_c * Nc_l;
         interf_c_l = sum_alpha_pi * Nc_l + AN_P_ratio*Nc_l_AN;

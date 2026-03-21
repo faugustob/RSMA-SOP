@@ -167,7 +167,7 @@ g_pq = zeros(P,Q_j,K+nF+L);
 Plos = zeros(K+nF+L,nSat);
 PLj = zeros(K+nF+L,nSat);
 
-h_rp = zeros(Nr, P,K+nF+L,nSat);
+h_rp = zeros(Nr, P,nSat);
 h_jq = zeros(Nr, Q_j,K+nF+L);
 h_e = zeros(Pe,K+nF+L,nSat);
 taus_ku = zeros(Pe,K);
@@ -215,6 +215,14 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 % Satellite to RIS delays and doppler coefficients.
 [taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
+
+
+%Channels
+for p = 1:P
+    % Scale parameter theta = omega/m
+    h_rp(:, p,1) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Data carrying channel
+    h_rp(:, p,2) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Noise carrying channel
+end
 
 
 
@@ -280,14 +288,8 @@ for k =1:K
     g_pq(:,:,k) = exp(1i*2*pi*(taus_R*nus_k'));    
 
     taus_ku(:,k) = taus_u; 
-    nus_ku(:,k) = nus_u; 
-   
-    %Channels
-    for p = 1:P
-        % Scale parameter theta = omega/m
-        h_rp(:, p,k,1) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Data carrying channel
-        h_rp(:, p,k,2) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Noise carrying channel
-    end
+    nus_ku(:,k) = nus_u;   
+ 
 
     
     for q = 1:Q_j
@@ -380,15 +382,6 @@ for l=1:nF+L
         % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l, nus_u_l, u_paths_u] = compute_delay_and_doppler( ...
         c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, sigma_ang);
-
-
-        %Channels
-        for p = 1:P
-            % Scale parameter theta = omega/m
-            h_rp(:, p,K+l,1) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1));
-            h_rp(:, p,K+l,2) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1));
-        end
-    
     
         
         for q = 1:Q_j
