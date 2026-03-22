@@ -313,8 +313,8 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M=100;
-N=14;
+M=6;
+N=6;
 
 
 
@@ -410,11 +410,11 @@ end
 
 
 
-if gpuDeviceCount > 0
-    % GPU is available
-    HA = gpuArray(HA); HB = gpuArray(HB);  % After precompute  
-    h_rp = gpuArray(h_rp); h_jq = gpuArray(h_jq); g_pq = gpuArray(g_pq); h_e = gpuArray(h_e);
-end
+% if gpuDeviceCount > 0
+%     % GPU is available
+%     HA = gpuArray(HA); HB = gpuArray(HB);  % After precompute  
+%     h_rp = gpuArray(h_rp); h_jq = gpuArray(h_jq); g_pq = gpuArray(g_pq); h_e = gpuArray(h_e);
+% end
  
 %% Sine-Cosine optimization
 
@@ -432,10 +432,8 @@ dim = K+1+Nr;
 ub=[ones(1,K+1),2*pi*ones(1,Nr)];
 alpha_min = 1e-8;
 lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
-zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
 
 Active_Gain_dB = 0; 
-zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
 
 
 % zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
@@ -546,7 +544,23 @@ alpha = alpha_prev;
 [R_sec_prev,rate_p,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
-min_prev = min(min(R_sec_prev));
+ % ================================================================
+    % Build X
+    % ================================================================
+    if any_reflect
+        X = [alpha, phi_Sr, phi_St, zeta_k_St];
+    else
+        X = [alpha, phi_St(:).'];
+    end
+
+[~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+        Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
+        Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+        zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
+
+prev_cost = min(min(R_sec_prev));
+best_fake_secrecy = prev_cost;
+best_real_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
 Ck = max(0, Rmin - rate_p);
 
@@ -563,7 +577,7 @@ for ao = 1:max_AO_iter
     % ================================================================
     % 2. SUBPROBLEM 2: Optimize RIS Phases Φ
     % ================================================================
-    [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(...
+    [phi_St,~] = optimize_phi_manopt_fixed_alpha(...
         Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
 
     b0 = exp(1i*phi_St(:));
@@ -576,7 +590,7 @@ for ao = 1:max_AO_iter
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α
     % ================================================================
-    [alpha_prev,Ck,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(...
+    [cost,alpha_prev,Ck,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(...
         Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
         K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
@@ -587,7 +601,7 @@ for ao = 1:max_AO_iter
 
    [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
-    min_next2 = min(min(R_sec_next2));
+    cost_opt = -min(min(R_sec_next2));
 
     % ================================================================
     % Build X
@@ -626,11 +640,11 @@ for ao = 1:max_AO_iter
     % ================================================================
     % Update best solution
     % ================================================================
-    if feasible_flag && cost_opt < prev_cost
+    if feasible_flag && cost > prev_cost
         best_fake_secrecy = current_fake;
         best_real_secrecy = current_real;
         Destination_position = X;
-        prev_cost = cost_opt;
+        prev_cost = cost;
         prev_min_Rk = min(Rk);
     end
 

@@ -1,4 +1,4 @@
-function [alpha,Ck_out,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+function [obj_prev,alpha,Ck_out,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA)
 %% ========================= CONSTANTS =========================
 zeta_k_Sr = (10^(Active_Gain_dB/10)) - zeta_k_St;
@@ -141,13 +141,14 @@ while sca_iter > 0
     sca_iter   = sca_iter - 1;
 end
 
+    
        
     % ========== FINAL SAFETY & REPORTING ==========
     status_ok = strcmp(cvx_status,'Solved') || strcmp(cvx_status,'Inaccurate/Solved');
     
      if status_ok
         alpha    = double(vecAlpha).';
-        Ck_out   = double(Ck);
+        Ck_out   = double(Ck);       
     
         xi_val = double(xi);
         feasible_flag = max(xi_val) < 1e-4;

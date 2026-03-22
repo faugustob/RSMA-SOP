@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 200; % number of samples for Monte Carlo simulation
+Ns = 1000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -22,7 +22,7 @@ K = K_h+K_s; % number of legit users
 
 nF = 5; % Number of fake eavesdroppers
 
-L = 1; % number of eavesdroppers
+L = 2; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
 delta_f = 100e3;      % Subcarrier spacing (Hz)
@@ -120,12 +120,13 @@ receiving_ang = acos( ...
 m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
 omega_p = (1/P)*ones(1,P); % spread parameter
 
-nF_vec = 1:1:10;
+nF_vec = 1:1:12;
 
 % Convex_min_Rk= zeros(Ns,10,20);
 % Convex_Convergence_curve_AO = zeros(Ns,10,20);
 % Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
-% Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);
+% Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);f
+
 
 for mc_iter = 1:Ns
 for nF_idx = 1:length(nF_vec)
@@ -310,8 +311,8 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M = 100;
-N = 16;
+M = 18;
+N = 18;
 
 Nsymb = M*N; 
 
@@ -405,18 +406,18 @@ end
 
 
 
-if gpuDeviceCount > 0
-    % GPU is available
-    HA = gpuArray(HA); HB = gpuArray(HB);  % After precompute  
-    h_rp = gpuArray(h_rp); h_jq = gpuArray(h_jq); g_pq = gpuArray(g_pq); h_e = gpuArray(h_e);
-end
+% if gpuDeviceCount > 0
+%     % GPU is available
+%     HA = gpuArray(HA); HB = gpuArray(HB);  % After precompute  
+%     h_rp = gpuArray(h_rp); h_jq = gpuArray(h_jq); g_pq = gpuArray(g_pq); h_e = gpuArray(h_e);
+% end
  
 %% Sine-Cosine optimization
 
 display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 20;
+Max_iteration = 4;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
@@ -487,18 +488,16 @@ else
     zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
 end
 
-best_fake_secrecy = -5;
-best_real_secrecy = -5;
+
 Convergence_curve_AO = zeros(1, max_AO_iter);
 
 fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
 problem.M = manifold;
-num_agents  = Num_agents;
 num_agents  = 1;
 
-prev_cost  = 10;
+
 
 %Parameters
 BW = delta_f;
@@ -517,7 +516,7 @@ reflect, h_rp, h_jq, h_e,  Active_Gain_dB);
 
 beta = zeros(Nr,num_agents);
 
-
+min_Rsec = zeros(num_agents,1);
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
    [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(1,:), K, nF, sigma2, Pw, AN_P_ratio);
@@ -540,7 +539,23 @@ alpha = alpha_prev;
 [R_sec_prev,rate_p,rate_c,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 phi_St = wrapToPi(angle(b0)).';
 
-min_prev = min(min(R_sec_prev));
+ % ================================================================
+    % Build X
+    % ================================================================
+    if any_reflect
+        X = [alpha, phi_Sr, phi_St, zeta_k_St];
+    else
+        X = [alpha, phi_St(:).'];
+    end
+
+[~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+        Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
+        Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+        zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
+
+prev_cost = min(min(R_sec_prev));
+best_fake_secrecy = prev_cost;
+best_real_secrecy = min(min(sc_p_lk(nF+1:end,:)));
 
 Ck = max(0, Rmin - rate_p);
 
@@ -548,7 +563,7 @@ feasible_ao = true;      % track feasibility of this realization
 
 for ao = 1:max_AO_iter
 
-    prev_fake = best_fake_secrecy;
+    prev_fake = prev_cost;
   
 
    
@@ -561,15 +576,15 @@ for ao = 1:max_AO_iter
 
     b0 = exp(1i*phi_St(:));
 
-    [R_sec_next,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-    
-    min_next = min(min(R_sec_next));
+    % [R_sec_next,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+    % 
+    % min_next = min(min(R_sec_next));
 
 
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α
     % ================================================================
-    [alpha_prev,Ck,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(...
+    [cost,alpha_prev,Ck,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(...
         Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
         K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
@@ -578,7 +593,7 @@ for ao = 1:max_AO_iter
 
    [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
-    min_next2 = min(min(R_sec_next2));
+    cost_opt = min(min(R_sec_next2));
 
     % ================================================================
     % Build X
@@ -612,16 +627,17 @@ for ao = 1:max_AO_iter
         Rk = zeros(K,1);
         current_fake = 0;
         current_real = 0;
+        prev_min_Rk=0;
     end
 
     % ================================================================
     % Update best solution
     % ================================================================
-    if feasible_flag && cost_opt < prev_cost
+    if feasible_flag && cost > prev_cost
         best_fake_secrecy = current_fake;
         best_real_secrecy = current_real;
         Destination_position = X;
-        prev_cost = cost_opt;
+        prev_cost = cost;
         prev_min_Rk = min(Rk);
     end
 
@@ -648,7 +664,7 @@ end
  feasible_record(mc_iter,nF_idx) = feasible_flag;
 
  Convex_min_Rk(mc_iter,nF_idx) = prev_min_Rk;
- Convex_Convergence_curve_AO(mc_iter,nF_idx) = -prev_cost;
+ Convex_Convergence_curve_AO(mc_iter,nF_idx) = prev_cost;
  Convex_Fake_Convergence_curve_AO(mc_iter,nF_idx) = best_fake_secrecy;
  Convex_Real_Convergence_curve_AO(mc_iter,nF_idx) = best_real_secrecy;
 
@@ -732,3 +748,22 @@ ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
 
+% Store in struct
+NFResults = struct();
+
+% Original data
+NFResults.Convex_min_Rk = Convex_min_Rk;
+NFResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
+NFResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
+NFResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
+NFResults.feasible_record = feasible_record;
+
+% Processed data
+NFResults.valid_records_Qtd = valid_records_Qtd;
+NFResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
+NFResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
+NFResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
+NFResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
+
+% Save
+save('N_VResults.mat', 'NFResults', '-v7.3');
