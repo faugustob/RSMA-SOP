@@ -38,8 +38,8 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 40; % number of rows of regularly arranged unit cells of RIS
-N_H = 40; % number of columns of regularly arranged unit cells of RIS
+N_V = 20; % number of rows of regularly arranged unit cells of RIS
+N_H = 20; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
@@ -313,8 +313,8 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M=6;
-N=6;
+M=18;
+N=18;
 
 
 
@@ -622,7 +622,7 @@ for ao = 1:max_AO_iter
 
     rate_p_vec = log2(1 + sinr_p_k);
 
-    % ================================================================
+   % ================================================================
     % Handle feasibility properly
     % ================================================================
     if feasible_flag
@@ -635,6 +635,7 @@ for ao = 1:max_AO_iter
         Rk = zeros(K,1);
         current_fake = 0;
         current_real = 0;
+        prev_min_Rk=0;        
     end
 
     % ================================================================
