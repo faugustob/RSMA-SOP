@@ -417,7 +417,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 4;
+Max_iteration = 5;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
@@ -627,7 +627,7 @@ for ao = 1:max_AO_iter
         Rk = zeros(K,1);
         current_fake = 0;
         current_real = 0;
-        prev_min_Rk=0;
+        prev_min_Rk=0;        
     end
 
     % ================================================================
@@ -642,6 +642,7 @@ for ao = 1:max_AO_iter
     end
 
  
+ 
     % ================================================================
     % Logging
     % ================================================================
@@ -650,6 +651,11 @@ for ao = 1:max_AO_iter
             ao, feasible_flag, best_fake_secrecy, ...
             best_fake_secrecy - prev_fake, max(xi_val), nF_idx, mc_iter);
 
+    if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
+        break;
+    end
+
+    
     % ================================================================
     % Convergence
     % ================================================================

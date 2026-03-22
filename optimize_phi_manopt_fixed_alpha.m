@@ -44,7 +44,7 @@ function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,
         options.linesearch = @linesearch; % Trust-regions usually manages step size via the radius
         
         % Inner iteration control (Krylov steps)     
-        options.maxinner = 80; 
+        options.maxinner = 60; 
         
         % Execute with options
         [beta_opt, cost_opt, info] = trustregions(problem, b0, options);
