@@ -490,8 +490,7 @@ else
     zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
 end
 
-best_fake_secrecy = -5;
-best_real_secrecy = -5;
+
 Convergence_curve_AO = zeros(1, max_AO_iter);
 
 fprintf('\n=== Starting Convex AO ===\n');
@@ -501,7 +500,7 @@ problem.M = manifold;
 num_agents  = Num_agents;
 num_agents  = 1;
 
-prev_cost  = 10;
+
 prev_min_Rk = -10;
 
 %Parameters
@@ -650,7 +649,7 @@ for ao = 1:max_AO_iter
     end
 
     Convex_min_Rk(mc_iter,ao) = prev_min_Rk;
-    Convex_Convergence_curve_AO(mc_iter,ao) = -prev_cost;
+    Convex_Convergence_curve_AO(mc_iter,ao) = prev_cost;
     Convex_Fake_Convergence_curve_AO(mc_iter,ao) = best_fake_secrecy;
     Convex_Real_Convergence_curve_AO(mc_iter,ao) = best_real_secrecy;
 
