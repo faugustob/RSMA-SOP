@@ -645,10 +645,7 @@ for ao = 1:max_AO_iter
      % Track feasibility
      feasible_record(mc_iter,nV_idx,ao) = feasible_flag;
     
-     Convex_min_Rk(mc_iter,nV_idx,ao) = prev_min_Rk;
-     Convex_Convergence_curve_AO(mc_iter,nV_idx,ao) = prev_cost;
-     Convex_Fake_Convergence_curve_AO(mc_iter,nV_idx,ao) = best_fake_secrecy;
-     Convex_Real_Convergence_curve_AO(mc_iter,nV_idx,ao) = best_real_secrecy;
+    
      
  
     % ================================================================
@@ -659,24 +656,29 @@ for ao = 1:max_AO_iter
             ao, feasible_flag, best_fake_secrecy, ...
             best_fake_secrecy - prev_fake, max(xi_val), N_V, mc_iter);
 
-    % if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
-    %     break;
-    % end
-    % 
-    % 
-    % % ================================================================
-    % % Convergence
-    % % ================================================================
-    % if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
-    %     fprintf('→ AO Converged at iteration %d\n', ao);
-    %     break;
-    % end
+    if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
+        break;
+    end
+
+
+    % ================================================================
+    % Convergence
+    % ================================================================
+    if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
+        fprintf('→ AO Converged at iteration %d\n', ao);
+        break;
+    end
 
 end
 
 
 
 fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
+
+ Convex_min_Rk(mc_iter,nV_idx) = prev_min_Rk;
+ Convex_Convergence_curve_AO(mc_iter,nV_idx) = prev_cost;
+ Convex_Fake_Convergence_curve_AO(mc_iter,nV_idx) = best_fake_secrecy;
+ Convex_Real_Convergence_curve_AO(mc_iter,nV_idx) = best_real_secrecy;
 
 end
 end
@@ -699,14 +701,21 @@ markerInterval = 50;
 
 
 % Step 1: Identify rows where all entries in feasible_record are true
-valid_records_Qtd = sum(feasible_record(:,:,end), 1); % returns a logical column vector
+% valid_records_Qtd = sum(feasible_record(:,:,end), 1); % returns a logical column vector
+% 
+% % Step 2: Compute means only for the selected rows
+% Convex_min_Rk_mean = sum(Convex_min_Rk(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd;
+% Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd; 
+% Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd;  
+% Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd; 
+
+valid_records_Qtd = sum(feasible_record, 1); % returns a logical column vector
 
 % Step 2: Compute means only for the selected rows
-Convex_min_Rk_mean = sum(Convex_min_Rk(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd;
-Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd; 
-Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd;  
-Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd; 
-
+Convex_min_Rk_mean = sum(Convex_min_Rk.*feasible_record,1)./valid_records_Qtd;
+Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
+Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd;  
+Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
 
 hold on;
 plot(nV_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
