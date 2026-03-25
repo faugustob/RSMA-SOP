@@ -642,8 +642,7 @@ for ao = 1:max_AO_iter
         prev_min_Rk = min(Rk);
     end
     
-     % Track feasibility
-     feasible_record(mc_iter,nV_idx,ao) = feasible_flag;
+  
     
     
      
@@ -674,6 +673,8 @@ end
 
 
 fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
+   % Track feasibility
+ feasible_record(mc_iter,nV_idx) = feasible_flag;
 
  Convex_min_Rk(mc_iter,nV_idx) = prev_min_Rk;
  Convex_Convergence_curve_AO(mc_iter,nV_idx) = prev_cost;
