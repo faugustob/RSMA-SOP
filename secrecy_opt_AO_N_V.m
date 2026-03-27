@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 1000; % number of samples for Monte Carlo simulation
+Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -418,7 +418,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 8;
+Max_iteration = 5;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
@@ -747,7 +747,7 @@ hold on;
 
 
 % Convex + Manopt
-plot(nV_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(1,:));
+%plot(nV_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(1,:));
 plot(nV_vec,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
 plot(nV_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
 
