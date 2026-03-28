@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 1000; % number of samples for Monte Carlo simulation
+Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -120,7 +120,7 @@ receiving_ang = acos( ...
 m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
 omega_p = (1/P)*ones(1,P); % spread parameter
 
-nF_ratio_vec = 0.5:0.5:4;
+nF_ratio_vec = 0.5:0.5:6;
 
 % Convex_min_Rk= zeros(Ns,10,20);
 % Convex_Convergence_curve_AO = zeros(Ns,10,20);
