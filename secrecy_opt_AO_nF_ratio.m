@@ -715,6 +715,8 @@ Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*fe
 Convex_Real_Fake_diff_Convergence_curve_AO_mean = sum(rel_diff.*feasible_record,1)./valid_records_Qtd_safe; 
 Convex_Real_Fake_ratio_Convergence_curve_AO_mean = sum(ratio .* feasible_record,1) ./ valid_records_Qtd_safe;
 
+mean_diff = (Convex_Real_Convergence_curve_AO_mean - Convex_Fake_Convergence_curve_AO_mean).^2;
+
 x = 1:length(Convex_Convergence_curve_AO_mean);
 
 %% ================= FIGURE 1: Convergence =================
@@ -775,12 +777,25 @@ plot(nF_ratio_vec, Convex_Real_Fake_ratio_Convergence_curve_AO_mean, '-o', ...
 yline(1,'--k');
 
 title('Performance Ratio (Fake / Real)');
-xlabel('Number of Fake Eves ratio');
+xlabel('Fake/Ratio Eves ratio');
 ylabel('Ratio');
 grid on; box on;
 
 % saveas(gcf,'Ratio.png');
 % savefig('Ratio.fig');
+
+%% ================= FIGURE 5: Mean diff =================
+figure('Color','w'); hold on;
+
+plot(nF_ratio_vec, mean_diff, '-o', ...
+    'Color', colors(1,:), 'LineWidth',1.8);
+
+yline(1,'--k');
+
+title('(Mean real - Mean fake) squared');
+xlabel('Fake/Ratio Eves ratio');
+ylabel('Ratio');
+grid on; box on;
 
 %% ================= SAVE STRUCT =================
 NF_ratio_Results = struct();
@@ -798,5 +813,6 @@ NF_ratio_Results.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence
 NF_ratio_Results.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
 NF_ratio_Results.rel_diff_mean = Convex_Real_Fake_diff_Convergence_curve_AO_mean;
 NF_ratio_Results.ratio_mean = Convex_Real_Fake_ratio_Convergence_curve_AO_mean;
+NF_ratio_Results.mean_diff = mean_diff;
 
 save('N_F_ratio_Results.mat', 'NF_ratio_Results', '-v7.3');
