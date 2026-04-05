@@ -160,7 +160,7 @@ vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
 
-g_pq = zeros(P,Q_j,K+nF+L);
+g_pq = zeros(P,Q_j,K+nF+L,nSat);
 Plos = zeros(K+nF+L,nSat);
 PLj = zeros(K+nF+L,nSat);
 
@@ -213,6 +213,9 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 % Satellite to RIS delays and doppler coefficients.
 [taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
+
+[taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
+    c, AN_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
 
 %Channels
 for p = 1:P
@@ -270,10 +273,13 @@ for k =1:K
     c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, sigma_ang);
   
 
-    for p=1:P
+      for p=1:P
         for q=1:Q_j
-           taus_kq(k,p,q) = taus_R(p)+taus_k(q);
-           nus_kq(k,p,q) = nus_R(p)+nus_k(q);
+           taus_kq(k,p,q,1) = taus_R(p)+taus_k(q);
+           nus_kq(k,p,q,1) = nus_R(p)+nus_k(q);
+
+           taus_kq(k,p,q,2) = taus_R_AN(p)+taus_k(q);
+           nus_kq(k,p,q,2) = nus_R_AN(p)+nus_k(q);
         end 
     end
     
@@ -282,10 +288,17 @@ for k =1:K
     [taus_u, nus_u, u_paths_u] = compute_delay_and_doppler( ...
     c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, sigma_ang);
 
-    g_pq(:,:,k) = exp(1i*2*pi*(taus_R*nus_k'));    
+    [taus_u_AN, nus_u_AN, u_paths_AN] = compute_delay_and_doppler( ...
+    c, AN_xyz, vS, User_k_loc, v_l, f_c, Pe, sigma_ang);
 
-    taus_ku(:,k) = taus_u; 
-    nus_ku(:,k) = nus_u; 
+    g_pq(:,:,k,1) = exp(1i*2*pi*(taus_R*nus_k'));    
+    g_pq(:,:,k,2) = exp(1i*2*pi*(taus_R_AN*nus_k'));    
+
+    taus_ku(:,k,1) = taus_u; 
+    nus_ku(:,k,1) = nus_u;   
+
+    taus_ku(:,k,2) = taus_u_AN; 
+    nus_ku(:,k,2) = nus_u_AN;  
    
      
     for q = 1:Q_j
@@ -309,31 +322,28 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-N_vec = 16:1:26;
-
-for N_idx = 1:length(N_vec)
-N= N_vec(N_idx);
-
 M = 18;
-%N = 18;
+N = 18;
 
 Nsymb = M*N; 
 
-HA = zeros(Nsymb,Nsymb,P,Q_j,K+nF+L); % Relay link
-HB = zeros(Nsymb,Nsymb,Pe,K+nF+L);
+HA = zeros(Nsymb,Nsymb,P,Q_j,K+nF+L,nSat); % Relay link
+HB = zeros(Nsymb,Nsymb,Pe,K+nF+L,nSat);
 
 
 for k=1:K
 
     for p=1:P
         for q=1:Q_j
-            HA(:,:,p,q,k) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked',transmissionType);
+            HA(:,:,p,q,k,1) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked',transmissionType);
+             HA(:,:,p,q,k,2) =  compute_Hp(taus_kq(k,p,q,2), nus_kq(k,p,q,2), M, N, T, delta_f, 'blocked',transmissionType);
         end
     end
    
 
     for u = 1:Pe
-        HB(:,:,u,k) =  compute_Hp(taus_u(u), nus_u(u), M, N, T, delta_f, 'blocked',transmissionType);
+        HB(:,:,u,k,1) =  compute_Hp(taus_u(u), nus_u(u), M, N, T, delta_f, 'blocked',transmissionType);
+         HB(:,:,u,k,2) =  compute_Hp(taus_u_AN(u), nus_u_AN(u), M, N, T, delta_f, 'blocked',transmissionType);
     end
 
 end
@@ -380,7 +390,11 @@ for l=1:nF+L
     
         % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l, nus_u_l, u_paths_u] = compute_delay_and_doppler( ...
-        c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, sigma_ang);         
+        c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, sigma_ang);    
+
+           % sat to eavesdropper users users delays and doppler coefficients.
+        [taus_u_l_AN, nus_u_l_AN, u_paths_u_AN] = compute_delay_and_doppler( ...
+        c, AN_xyz, vS, User_l_loc, v_l, f_c, Pe, sigma_ang);
     
         
         for q = 1:Q_j
@@ -396,15 +410,18 @@ for l=1:nF+L
 
        for p=1:P
             for q=1:Q_j
-                HA(:,:,p,q,K+l) =  compute_Hp(taus_R(p)+taus_l(q), nus_R(p)+nus_l(q), M, N, T, delta_f, 'blocked',transmissionType);
+                HA(:,:,p,q,K+l,1) =  compute_Hp(taus_R(p)+taus_l(q), nus_R(p)+nus_l(q), M, N, T, delta_f, 'blocked',transmissionType);
+                HA(:,:,p,q,K+l,2) =  compute_Hp(taus_R_AN(p)+taus_l(q), nus_R_AN(p)+nus_l(q), M, N, T, delta_f, 'blocked',transmissionType);
             end
        end
 
         for u = 1:Pe
-            HB(:,:,u,K+l) =  compute_Hp(taus_u_l(u) ,nus_u_l(u), M, N, T, delta_f, 'blocked',transmissionType);
+            HB(:,:,u,K+l,1) =  compute_Hp(taus_u_l(u) ,nus_u_l(u), M, N, T, delta_f, 'blocked',transmissionType);
+            HB(:,:,u,K+l,2) =  compute_Hp(taus_u_l_AN(u) ,nus_u_l_AN(u), M, N, T, delta_f, 'blocked',transmissionType);
         end
 
-        g_pq(:,:,K+l) = exp(1i*2*pi*(taus_R*nus_l'));           
+        g_pq(:,:,K+l,1) = exp(1i*2*pi*(taus_R*nus_l'));  
+        g_pq(:,:,K+l,2) = exp(1i*2*pi*(taus_R_AN*nus_l'));            
 end
 
 
