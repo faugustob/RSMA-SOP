@@ -324,7 +324,11 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M = 18;
+M_vec = 16:1:26;
+
+for M_idx = 1:length(M_vec)
+    
+M = M_vec(M_idx);
 N = 18;
 
 Nsymb = M*N; 
