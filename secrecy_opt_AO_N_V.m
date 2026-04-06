@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 2000; % number of samples for Monte Carlo simulation
+Ns = 10000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -720,7 +720,7 @@ colors = [0, 0.4470, 0.7410;      % Blue
 
 
 % Marker interval
-markerInterval = 50;
+markerInterval = 2;
 
 
 % Step 1: Identify rows where all entries in feasible_record are true
@@ -741,13 +741,14 @@ Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO.*fe
 Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
 
 hold on;
-plot(nV_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
+plot(nV_vec*N_H,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
 
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('N_V','FontWeight','bold','FontSize',11);
-ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
-legend('Convex-Manifold','Location','best','FontSize',10);
+xlabel('$N_r$','FontWeight','bold','FontSize',11, 'Interpreter', 'latex');
+ylabel('Secrecy Rate','FontWeight','bold','FontSize',11);
+%legend('Convex-Manifold','Location','best','FontSize',10);
+
 
 grid on;
 ax = gca;
@@ -770,17 +771,21 @@ hold on;
 
 % Convex + Manopt
 %plot(nV_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(1,:));
-plot(nV_vec,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
-plot(nV_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
+plot(nV_vec*N_H,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
+plot(nV_vec*N_H,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
 
 
 
-title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('N_V','FontWeight','bold','FontSize',11);
+
+%title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
+xlabel('$N_r$','FontWeight','bold','FontSize',11, 'Interpreter', 'latex');
 ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
-legend('Min-rate','Convex-fake','Convex-real', ...
+legend('Min. rate','Virtual SC','Real SC', ...
     'Location','best','FontSize',10);
+
+% legend('Min-rate','Convex-fake','Convex-real', ...
+%     'Location','best','FontSize',10);
 
 grid on;
 ax = gca;

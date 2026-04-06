@@ -723,7 +723,7 @@ colors = [0, 0.4470, 0.7410;      % Blue
 
 
 % Marker interval
-markerInterval = 50;
+markerInterval = 2;
 
 
 % Step 1: Identify rows where all entries in feasible_record are true
@@ -748,9 +748,9 @@ plot(AN_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'Line
 
 
 title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('AN P Ratio','FontWeight','bold','FontSize',11);
-ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
-legend('Convex-Manifold','Location','best','FontSize',10);
+xlabel('ANDPR','FontWeight','bold','FontSize',11);
+ylabel('Secrecy Rate','FontWeight','bold','FontSize',11);
+%legend('Convex-Manifold','Location','best','FontSize',10);
 
 grid on;
 ax = gca;
@@ -778,11 +778,11 @@ plot(AN_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 
 
 
 
-title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('AN P Ratio','FontWeight','bold','FontSize',11);
+%title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
+xlabel('ANDPR','FontWeight','bold','FontSize',11);
 ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
-legend('Min-rate','Convex-fake','Convex-real', ...
+legend('Min. rate','Virtual SC','Real SC', ...
     'Location','best','FontSize',10);
 
 grid on;
