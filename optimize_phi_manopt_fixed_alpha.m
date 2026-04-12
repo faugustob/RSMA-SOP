@@ -39,12 +39,12 @@ function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,
        % fprintf('Starting Manifold Optimization...\n');
         % Define options structure
         options.tolgradnorm = 1e-4;    % Stop when the gradient norm is very small
-        options.maxiter = 10;         % Maximum outer iterations
+        options.maxiter = 5;         % Maximum outer iterations
         options.verbosity = 0;          % 2 shows summary, 3 shows detailed inner steps
         options.linesearch = @linesearch; % Trust-regions usually manages step size via the radius
         
         % Inner iteration control (Krylov steps)     
-        options.maxinner = 60; 
+        options.maxinner = 30; 
         
         % Execute with options
         [beta_opt, cost_opt, info] = trustregions(problem, b0, options);

@@ -17,14 +17,14 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, 
         zeta_k_St = x(K+2+2*Nr:K+1+3*Nr);
     end
 
-    if gpuDeviceCount > 0
-         % --- GPU CHANGES: Convert x-derived vars to GPU if not already ---
-        alpha = gpuArray(alpha);  % Low-cost; ensures RSMA ops on GPU
-        phi_St = gpuArray(phi_St);
-        phi_Sr = gpuArray(phi_Sr);
-
-        zeta_k_St = gpuArray(zeta_k_St);
-    end
+    % if gpuDeviceCount > 0
+    %      % --- GPU CHANGES: Convert x-derived vars to GPU if not already ---
+    %     alpha = gpuArray(alpha);  % Low-cost; ensures RSMA ops on GPU
+    %     phi_St = gpuArray(phi_St);
+    %     phi_Sr = gpuArray(phi_Sr);
+    % 
+    %     zeta_k_St = gpuArray(zeta_k_St);
+    % end
     zeta_k_Sr = (10^(Active_Gain_dB/10))  - zeta_k_St;
    
     phase_Sr = exp(1j .* phi_Sr);  % Complex exp on GPU

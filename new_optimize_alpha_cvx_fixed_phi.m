@@ -55,6 +55,8 @@ sca_iter = max_SCA;
 
 while sca_iter > 0
     cvx_clear;
+    cvx_expert true
+
     cvx_begin quiet
         cvx_solver mosek
         variable vecAlpha(K+1) nonnegative
@@ -153,7 +155,7 @@ end
         xi_val = double(xi);
         feasible_flag = max(xi_val) < 1e-4;
     else
-        fprintf('WARNING: Final solve failed.\n');
+        % fprintf('WARNING: Final solve failed.\n');
         alpha    = alpha_prev.';
         Ck_out   = zeros(K,1);
         xi_val = 10;

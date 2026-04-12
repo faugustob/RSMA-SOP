@@ -1,6 +1,18 @@
 clear; clc;
 cvx_clear;
 
+
+% --- Choose how many workers (cores) you want ---
+numWorkers = 10;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+                          % Recommended: feature('numcores') or feature('numcores')-1
+
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   % Stop existing pool
+end
+
+parpool('local', numWorkers);  % Start new one with desired workers
+
 Ns = 10000; % number of samples for Monte Carlo simulation
 %rng(3);
 
@@ -104,8 +116,18 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 N_V = 20; % number of rows of regularly arranged unit cells of RIS
 N_H = 20; % number of columns of regularly arranged unit cells of RIS
 
+M_vec = 16:1:26;
 
-for mc_iter = 1:Ns
+% ==================== PRE-ALLOCATION (ADD THIS BEFORE for mc_iter) ====================
+num_M = length(M_vec);          % should be 11
+feasible_record              = false(Ns, num_M);
+Convex_min_Rk                = zeros(Ns, num_M);
+Convex_Convergence_curve_AO  = zeros(Ns, num_M);
+Convex_Fake_Convergence_curve_AO = zeros(Ns, num_M);
+Convex_Real_Convergence_curve_AO = zeros(Ns, num_M);
+
+%tic;
+parfor mc_iter = 1:Ns
 
 Nr = N_V * N_H; % total number of unit cells of RIS
 
@@ -162,15 +184,16 @@ vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
 
-g_pq = zeros(P,Q_j,K+nF+L,nSat);
-Plos = zeros(K+nF+L,nSat);
-PLj = zeros(K+nF+L,nSat);
-
-h_rp = zeros(Nr, P,K+nF+L,nSat);
-h_jq = zeros(Nr, Q_j,K+nF+L);
-h_e = zeros(Pe,K+nF+L,nSat);
-taus_ku = zeros(Pe,K);
-nus_ku = zeros(Pe,K);
+g_pq   = zeros(P, Q_j, K+nF+L, nSat);
+Plos   = zeros(K+nF+L, nSat);
+PLj    = zeros(K+nF+L, nSat);
+h_rp   = zeros(Nr, P, 2, nSat);
+h_jq   = zeros(Nr, Q_j, K+nF+L);
+h_e    = zeros(Pe, K+nF+L, nSat);
+taus_ku= zeros(Pe, K, nSat);
+nus_ku = zeros(Pe, K, nSat);
+taus_kq= zeros(K, P, Q_j, nSat);
+nus_kq = zeros(K, P, Q_j, nSat);
 
 
 % ELEVATION (UNCHANGED)
@@ -324,9 +347,9 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M_vec = 16:1:26;
 
-for M_idx = 1:length(M_vec)
+
+for M_idx = 1:num_M
     
 M = M_vec(M_idx);
 N = 18;
@@ -520,7 +543,7 @@ Convergence_curve_AO = zeros(1, max_AO_iter);
 fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
-problem.M = manifold;
+problem = struct('M', manifold);
 num_agents  = 1;
 
 
@@ -674,12 +697,15 @@ for ao = 1:max_AO_iter
      
  
     % ================================================================
-    % Logging
-    % ================================================================
-    fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | M = %2d | Ns=%2d\n'], ...
-            ao, feasible_flag, best_fake_secrecy, ...
-            best_fake_secrecy - prev_fake, max(xi_val), M, mc_iter);
+    % Logging — make it almost silent 
+    % ===%=============================================================
+    if mod(mc_iter, 2) == 0    % print only every 200 realizations
+        fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
+                 'max(xi)=%.2e | M = %2d | Ns=%2d\n'], ...
+                ao, feasible_flag, best_fake_secrecy, ...
+                best_fake_secrecy - prev_fake, max(xi_val), M, mc_iter);
+    end
+
 
     if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
         break;
@@ -690,7 +716,7 @@ for ao = 1:max_AO_iter
     % Convergence
     % ================================================================
     if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
-        fprintf('→ AO Converged at iteration %d\n', ao);
+        %fprintf('→ AO Converged at iteration %d\n', ao);
         break;
     end
 
@@ -698,7 +724,7 @@ end
 
 
 
-fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
+%fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
  feasible_record(mc_iter,M_idx) = feasible_flag;
  Convex_min_Rk(mc_iter,M_idx) = prev_min_Rk;
  Convex_Convergence_curve_AO(mc_iter,M_idx) = prev_cost;
@@ -707,6 +733,10 @@ fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secre
 
 end
 end
+
+% time_for_15 = toc;
+% fprintf('Time for 5 realizations = %.1f seconds\nEstimated full time = %.1f hours\n', ...
+%         time_for_15, time_for_15/12*10000/3600);
 
 
 
