@@ -1,6 +1,17 @@
 clear; clc;
 cvx_clear;
 
+% --- Choose how many workers (cores) you want ---
+numWorkers = 10;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+                          % Recommended: feature('numcores') or feature('numcores')-1
+
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   % Stop existing pool
+end
+
+parpool('local', numWorkers);  % Start new one with desired workers
+
 Ns = 10000; % number of samples for Monte Carlo simulation
 %rng(3);
 
@@ -104,9 +115,30 @@ nV_vec = 16:1:26;
 %N_V = 20; % number of rows of regularly arranged unit cells of RIS
 N_H = 20; % number of columns of regularly arranged unit cells of RIS
 
+nV_vec = 16:1:26;
 
-for mc_iter = 1:Ns
-for nV_idx = 1:length(nV_vec)
+
+%% ===================== PRE-ALLOCATION =====================
+num_NV = length(nV_vec);   % ← MUST be defined BEFORE parfor
+
+feasible_record              = false(Ns, num_NV);
+Convex_min_Rk                = zeros(Ns, num_NV);
+Convex_Convergence_curve_AO  = zeros(Ns, num_NV);
+Convex_Fake_Convergence_curve_AO = zeros(Ns, num_NV);
+Convex_Real_Convergence_curve_AO = zeros(Ns, num_NV);
+
+parfor mc_iter = 1:Ns
+% ================================================================
+% INITIALIZE TEMPORARIES (fixes uninitialized warnings)
+% ================================================================
+taus_u     = zeros(Pe, 1);
+nus_u      = zeros(Pe, 1);
+taus_u_AN  = zeros(Pe, 1);
+nus_u_AN   = zeros(Pe, 1);
+feasible_flag = false;
+prev_min_Rk   = 0;
+    % ================================================================
+for nV_idx = 1:num_NV
 N_V = nV_vec(nV_idx);
 Nr = N_V * N_H; % total number of unit cells of RIS
 
@@ -163,15 +195,18 @@ vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
 
-g_pq = zeros(P,Q_j,K+nF+L,nSat);
-Plos = zeros(K+nF+L,nSat);
-PLj = zeros(K+nF+L,nSat);
 
-h_rp = zeros(Nr, P,K+nF+L,nSat);
-h_jq = zeros(Nr, Q_j,K+nF+L);
-h_e = zeros(Pe,K+nF+L,nSat);
-taus_ku = zeros(Pe,K);
-nus_ku = zeros(Pe,K);
+
+g_pq   = zeros(P, Q_j, K+nF+L, nSat);
+Plos   = zeros(K+nF+L, nSat);
+PLj    = zeros(K+nF+L, nSat);
+h_rp   = zeros(Nr, P, 2, nSat);      % note: your original h_rp had 3rd dim as K+nF+L, but code uses only 1,2
+h_jq   = zeros(Nr, Q_j, K+nF+L);
+h_e    = zeros(Pe, K+nF+L, nSat);
+taus_ku= zeros(Pe, K, nSat);
+nus_ku = zeros(Pe, K, nSat);
+taus_kq= zeros(K, P, Q_j, nSat);
+nus_kq = zeros(K, P, Q_j, nSat);
 
 
 % ELEVATION (UNCHANGED)
@@ -517,7 +552,7 @@ Convergence_curve_AO = zeros(1, max_AO_iter);
 fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
-problem.M = manifold;
+problem  = struct('M', manifold);
 num_agents  = 1;
 
 
