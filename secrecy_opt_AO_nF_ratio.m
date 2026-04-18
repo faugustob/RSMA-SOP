@@ -1,6 +1,17 @@
 clear; clc;
 cvx_clear;
 
+% --- Choose how many workers (cores) you want ---
+numWorkers = 10;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+                          % Recommended: feature('numcores') or feature('numcores')-1
+
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   % Stop existing pool
+end
+
+parpool('local', numWorkers);  % Start new one with desired workers
+
 Ns = 10000; % number of samples for Monte Carlo simulation
 %rng(3);
 
@@ -122,14 +133,38 @@ omega_p = (1/P)*ones(1,P); % spread parameter
 
 nF_ratio_vec = 0.5:0.5:6;
 
-% Convex_min_Rk= zeros(Ns,10,20);
-% Convex_Convergence_curve_AO = zeros(Ns,10,20);
-% Convex_Fake_Convergence_curve_AO = zeros(Ns,10,20);
-% Convex_Real_Convergence_curve_AO = zeros(Ns,10,20);f
+%% ===================== PRE-ALLOCATION =====================
+num_NF = length(nF_ratio_vec);   % ← MUST be defined BEFORE parfor
+
+feasible_record              = false(Ns, num_NF);
+Convex_min_Rk                = zeros(Ns, num_NF);
+Convex_Convergence_curve_AO  = zeros(Ns, num_NF);
+Convex_Fake_Convergence_curve_AO = zeros(Ns, num_NF);
+Convex_Real_Convergence_curve_AO = zeros(Ns, num_NF);
+
+parfor mc_iter = 1:Ns
+% Temporary arrays (local to each worker)
+    g_pq   = zeros(P, Q_j, 1, nSat);   % will be resized inside loop
+    Plos   = zeros(1, nSat);
+    PLj    = zeros(1, nSat);
+    h_rp   = zeros(Nr, P, 2, nSat);
+    h_jq   = zeros(Nr, Q_j, 1);
+    h_e    = zeros(Pe, 1, nSat);
+    taus_ku= zeros(Pe, K, nSat);
+    nus_ku = zeros(Pe, K, nSat);
+    taus_kq= zeros(K, P, Q_j, nSat);
+    nus_kq = zeros(K, P, Q_j, nSat);
+
+    % Initialize temporaries to avoid warnings
+    taus_u     = zeros(Pe,1);
+    nus_u      = zeros(Pe,1);
+    taus_u_AN  = zeros(Pe,1);
+    nus_u_AN   = zeros(Pe,1);
+    feasible_flag = false;
+    prev_min_Rk   = 0;
 
 
-for mc_iter = 1:Ns
-for nFr_idx = 1:length(nF_ratio_vec)
+for nFr_idx = 1:num_NF
 
     L = 2*randi([1, 3]); % number of eavesdroppers
     nF = nF_ratio_vec(nFr_idx)*L;
@@ -519,7 +554,7 @@ Convergence_curve_AO = zeros(1, max_AO_iter);
 fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
-problem.M = manifold;
+problem = struct('M', manifold);
 num_agents  = 1;
 
 
@@ -707,7 +742,7 @@ end
 
 
 %% Plot
-figure('Color','w');
+
 
 colors = [0, 0.4470, 0.7410;      
           0.8500, 0.3250, 0.0980; 
@@ -741,7 +776,7 @@ mean_diff = (Convex_Real_Convergence_curve_AO_mean - Convex_Fake_Convergence_cur
 
 x = 1:length(Convex_Convergence_curve_AO_mean);
 
-%% ================= FIGURE 1: Convergence =================
+% ================= FIGURE 1: Convergence =================
 figure('Color','w'); hold on;
 
 plot(x, Convex_Convergence_curve_AO_mean, '-o', ...
@@ -757,7 +792,7 @@ grid on; box on;
 % saveas(gcf,'ConvergenceCurve.png');
 % savefig('ConvergenceCurve.fig');
 
-%% ================= FIGURE 2: Real vs Fake =================
+% ================= FIGURE 2: Real vs Fake =================
 figure('Color','w'); hold on;
 
 plot(nF_ratio_vec, Convex_min_Rk_mean, '--s','Color',colors(1,:), 'LineWidth',1.5);
@@ -774,7 +809,7 @@ grid on; box on;
 % saveas(gcf,'Real_vs_Fake.png');
 % savefig('Real_vs_Fake.fig');
 
-%% ================= FIGURE 3: Relative Difference =================
+% ================= FIGURE 3: Relative Difference =================
 figure('Color','w'); hold on;
 
 plot(nF_ratio_vec, Convex_Real_Fake_diff_Convergence_curve_AO_mean, '-d', ...
@@ -806,7 +841,7 @@ grid on; box on;
 % saveas(gcf,'Ratio.png');
 % savefig('Ratio.fig');
 
-%% ================= FIGURE 5: Mean diff =================
+% ================= FIGURE 5: Mean diff =================
 figure('Color','w'); hold on;
 
 plot(nF_ratio_vec, mean_diff, '-o', ...
