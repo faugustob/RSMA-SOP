@@ -1,7 +1,19 @@
 clear; clc;
 cvx_clear;
 
-Ns = 2000; % number of samples for Monte Carlo simulation
+
+% --- Choose how many workers (cores) you want ---
+numWorkers = 10;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+                          % Recommended: feature('numcores') or feature('numcores')-1
+
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   % Stop existing pool
+end
+
+parpool('local', numWorkers);  % Start new one with desired workers
+
+Ns = 10000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -99,11 +111,23 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 
 
 
+
+
 N_V = 20; % number of rows of regularly arranged unit cells of RIS
 N_H = 20; % number of columns of regularly arranged unit cells of RIS
 
+N_vec = 16:1:26;
 
-for mc_iter = 1:Ns
+% ==================== PRE-ALLOCATION (ADD THIS BEFORE for mc_iter) ====================
+num_N = length(N_vec);          % should be 11
+feasible_record              = false(Ns, num_N);
+Convex_min_Rk                = zeros(Ns, num_N);
+Convex_Convergence_curve_AO  = zeros(Ns, num_N);
+Convex_Fake_Convergence_curve_AO = zeros(Ns, num_N);
+Convex_Real_Convergence_curve_AO = zeros(Ns, num_N);
+
+%tic;
+parfor mc_iter = 1:Ns
 
 Nr = N_V * N_H; % total number of unit cells of RIS
 
@@ -160,15 +184,16 @@ vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
 
-g_pq = zeros(P,Q_j,K+nF+L,nSat);
-Plos = zeros(K+nF+L,nSat);
-PLj = zeros(K+nF+L,nSat);
-
-h_rp = zeros(Nr, P,K+nF+L,nSat);
-h_jq = zeros(Nr, Q_j,K+nF+L);
-h_e = zeros(Pe,K+nF+L,nSat);
-taus_ku = zeros(Pe,K);
-nus_ku = zeros(Pe,K);
+g_pq   = zeros(P, Q_j, K+nF+L, nSat);
+Plos   = zeros(K+nF+L, nSat);
+PLj    = zeros(K+nF+L, nSat);
+h_rp   = zeros(Nr, P, 2, nSat);
+h_jq   = zeros(Nr, Q_j, K+nF+L);
+h_e    = zeros(Pe, K+nF+L, nSat);
+taus_ku= zeros(Pe, K, nSat);
+nus_ku = zeros(Pe, K, nSat);
+taus_kq= zeros(K, P, Q_j, nSat);
+nus_kq = zeros(K, P, Q_j, nSat);
 
 
 % ELEVATION (UNCHANGED)
@@ -322,13 +347,12 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-N_vec = 16:1:26;
 
-for N_idx = 1:length(N_vec)
+
+for N_idx = 1:num_N
     
-
-M = 18;
 N = N_vec(N_idx);
+M = 18;
 
 Nsymb = M*N; 
 
@@ -519,7 +543,7 @@ Convergence_curve_AO = zeros(1, max_AO_iter);
 fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
-problem.M = manifold;
+problem = struct('M', manifold);
 num_agents  = 1;
 
 
@@ -665,14 +689,23 @@ for ao = 1:max_AO_iter
         prev_cost = cost;
         prev_min_Rk = min(Rk);
     end
-            
+    
+     % Track feasibility
+     
+    
+    
+     
+ 
     % ================================================================
-    % Logging
-    % ================================================================
-    fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | N = %2d | Ns=%2d\n'], ...
-            ao, feasible_flag, best_fake_secrecy, ...
-            best_fake_secrecy - prev_fake, max(xi_val), N, mc_iter);
+    % Logging — make it almost silent 
+    % ===%=============================================================
+    if mod(mc_iter, 2) == 0    % print only every 200 realizations
+        fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
+                 'max(xi)=%.2e | M = %2d | Ns=%2d\n'], ...
+                ao, feasible_flag, best_fake_secrecy, ...
+                best_fake_secrecy - prev_fake, max(xi_val), M, mc_iter);
+    end
+
 
     if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
         break;
@@ -683,7 +716,7 @@ for ao = 1:max_AO_iter
     % Convergence
     % ================================================================
     if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
-        fprintf('→ AO Converged at iteration %d\n', ao);
+        %fprintf('→ AO Converged at iteration %d\n', ao);
         break;
     end
 
@@ -691,10 +724,8 @@ end
 
 
 
-fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
-   % Track feasibility
+%fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
  feasible_record(mc_iter,N_idx) = feasible_flag;
-
  Convex_min_Rk(mc_iter,N_idx) = prev_min_Rk;
  Convex_Convergence_curve_AO(mc_iter,N_idx) = prev_cost;
  Convex_Fake_Convergence_curve_AO(mc_iter,N_idx) = best_fake_secrecy;
@@ -702,6 +733,10 @@ fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secre
 
 end
 end
+
+% time_for_15 = toc;
+% fprintf('Time for 5 realizations = %.1f seconds\nEstimated full time = %.1f hours\n', ...
+%         time_for_15, time_for_15/12*10000/3600);
 
 
 
@@ -717,7 +752,7 @@ colors = [0, 0.4470, 0.7410;      % Blue
 
 
 % Marker interval
-markerInterval = 50;
+markerInterval = 2;
 
 
 % Step 1: Identify rows where all entries in feasible_record are true
@@ -741,10 +776,10 @@ hold on;
 plot(N_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
 
 
-title('Convergence Curve','FontWeight','bold','FontSize',12);
+%title('Convergence Curve','FontWeight','bold','FontSize',12);
 xlabel('N','FontWeight','bold','FontSize',11);
-ylabel('Best Fake Secrecy Rate','FontWeight','bold','FontSize',11);
-legend('Convex-Manifold','Location','best','FontSize',10);
+ylabel('Objective value','FontWeight','bold','FontSize',11);
+legend('MSCAC','Location','best','FontSize',10);
 
 grid on;
 ax = gca;
@@ -766,17 +801,17 @@ hold on;
 
 
 % Convex + Manopt
-%plot(nV_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(1,:));
+plot(N_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(1,:));
 plot(N_vec,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
-plot(N_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
+plot(N_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
 
 
 
-title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
+%title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
 xlabel('N','FontWeight','bold','FontSize',11);
 ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
 
-legend('Min-rate','Convex-fake','Convex-real', ...
+legend('Min-rate','Virtual SC','Real SC', ...
     'Location','best','FontSize',10);
 
 grid on;
@@ -803,4 +838,4 @@ NResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_A
 NResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
 
 % Save
-save('N_Results.mat', 'NResults', '-v7.3');
+save('NResults.mat', 'NResults', '-v7.3');

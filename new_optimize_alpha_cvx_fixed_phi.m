@@ -61,7 +61,7 @@ while sca_iter > 0
         cvx_solver mosek
         variable vecAlpha(K+1) nonnegative
         variable Rc nonnegative
-        variable Ck(K) nonnegative
+        variable Ck(K) nonnegative % Rc_f
         variable Rk(K) nonnegative
         variable xi(K) nonnegative
         variable t
