@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 10000; % number of samples for Monte Carlo simulation
+Ns = 20000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -131,7 +131,7 @@ receiving_ang = acos( ...
 m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
 omega_p = (1/P)*ones(1,P); % spread parameter
 
-nF_ratio_vec = 0.5:0.5:6;
+nF_ratio_vec = 0.5:0.5:10;
 
 %% ===================== PRE-ALLOCATION =====================
 num_NF = length(nF_ratio_vec);   % ← MUST be defined BEFORE parfor
@@ -772,7 +772,7 @@ Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*fe
 Convex_Real_Fake_diff_Convergence_curve_AO_mean = sum(rel_diff.*feasible_record,1)./valid_records_Qtd_safe; 
 Convex_Real_Fake_ratio_Convergence_curve_AO_mean = sum(ratio .* feasible_record,1) ./ valid_records_Qtd_safe;
 
-mean_diff = (Convex_Real_Convergence_curve_AO_mean - Convex_Fake_Convergence_curve_AO_mean).^2;
+mean_diff = abs(Convex_Real_Convergence_curve_AO_mean - Convex_Fake_Convergence_curve_AO_mean);
 
 x = 1:length(Convex_Convergence_curve_AO_mean);
 
@@ -785,8 +785,8 @@ plot(x, Convex_Convergence_curve_AO_mean, '-o', ...
     'MarkerFaceColor',colors(3,:));
 
 title('Convergence Curve','FontWeight','bold');
-xlabel('Nf');
-ylabel('Best Fake Secrecy Rate');
+xlabel('$V_E/E$','Interpreter','latex');
+ylabel('Objective value');
 grid on; box on;
 
 % saveas(gcf,'ConvergenceCurve.png');
@@ -797,12 +797,12 @@ figure('Color','w'); hold on;
 
 plot(nF_ratio_vec, Convex_min_Rk_mean, '--s','Color',colors(1,:), 'LineWidth',1.5);
 plot(nF_ratio_vec, Convex_Fake_Convergence_curve_AO_mean, '--s','Color',colors(2,:), 'LineWidth',1.5);
-plot(nF_ratio_vec, Convex_Real_Convergence_curve_AO_mean, '-^','Color',colors(3,:), 'LineWidth',1.5);
+plot(nF_ratio_vec, Convex_Real_Convergence_curve_AO_mean, '-s','Color',colors(3,:), 'LineWidth',1.5);
 
-title('Real vs Fake Secrecy Rate');
-xlabel('Number of Fake Eves');
-ylabel('Secrecy Rate (b/s/Hz)');
-legend('Min Rate','Fake','Real','Location','best');
+%title('Real vs Fake Secrecy Rate');
+xlabel('$V_E/E$','Interpreter','latex');
+ylabel('Minimum SC (b/s/Hz)');
+legend('Min Rate','Virtual SC','Real SC','Location','best');
 
 grid on; box on;
 
@@ -818,14 +818,14 @@ plot(nF_ratio_vec, Convex_Real_Fake_diff_Convergence_curve_AO_mean, '-d', ...
 yline(0,'--k');
 
 title('Relative Difference (Real - Fake) / Real');
-xlabel('Number of Fake Eves ratio');
+xlabel('$V_E/E$','Interpreter','latex');
 ylabel('Relative Gap');
 grid on; box on;
 
 % saveas(gcf,'Relative_Difference.png');
 % savefig('Relative_Difference.fig');
 
-%% ================= FIGURE 4: Ratio =================
+% ================= FIGURE 4: Ratio =================
 figure('Color','w'); hold on;
 
 plot(nF_ratio_vec, Convex_Real_Fake_ratio_Convergence_curve_AO_mean, '-o', ...
@@ -834,7 +834,7 @@ plot(nF_ratio_vec, Convex_Real_Fake_ratio_Convergence_curve_AO_mean, '-o', ...
 yline(1,'--k');
 
 title('Performance Ratio (Fake / Real)');
-xlabel('Fake/Ratio Eves ratio');
+xlabel('$V_E/E$','Interpreter','latex');
 ylabel('Ratio');
 grid on; box on;
 
@@ -847,11 +847,11 @@ figure('Color','w'); hold on;
 plot(nF_ratio_vec, mean_diff, '-o', ...
     'Color', colors(1,:), 'LineWidth',1.8);
 
-yline(1,'--k');
+% yline(1,'--k');
 
-title('(Mean real - Mean fake) squared');
-xlabel('Fake/Ratio Eves ratio');
-ylabel('Ratio');
+title('(Mean diff) ');
+xlabel('$V_E/E$','Interpreter','latex');
+ylabel('Abs (Avg. Real SC - Avg. Virtual SC)');
 grid on; box on;
 
 %% ================= SAVE STRUCT =================
