@@ -131,7 +131,7 @@ receiving_ang = acos( ...
 m_p = [m_rician;1*ones(P-1,1)]; % shape parameter
 omega_p = (1/P)*ones(1,P); % spread parameter
 
-nF_ratio_vec = 0.5:0.5:10;
+nF_ratio_vec = 0.5:0.5:8;
 
 %% ===================== PRE-ALLOCATION =====================
 num_NF = length(nF_ratio_vec);   % ← MUST be defined BEFORE parfor
