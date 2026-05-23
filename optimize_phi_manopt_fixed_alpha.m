@@ -10,15 +10,7 @@ function [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(Rmin,L_node,E_node,
         s_param = 50; % Smoothing parameter for max-min
         lambda_penalty = 1e3;
 
-        % 
-        %   X = [alpha,beta.'];
-        % 
-        % [~,sc_p_lk,~] = compute_sinr_sc_an_manopt(Pe,P,Q_j,nF,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
-        % 
-        % f_min =  -(1/s_param) * log(sum(exp(-s_param * (R_sec)),'all'));
-        %min_Rsec = min(min(R_sec));
 
-        % grad_val = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio);
          
         Nr = length(b0);
 
@@ -57,10 +49,7 @@ end
 
 function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty,Ck)
 
-        %  X = [alpha,beta.'];
-        % 
-        % [~,sc_p_lk,~] = compute_sinr_sc_an_manopt(Pe,P,Q_j,nF,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,X);
-
+       
        
     [R_sec,rate_p,~] = get_Secrecy_matrix(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
 

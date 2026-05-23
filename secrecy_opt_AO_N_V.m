@@ -2,7 +2,7 @@ clear; clc;
 cvx_clear;
 
 % --- Choose how many workers (cores) you want ---
-numWorkers = 10;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+numWorkers = 5;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
 pool = gcp('nocreate');
@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 10000; % number of samples for Monte Carlo simulation
+Ns = 10; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
