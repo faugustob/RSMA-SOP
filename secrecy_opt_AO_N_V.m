@@ -201,7 +201,7 @@ g_pq   = zeros(P, Q_j, K+nF+L, nSat);
 Plos   = zeros(K+nF+L, nSat);
 PLj    = zeros(K+nF+L, nSat);
 h_rp   = zeros(Nr, P, 2, nSat);      % note: your original h_rp had 3rd dim as K+nF+L, but code uses only 1,2
-h_jq   = zeros(Nr, Q_j, K+nF+L);
+h_jq   = zeros(Nr, Q_j, K+nF+L, nSat);
 h_e    = zeros(Pe, K+nF+L, nSat);
 taus_ku= zeros(Pe, K, nSat);
 nus_ku = zeros(Pe, K, nSat);
@@ -340,7 +340,8 @@ for k =1:K
    
      
     for q = 1:Q_j
-        h_jq(:, q,k) = sqrt(gamrnd(m_q(k,q), omega_q(q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+        h_jq(:, q,k,1) = sqrt(gamrnd(m_q(k,q), omega_q(q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+        h_jq(:, q,k,2) = sqrt(gamrnd(m_q(k,q), omega_q(q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
     end
 
     
@@ -436,7 +437,8 @@ for l=1:nF+L
     
         
         for q = 1:Q_j
-            h_jq(:, q,K+l) = sqrt(gamrnd(m_q(K+l,q), omega_q(q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+            h_jq(:, q,K+l,1) = sqrt(gamrnd(m_q(K+l,q), omega_q(q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+            h_jq(:, q,K+l,2) = sqrt(gamrnd(m_q(K+l,q), omega_q(q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
         end
     
         
