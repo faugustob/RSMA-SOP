@@ -749,9 +749,9 @@ hold on;
 plot(AN_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
 
 
-title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('ANDPR','FontWeight','bold','FontSize',11);
-ylabel('Secrecy Rate','FontWeight','bold','FontSize',11);
+%title('Convergence Curve','FontWeight','bold','FontSize',12);
+xlabel('$\alpha_{AN}$','FontWeight','bold','FontSize',12);
+ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12);
 %legend('Convex-Manifold','Location','best','FontSize',10);
 
 grid on;
@@ -781,11 +781,11 @@ plot(AN_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 
 
 
 %title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('ANDPR','FontWeight','bold','FontSize',11);
-ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+xlabel('$\alpha_{AN}$','FontWeight','bold','FontSize',12,'Interpreter','latex');
+ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
 
-legend('Min. rate','Virtual SC','Real SC', ...
-    'Location','best','FontSize',10);
+legend('Min. Rate','Virtual SC','Real SC', ...
+    'Location','best','FontSize',14);
 
 grid on;
 ax = gca;
