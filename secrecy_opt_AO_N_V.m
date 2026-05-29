@@ -815,11 +815,11 @@ plot(nV_vec*N_H,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,
 
 
 %title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('$N_r$','FontWeight','bold','FontSize',11, 'Interpreter', 'latex');
-ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+xlabel('$N_R$','FontWeight','bold','FontSize',14, 'Interpreter', 'latex');
+ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',14, 'Interpreter', 'latex');
 
 legend('Virtual SC','Real SC', ...
-    'Location','best','FontSize',10);
+    'Location','best','FontSize',12);
 
 % legend('Min-rate','Convex-fake','Convex-real', ...
 %     'Location','best','FontSize',10);
