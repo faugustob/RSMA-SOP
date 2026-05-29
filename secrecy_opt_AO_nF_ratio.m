@@ -166,7 +166,7 @@ parfor mc_iter = 1:Ns
 
 for nFr_idx = 1:num_NF
 
-    L = 2*randi([1, 3]); % number of eavesdroppers
+    L = 2; % number of eavesdroppers
     nF = nF_ratio_vec(nFr_idx)*L;
     
 
