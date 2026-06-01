@@ -276,7 +276,7 @@ for k =1:K
     c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, sigma_ang);
   
 
-      for p=1:P
+     for p=1:P
         for q=1:Q_j
            taus_kq(k,p,q,1) = taus_R(p)+taus_k(q);
            nus_kq(k,p,q,1) = nus_R(p)+nus_k(q);
@@ -284,7 +284,7 @@ for k =1:K
            taus_kq(k,p,q,2) = taus_R_AN(p)+taus_k(q);
            nus_kq(k,p,q,2) = nus_R_AN(p)+nus_k(q);
         end 
-    end
+      end
     
 
     % sat to legitimate users delays and doppler coefficients.
@@ -473,23 +473,6 @@ alpha = alpha - (sum(alpha,2)-1)/(K+1);
 alpha = alpha - (sum(alpha,2)-1)/(K+1);
 
 
-% X = [alpha,phi_St];
-% 
-% if any_reflect
-%     dim = K+1+3*Nr;
-%     ub=[ones(1,K+1),2*pi*ones(1,2*Nr),ones(1,Nr)];
-%     alpha_min = 1e-4;
-%     lb = [alpha_min * ones(1,K+1),zeros(1,3*Nr)];
-%     zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
-%     X = [alpha,phi_Sr,phi_St,zeta_k_St];
-% end
-% 
-% 
-% % --- Problem Dimensions and Bounds ---
-% dim_pso = dim;
-% alpha_min_pso = alpha_min;
-% lb_pso =lb;
-% ub_pso = ub;
 
 AN_vec = 0.2:0.2:2;
 
@@ -565,7 +548,11 @@ alpha_prev = alpha(min_Rsec == max(max(min_Rsec)),:);
 
 alpha = alpha_prev;
 
-[R_sec_prev,rate_p,rate_c,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+alpha_prev_noma = (1/K)*ones([1 K]);
+
+[R_sec_prev,rate_p,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+[R_sec_prev_noma,rate_noma,~] = get_Secrecy_matrix_noma(b0, L_node, E_node, alpha_prev_noma, K, nF, sigma2, Pw, AN_P_ratio);
+
 phi_St = wrapToPi(angle(b0)).';
 
  % ================================================================
@@ -616,6 +603,10 @@ for ao = 1:max_AO_iter
     [cost,alpha_prev,Ck,feasible_flag,xi_val] = new_optimize_alpha_cvx_fixed_phi(...
         Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
         K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
+
+    [cost_noma,alpha_prev_noma,feasible_flag_noma,xi_val_noma] = optimize_noma(...
+    Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+    K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
     alpha = alpha_prev;
    

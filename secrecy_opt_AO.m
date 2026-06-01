@@ -1144,15 +1144,15 @@ Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO.*fe
 Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
 
 hold on;
-plot(Convex_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(3,:))
+plot(Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO), 'MarkerFaceColor',colors(3,:))
 plot(PSO_Convergence_curve_mean(1:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','s', 'MarkerIndices',1:markerInterval:length(PSO_Convergence_curve), 'MarkerFaceColor',colors(1,:))
-plot(HSCA_Convergence_curve_AO_mean(2:end), 'Color', colors(4,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(4,:))
+plot(HSCA_Convergence_curve_AO_mean(1:end), 'Color', colors(4,:), 'LineStyle','--', 'LineWidth',1.8, 'Marker','^', 'MarkerIndices',1:markerInterval:length(HSCA_Convergence_curve_AO(2:end)), 'MarkerFaceColor',colors(4,:))
 
 
-title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('Iteration','FontWeight','bold','FontSize',11);
-ylabel('Objective value','FontWeight','bold','FontSize',11);
-legend('MSCAC','PSO','HSCA','Location','best','FontSize',10);
+%title('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
+xlabel('Iteration','FontWeight','bold','FontSize',14,'Interpreter','latex');
+ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',14,'Interpreter','latex');
+legend('MSCAC','PSO','HSCA','Location','best','FontSize',12);
 
 grid on;
 ax = gca;
@@ -1183,17 +1183,17 @@ hold on;
 
 % Convex + Manopt
 plot(Convex_min_Rk_mean(2:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','v', 'MarkerIndices',1:markerInterval:length(Convex_min_Rk_mean), 'MarkerFaceColor',colors(1,:))
-plot(Convex_Real_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
-plot(Convex_Fake_Convergence_curve_AO_mean(2:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
+plot(Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO_mean(2:end)), 'MarkerFaceColor',colors(3,:));
 
 
 
 %title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
-xlabel('Iteration','FontWeight','bold','FontSize',11);
-ylabel('Minimum secrecy rate (b/s/Hz)','FontWeight','bold','FontSize',11);
+xlabel('Iteration','FontWeight','bold','FontSize',14,'Interpreter','latex');
+ylabel('min. SC / Rate (b/s/Hz)','FontWeight','bold','FontSize',14,'Interpreter','latex');
 
-legend('Min-Rate','MSCAC Virtual SC','MSCAC Real SC', ...
-    'Location','best','FontSize',10);
+legend('Min. Rate','MSCAC Real SC','MSCAC Virtual SC', ...
+    'Location','best','FontSize',12);
 
 grid on;
 ax = gca;
