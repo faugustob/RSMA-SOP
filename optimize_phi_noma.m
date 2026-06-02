@@ -1,4 +1,4 @@
-function [phi_St,cost_opt] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio, Ck)
+function [phi_St_noma,cost_opt_noma] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio)
 
      
         %% ========================= MANOPT =========================
@@ -15,12 +15,12 @@ function [phi_St,cost_opt] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0,alp
         Nr = length(b0);
 
     
-        problem.cost = @(b) cost_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty,Ck);
+        problem.cost = @(b) cost_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty);
         %problem = manoptAD(problem);
 
-        problem.egrad = @(b) grad_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty,Ck);
+        problem.egrad = @(b) grad_func(b, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty);
 
-        problem.ehess = @(b,v) hess_func(b,v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty,Ck);
+        problem.ehess = @(b,v) hess_func(b,v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty);
         % 
         % % Initial guess
         % b0 = manifold.rand();
@@ -39,15 +39,15 @@ function [phi_St,cost_opt] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0,alp
         options.maxinner = 30; 
         
         % Execute with options
-        [beta_opt, cost_opt, info] = trustregions(problem, b0, options);
+        [beta_opt, cost_opt_noma, info] = trustregions(problem, b0, options);
         
-        phi_St = angle(beta_opt).';
+        phi_St_noma = angle(beta_opt).';
         
 end
 
 
 
-function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty,Ck)
+function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty)
 
        
        
@@ -61,12 +61,12 @@ function f_val = cost_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, 
     
     % --- NEW: Penalty Term ---
     % Quadratic penalty for violating Rmin
-    penalty = lambda_penalty * sum(max(0, Rmin - (rate_p+Ck)).^2, 'all');  
+    penalty = lambda_penalty * sum(max(0, Rmin -rate_p).^2, 'all');  
     f_val = f_lse + penalty;
     
 end
 
-function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty, Ck)
+function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty)
     Nr = length(beta);   
     [R_sec, rate_p, ~] = get_Secrecy_matrix_noma(beta, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
@@ -89,7 +89,7 @@ function [g, grad_sec_lk] = grad_func(beta, L_node, E_node, alpha, s_param, K, n
 
     % 4. Penalty Gradient Component (Chain Rule: 2 * lambda * violation * -grad_R)
     g_penalty = zeros(Nr, 1);
-    violation = Rmin - (rate_p + Ck); 
+    violation = Rmin - rate_p; 
     mask = violation > 0;
     
     for k = 1:K
@@ -140,7 +140,7 @@ function [grad_Rsec_lk, g_user_all] = grad_R_sec(beta, L_node, E_node, alpha, K,
     end
 end
 
-function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty, Ck)
+function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, Pw, AN_P_ratio, Rmin, lambda_penalty)
     Nr = length(beta);
     ln2 = log(2);
     noise_total = (sigma2 / Pw);
@@ -155,7 +155,7 @@ function h = hess_func(beta, v, L_node, E_node, alpha, s_param, K, nF, sigma2, P
 
     g_final = zeros(Nr, 1);
     h_sum_parts = zeros(Nr, 1);
-    violation = Rmin - (rate_p + Ck);
+    violation = Rmin - rate_p;
 
     for k = 1:K
         % USER k PRECOMPUTATIONS

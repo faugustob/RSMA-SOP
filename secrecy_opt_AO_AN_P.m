@@ -473,6 +473,15 @@ alpha = alpha - (sum(alpha,2)-1)/(K+1);
 alpha = alpha - (sum(alpha,2)-1)/(K+1);
 
 
+alpha_noma = rand(Num_agents, K); 
+% random values
+alpha_noma = alpha_noma ./ sum(alpha_noma, 2);      % divide each row by its row sum
+
+alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
+alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
+alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
+
+
 
 AN_vec = 0.2:0.2:2;
 
@@ -541,17 +550,20 @@ b0 =  beta(:,min_Rsec == max(max(min_Rsec)));
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
    [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha(i,:), K, nF, sigma2, Pw, AN_P_ratio);
+   [R_sec_noma,~] = get_Secrecy_matrix_noma(b0, L_node, E_node, alpha_noma(i,:), K, nF, sigma2, Pw, AN_P_ratio);
+
     min_Rsec(i,1) = min(min(R_sec));
+    min_Rsec_noma(i,1) = min(min(R_sec_noma));
 end
 
 alpha_prev = alpha(min_Rsec == max(max(min_Rsec)),:);
+alpha_prev_noma = alpha_noma(min_Rsec_noma == max(max(min_Rsec_noma)),:);
 
 alpha = alpha_prev;
-
-alpha_prev_noma = (1/K)*ones([1 K]);
+alpha_noma = alpha_prev_noma;
 
 [R_sec_prev,rate_p,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-[R_sec_prev_noma,rate_noma,~] = get_Secrecy_matrix_noma(b0, L_node, E_node, alpha_prev_noma, K, nF, sigma2, Pw, AN_P_ratio);
+[R_sec_prev_noma,rate_noma,~] = get_Secrecy_matrix_noma(b0, L_node, E_node, alpha_noma, K, nF, sigma2, Pw, AN_P_ratio);
 
 phi_St = wrapToPi(angle(b0)).';
 
@@ -560,14 +572,24 @@ phi_St = wrapToPi(angle(b0)).';
     % ================================================================
     if any_reflect
         X = [alpha, phi_Sr, phi_St, zeta_k_St];
+        X_noma = [alpha_noma, phi_Sr, phi_St, zeta_k_St];
     else
         X = [alpha, phi_St(:).'];
+        X_noma = [alpha_noma, phi_St(:).'];
     end
+
+
 
 [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
+
+
+[~, sc_p_lk_noma, ~, ~, ~, R_k_noma,sinr_c_k_noma, sinr_p_k_noma, ~] = compute_sinr_sc_an_noma(...
+        Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
+        Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+        zeta_k_St, Active_Gain_dB,AN_P_ratio, X_noma);
 
 prev_cost = min(min(R_sec_prev));
 best_fake_secrecy = prev_cost;
@@ -589,6 +611,8 @@ for ao = 1:max_AO_iter
     % ================================================================
     [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(...
         Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
+
+    [phi_St_noma,cost_opt_noma] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
 
     b0 = exp(1i*phi_St(:));
 
