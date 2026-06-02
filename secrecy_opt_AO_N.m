@@ -365,7 +365,7 @@ for k=1:K
 
     for p=1:P
         for q=1:Q_j
-            HA(:,:,p,q,k,1) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked',transmissionType);
+            HA(:,:,p,q,k,1) =  compute_Hp(taus_kq(k,p,q,1), nus_kq(k,p,q,1), M, N, T, delta_f, 'blocked',transmissionType);
              HA(:,:,p,q,k,2) =  compute_Hp(taus_kq(k,p,q,2), nus_kq(k,p,q,2), M, N, T, delta_f, 'blocked',transmissionType);
         end
     end

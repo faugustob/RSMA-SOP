@@ -22,25 +22,36 @@ for k = 1:K
     Pk(k) = real(beta' * L_node(k).V1 * beta + 2*real(beta' * L_node(k).V2) + L_node(k).term3);
     Ak(k) = real(beta' * L_node(k).V1_AN * beta + 2*real(beta' * L_node(k).V2_AN) + L_node(k).term3_AN);
 end
-
-  %Sort channels from weakest to strongest
-[~, order] = sort(Pk);
- alpha_sorted = alpha_prev(order);
 beta = beta_St.';
 for l = 1:nF
     Pl(l) = real(beta' * E_node(l).V1_l * beta + 2*real(beta' * E_node(l).V2_l) + E_node(l).term3_l);
     Al(l) = real(beta' * E_node(l).V1_AN_l * beta + 2*real(beta' * E_node(l).V2_AN_l) + E_node(l).term3_AN_l);
 end
 
+%% ========================= NOMA SIC ORDERING & MASKS =========================
+[~, order] = sort(Pk); % Sort channels from weakest to strongest
+
+% Construct NOMA intra-cluster interference matrix using original global user IDs
+A_interf = zeros(K, K); 
+for j = 1:K
+    k = order(j);
+    if j < K
+        % User k suffers interference from all users stronger than itself
+        stronger_users = order(j+1:K);
+        A_interf(k, stronger_users) = 1;
+    end
+end
+
 %% ========================= INITIALIZATION =========================
 tol = 1e-6;
 obj_prev = -inf;
-alpha_prev = alpha_prev.';                  % column vector
-lambda_penalty = 10;
-A_pos = diag(ones(size(alpha_prev)));
-A_neg = 1 - A_pos;
-A_neg_pi = A_neg;
-A_neg_pi(1,:) = 0;
+lambda_penalty = 10; 
+
+% Robust handling if alpha_prev comes from an RSMA setup (size K+1)
+alpha_prev = alpha_prev(:);
+if length(alpha_prev) > K
+    alpha_prev = alpha_prev(2:end); 
+end
 
 %% ========================= ADAPTIVE RANGE-CENTERING =========================
 all_terms = [Pk(:); Ak(:); Pl(:); Al(:); noise];
@@ -52,118 +63,92 @@ else
 end
 noise = noise * scale; Pk = Pk*scale; Pl = Pl*scale; Ak = Ak*scale; Al = Al*scale;
 
-
-%% ========================= SCA LOOP (safe retry version) =========================
+%% ========================= SCA LOOP =========================
 sca_iter = max_SCA;
-
-
 while sca_iter > 0
     cvx_clear;
     cvx_expert true
-
     cvx_begin quiet
         cvx_solver mosek
-        variable vecAlpha(K+1) nonnegative
-        variable Rc nonnegative
-        variable Ck(K) nonnegative % Rc_f
+        variable vecAlpha(K) nonnegative
         variable Rk(K) nonnegative
         variable xi(K) nonnegative
         variable t
-
+        
         penalty_term = sum(xi);
         maximize( t - lambda_penalty * penalty_term )
-
+        
         subject to
             sum(vecAlpha) <= 1;
-            %vecAlpha >= 0;
-
-            % USER-LEVEL CONSTRAINTS
+            
+            % USER-LEVEL NOMA CONSTRAINTS
             for k = 1:K
-                I_c_prev = Pk(k)*A_neg(:,1).'*alpha_prev + AN_P_ratio * Ak(k)+noise;
-                S_c = Pk(k)*A_pos(:,1).'*vecAlpha;
-                I_c = Pk(k)*A_neg(:,1).'*vecAlpha + AN_P_ratio * Ak(k)+noise;
-
-                Rc <= log(S_c+I_c)/log(2) ...
-                      - log(I_c_prev)/log(2) ...
-                      - (1/log(2)) * ((Pk(k)*A_neg(:,1).')/(I_c_prev)) ...
-                        * (vecAlpha-alpha_prev);
-
-                S_k = Pk(k)*A_pos(:,k+1).'*vecAlpha;
-                I_k = Pk(k)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Ak(k)+noise;
-                I_k_prev = Pk(k)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Ak(k)+noise;
-
-                Rk(k) <= log(S_k+I_k)/log(2) ...
+                S_k = Pk(k) * vecAlpha(k);
+                I_k = Pk(k) * A_interf(k, :) * vecAlpha + AN_P_ratio * Ak(k) + noise;
+                I_k_prev = Pk(k) * A_interf(k, :) * alpha_prev + AN_P_ratio * Ak(k) + noise;
+                
+                % SCA Taylor expansion over the convex log-interference term
+                Rk(k) <= log(S_k + I_k)/log(2) ...
                       - log(I_k_prev)/log(2) ...
-                      - (1/log(2)) * ((Pk(k)*A_neg_pi(:,k+1).')/(I_k_prev)) ...
-                        * (vecAlpha-alpha_prev);
+                      - (1/log(2)) * (Pk(k) * A_interf(k, :)) / (I_k_prev) * (vecAlpha - alpha_prev);
+                      
+                Rk(k) + xi(k) >= Rmin;
             end
-
-            sum(Ck) <= Rc;
-            for k=1:K
-                Ck(k) + Rk(k) + xi(k) >= Rmin;
-            end
-
-            % SECRECY CONSTRAINTS
+            
+            % SECRECY CONSTRAINTS (Assuming Eve applies same SIC decode hierarchy)
             for l = 1:nF
                 for k = 1:K
-                    S_l_prev = Pl(l)*A_pos(:,k+1).'*alpha_prev;
-                    I_l_prev = Pl(l)*A_neg_pi(:,k+1).'*alpha_prev + AN_P_ratio * Al(l)+noise;
-                    S_l = Pl(l)*A_pos(:,k+1).'*vecAlpha;
-                    I_l = Pl(l)*A_neg_pi(:,k+1).'*vecAlpha + AN_P_ratio * Al(l)+noise;
-
-                    grad_IlSl = Pl(l)*(A_pos(:,k+1).' + A_neg_pi(:,k+1).');
-
+                    S_l = Pl(l) * vecAlpha(k);
+                    I_l = Pl(l) * A_interf(k, :) * vecAlpha + AN_P_ratio * Al(l) + noise;
+                    
+                    S_l_prev = Pl(l) * alpha_prev(k);
+                    I_l_prev = Pl(l) * A_interf(k, :) * alpha_prev + AN_P_ratio * Al(l) + noise;
+                    
+                    % Gradient matches active rows for user k and its remaining stronger interferers
+                    grad_mask = A_interf(k, :); 
+                    grad_mask(k) = 1;           
+                    grad_IlSl = Pl(l) * grad_mask; 
+                    
                     t <= Rk(k) + log(I_l)/log(2) ...
                          - log(I_l_prev + S_l_prev)/log(2) ...
-                         - (1/log(2))*(grad_IlSl/(I_l_prev + S_l_prev)) * (vecAlpha-alpha_prev);
+                         - (1/log(2)) * (grad_IlSl / (I_l_prev + S_l_prev)) * (vecAlpha - alpha_prev);
                 end
             end
     cvx_end
-
+    
     status_ok = strcmp(cvx_status,'Solved') || strcmp(cvx_status,'Inaccurate/Solved');
-
     if ~status_ok
-        % fallback: keep previous alpha and continue
-       % warning('Subproblem failed — keeping previous alpha');
         sca_iter = sca_iter - 1;
         continue;
     end
     
- 
-    
-
-    % ---------- successful solve → convergence check & update ----------
+    % ---------- Convergence Check & Update ----------
     current_obj = double(t);
     obj_change   = abs(current_obj - obj_prev) / (abs(obj_prev) + 1);
     alpha_change = norm(double(vecAlpha) - alpha_prev) / (norm(alpha_prev) + 1);
-
+    
     if obj_change < tol && alpha_change < tol        
         alpha_prev = double(vecAlpha);
         break;
     end
-
     alpha_prev = double(vecAlpha);
     obj_prev   = current_obj;
     sca_iter   = sca_iter - 1;
 end
+    
+%% ========================= FINAL SAFETY & REPORTING =========================
+status_ok = strcmp(cvx_status,'Solved') || strcmp(cvx_status,'Inaccurate/Solved');
 
-    
-       
-    % ========== FINAL SAFETY & REPORTING ==========
-    status_ok = strcmp(cvx_status,'Solved') || strcmp(cvx_status,'Inaccurate/Solved');
-    
-     if status_ok
-        alpha    = double(vecAlpha).';
-        Ck_out   = double(Ck);       
-    
-        xi_val = double(xi);
-        feasible_flag = max(xi_val) < 1e-4;
-    else
-        % fprintf('WARNING: Final solve failed.\n');
-        alpha    = alpha_prev.';
-        Ck_out   = zeros(K,1);
-        xi_val = 10;
-        feasible_flag = false;
-    end 
+if status_ok
+    cost_noma          = double(t);
+    alpha_prev_noma    = double(vecAlpha).';
+    xi_val_noma        = double(xi);
+    feasible_flag_noma = max(xi_val_noma) < 1e-4;
+else
+    cost_noma          = obj_prev;
+    alpha_prev_noma    = alpha_prev.';
+    xi_val_noma        = 10 * ones(K, 1);
+    feasible_flag_noma = false;
+end 
    
 end

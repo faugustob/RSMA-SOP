@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 2000; % number of samples for Monte Carlo simulation
+Ns = 2; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -103,6 +103,22 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 
 N_H = 20; % number of rows of regularly arranged unit cells of RIS
 N_V = 20; % number of columns of regularly arranged unit cells of RIS
+
+AN_vec = 0.2:0.2:2;
+% ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
+N_AN = length(AN_vec);
+feasible_record = zeros(Ns, N_AN);
+feasible_record_noma = zeros(Ns, N_AN);
+Convex_min_Rk = zeros(Ns, N_AN);
+Convex_min_Rk_noma = zeros(Ns, N_AN);
+
+Convex_Convergence_curve_AO = zeros(Ns, N_AN);
+Convex_Fake_Convergence_curve_AO = zeros(Ns, N_AN);
+Convex_Real_Convergence_curve_AO = zeros(Ns, N_AN);
+
+Convex_Convergence_curve_AO_noma = zeros(Ns, N_AN);
+Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_AN);
+Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_AN);
 
 
 for mc_iter = 1:Ns
@@ -339,7 +355,7 @@ for k=1:K
 
     for p=1:P
         for q=1:Q_j
-            HA(:,:,p,q,k,1) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked',transmissionType);
+            HA(:,:,p,q,k,1) =  compute_Hp(taus_kq(k,p,q,1), nus_kq(k,p,q,1), M, N, T, delta_f, 'blocked',transmissionType);
              HA(:,:,p,q,k,2) =  compute_Hp(taus_kq(k,p,q,2), nus_kq(k,p,q,2), M, N, T, delta_f, 'blocked',transmissionType);
         end
     end
@@ -442,7 +458,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 5;
+Max_iteration = 8;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
@@ -483,7 +499,7 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-AN_vec = 0.2:0.2:2;
+
 
 for AN_idx = 1:length(AN_vec)
 
@@ -503,7 +519,7 @@ Active_Gain_dB = 0;
 
 if any_reflect
     phi_Sr = 2*pi*rand(1,Nr);
-    zeta_k_St = (10^(Active_Gain_dB/10)) *rand(Num_agents,Nr);
+    zeta_k_St = (10^(Active_Gain_dB/10)) *rand(1,Nr);
 else
     phi_Sr = zeros(1,Nr);
     zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
@@ -541,16 +557,20 @@ min_Rsec = zeros(num_agents,1);
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
    [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(1,:), K, nF, sigma2, Pw, AN_P_ratio);
+   [R_sec_noma,~] = get_Secrecy_matrix_noma(beta(:,i), L_node, E_node, alpha_noma(i,:), K, nF, sigma2, Pw, AN_P_ratio);
+
     min_Rsec(i,1) = min(min(R_sec));
+    min_Rsec_noma(i,1) = min(min(R_sec_noma));
 end
 
 b0 =  beta(:,min_Rsec == max(max(min_Rsec)));
+b0_noma =  beta(:,min_Rsec_noma == max(max(min_Rsec_noma)));
 
 
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
    [R_sec,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha(i,:), K, nF, sigma2, Pw, AN_P_ratio);
-   [R_sec_noma,~] = get_Secrecy_matrix_noma(b0, L_node, E_node, alpha_noma(i,:), K, nF, sigma2, Pw, AN_P_ratio);
+   [R_sec_noma,~] = get_Secrecy_matrix_noma(b0_noma, L_node, E_node, alpha_noma(i,:), K, nF, sigma2, Pw, AN_P_ratio);
 
     min_Rsec(i,1) = min(min(R_sec));
     min_Rsec_noma(i,1) = min(min(R_sec_noma));
@@ -563,19 +583,20 @@ alpha = alpha_prev;
 alpha_noma = alpha_prev_noma;
 
 [R_sec_prev,rate_p,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-[R_sec_prev_noma,rate_noma,~] = get_Secrecy_matrix_noma(b0, L_node, E_node, alpha_noma, K, nF, sigma2, Pw, AN_P_ratio);
+[R_sec_prev_noma,rate_noma,~] = get_Secrecy_matrix_noma(b0_noma, L_node, E_node, alpha_noma, K, nF, sigma2, Pw, AN_P_ratio);
 
 phi_St = wrapToPi(angle(b0)).';
+phi_St_noma = wrapToPi(angle(b0_noma)).';
 
  % ================================================================
     % Build X
     % ================================================================
     if any_reflect
         X = [alpha, phi_Sr, phi_St, zeta_k_St];
-        X_noma = [alpha_noma, phi_Sr, phi_St, zeta_k_St];
+        X_noma = [alpha_noma, phi_Sr, phi_St_noma, zeta_k_St];
     else
         X = [alpha, phi_St(:).'];
-        X_noma = [alpha_noma, phi_St(:).'];
+        X_noma = [alpha_noma, phi_St_noma(:).'];
     end
 
 
@@ -586,11 +607,14 @@ phi_St = wrapToPi(angle(b0)).';
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
 
-[sc_lk_noma,R_k_noma, sinr_k_noma, sinr_l_noma] = compute_sinr_sc_an_noma(...
-    Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X);
+[sc_lk_noma,Rk_noma, sinr_k_noma, sinr_l_noma] = compute_sinr_sc_an_noma(...
+    Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X_noma);
 
 prev_cost = min(min(R_sec_prev));
 prev_cost_noma = min(min(R_sec_prev_noma));
+
+prev_min_Rk = 0;
+prev_min_Rk_noma = 0;
 
 best_fake_secrecy = prev_cost;
 best_real_secrecy = min(min(sc_p_lk(nF+1:end,:)));
@@ -607,8 +631,6 @@ for ao = 1:max_AO_iter
     prev_fake = prev_cost;
 
     prev_fake_noma = prev_cost_noma;
-  
-
    
 
     % ================================================================
@@ -623,11 +645,7 @@ for ao = 1:max_AO_iter
 
     b0_noma = exp(1i*phi_St_noma(:));
 
-    % [R_sec_next,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-    % 
-    % min_next = min(min(R_sec_next));
-
-
+  
     % ================================================================
     % 1. SUBPROBLEM 1: Optimize Power Allocation α
     % ================================================================
@@ -636,23 +654,22 @@ for ao = 1:max_AO_iter
         K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
     [cost_noma,alpha_prev_noma,feasible_flag_noma,xi_val_noma] = optimize_noma(...
-    Rmin,alpha_prev,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+        Rmin,alpha_prev_noma,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
     K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
     alpha = alpha_prev;
-   
-
-   [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
+    alpha_noma = alpha_prev_noma;  
     
-    cost_opt = min(min(R_sec_next2));
 
     % ================================================================
     % Build X
     % ================================================================
     if any_reflect
         X = [alpha, phi_Sr, phi_St, zeta_k_St];
+        X_noma = [alpha_noma, phi_Sr, phi_St_noma, zeta_k_St];
     else
         X = [alpha, phi_St(:).'];
+        X_noma = [alpha_noma, phi_St_noma(:).'];
     end
 
     % ================================================================
@@ -664,6 +681,12 @@ for ao = 1:max_AO_iter
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
     rate_p_vec = log2(1 + sinr_p_k);
+
+
+    [sc_lk_noma,Rk_noma, sinr_k_noma, sinr_l_noma] = compute_sinr_sc_an_noma(...
+    Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X_noma);
+
+    rate_noma= log2(1 + sinr_k_noma);
 
     % ================================================================
     % Handle feasibility properly
@@ -681,6 +704,19 @@ for ao = 1:max_AO_iter
         prev_min_Rk=0;        
     end
 
+     if feasible_flag_noma
+        
+
+        current_fake_noma = min(min(sc_lk_noma(1:nF,:)));
+        current_real_noma = min(min(sc_lk_noma(nF+1:end,:)));
+    else
+        % Treat as outage
+        Rk_noma = zeros(K,1);
+        current_fake_noma = 0;
+        current_real_noma = 0;
+        prev_min_Rk_noma=0;        
+    end
+
     % ================================================================
     % Update best solution
     % ================================================================
@@ -690,6 +726,14 @@ for ao = 1:max_AO_iter
         Destination_position = X;
         prev_cost = cost;
         prev_min_Rk = min(Rk);
+    end
+
+    if feasible_flag_noma && cost_noma > prev_cost_noma 
+        best_fake_secrecy_noma = current_fake_noma;
+        best_real_secrecy_noma = current_real_noma;
+        Destination_position_noma = X_noma;
+        prev_cost_noma = cost_noma;
+        prev_min_Rk_noma = min(Rk_noma);
     end
     
      % Track feasibility
@@ -702,22 +746,27 @@ for ao = 1:max_AO_iter
     % Logging
     % ================================================================
     fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | AN_P_ratio = %2d | Ns=%2d\n'], ...
+             'max(xi)=%.2e | AN_P_ratio = %2.1f | Ns=%2d\n'], ...
             ao, feasible_flag, best_fake_secrecy, ...
             best_fake_secrecy - prev_fake, max(xi_val), AN_P_ratio, mc_iter);
 
-    if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
-        break;
-    end
+      fprintf(['NOMA: AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
+             'max(xi)=%.2e | AN_P_ratio = %2.1f | Ns=%2d\n'], ...
+            ao, feasible_flag_noma, best_fake_secrecy_noma, ...
+            best_fake_secrecy_noma - prev_fake_noma, max(xi_val_noma), AN_P_ratio, mc_iter);
+    % 
+    % if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
+    %     break;
+    % end
 
 
     % ================================================================
     % Convergence
     % ================================================================
-    if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
-        fprintf('→ AO Converged at iteration %d\n', ao);
-        break;
-    end
+    % if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
+    %     fprintf('→ AO Converged at iteration %d\n', ao);
+    %     break;
+    % end
 
 end
 
@@ -725,7 +774,15 @@ end
 
 fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
  feasible_record(mc_iter,AN_idx) = feasible_flag;
+ feasible_record_noma(mc_iter,AN_idx) = feasible_flag_noma;
+
  Convex_min_Rk(mc_iter,AN_idx) = prev_min_Rk;
+ Convex_min_Rk_noma(mc_iter,AN_idx) = prev_min_Rk_noma;
+
+ Convex_Convergence_curve_AO_noma(mc_iter,AN_idx) = prev_cost_noma;
+ Convex_Fake_Convergence_curve_AO_noma(mc_iter,AN_idx) = best_fake_secrecy_noma;
+ Convex_Real_Convergence_curve_AO_noma(mc_iter,AN_idx) = best_real_secrecy_noma;
+
  Convex_Convergence_curve_AO(mc_iter,AN_idx) = prev_cost;
  Convex_Fake_Convergence_curve_AO(mc_iter,AN_idx) = best_fake_secrecy;
  Convex_Real_Convergence_curve_AO(mc_iter,AN_idx) = best_real_secrecy;
@@ -750,16 +807,8 @@ colors = [0, 0.4470, 0.7410;      % Blue
 markerInterval = 2;
 
 
-% Step 1: Identify rows where all entries in feasible_record are true
-% valid_records_Qtd = sum(feasible_record(:,:,end), 1); % returns a logical column vector
-% 
-% % Step 2: Compute means only for the selected rows
-% Convex_min_Rk_mean = sum(Convex_min_Rk(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd;
-% Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd; 
-% Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd;  
-% Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO(:,:,end).*feasible_record(:,:,end),1)./valid_records_Qtd; 
-
 valid_records_Qtd = sum(feasible_record, 1); % returns a logical column vector
+valid_records_Qtd_noma = sum(feasible_record_noma, 1); % returns a logical column vector
 
 % Step 2: Compute means only for the selected rows
 Convex_min_Rk_mean = sum(Convex_min_Rk.*feasible_record,1)./valid_records_Qtd;
@@ -767,8 +816,14 @@ Convex_Convergence_curve_AO_mean = sum(Convex_Convergence_curve_AO.*feasible_rec
 Convex_Fake_Convergence_curve_AO_mean = sum(Convex_Fake_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd;  
 Convex_Real_Convergence_curve_AO_mean = sum(Convex_Real_Convergence_curve_AO.*feasible_record,1)./valid_records_Qtd; 
 
+
+Convex_min_Rk_noma_mean = sum(Convex_min_Rk_noma.*feasible_record_noma,1)./valid_records_Qtd_noma;
+Convex_Convergence_curve_AO_noma_mean = sum(Convex_Convergence_curve_AO_noma.*feasible_record_noma,1)./valid_records_Qtd_noma; 
+Convex_Fake_Convergence_curve_AO_noma_mean = sum(Convex_Fake_Convergence_curve_AO_noma.*feasible_record_noma,1)./valid_records_Qtd_noma;  
+Convex_Real_Convergence_curve_AO_noma_mean = sum(Convex_Real_Convergence_curve_AO_noma.*feasible_record_noma,1)./valid_records_Qtd_noma;
+
 hold on;
-plot(AN_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Convex_Convergence_curve_AO_mean), 'MarkerFaceColor',colors(3,:))
+plot(AN_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(3,:))
 
 
 %title('Convergence Curve','FontWeight','bold','FontSize',12);
@@ -796,18 +851,20 @@ hold on;
 
 
 % Convex + Manopt
-plot(AN_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(1,:));
-plot(AN_vec,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Convex_Fake_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
-plot(AN_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Convex_Real_Convergence_curve_AO(1:end)), 'MarkerFaceColor',colors(3,:));
+plot(AN_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(1,:));
+plot(AN_vec,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(3,:));
+plot(AN_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(3,:));
 
+plot(AN_vec, Convex_min_Rk_noma_mean, 'Color', colors(2,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'x');
+plot(AN_vec, Convex_Fake_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'x');
+plot(AN_vec, Convex_Real_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), 'LineStyle', '-', 'LineWidth', 1.5, 'Marker', 'd');
 
+legend('Min Rate (RSMA)', 'Virtual SC (RSMA)', 'Real SC (RSMA)', ...
+       'Min Rate (NOMA)', 'Virtual SC (NOMA)', 'Real SC (NOMA)', ...
+       'Location', 'best', 'FontSize', 11);
 
-%title('Best Fake & Real Private Secrecy Rate','FontWeight','bold','FontSize',12);
 xlabel('$\alpha_{AN}$','FontWeight','bold','FontSize',12,'Interpreter','latex');
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
-
-legend('Min. Rate','Virtual SC','Real SC', ...
-    'Location','best','FontSize',14);
 
 grid on;
 ax = gca;
@@ -817,20 +874,29 @@ box on;
 
 % Store in struct
 ANResults = struct();
-
 % Original data
 ANResults.Convex_min_Rk = Convex_min_Rk;
+ANResults.Convex_min_Rk_noma = Convex_min_Rk_noma; % <--- Add
 ANResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
+ANResults.Convex_Convergence_curve_AO_noma = Convex_Convergence_curve_AO_noma; % <--- Add
 ANResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
+ANResults.Convex_Fake_Convergence_curve_AO_noma = Convex_Fake_Convergence_curve_AO_noma; % <--- Add
 ANResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
+ANResults.Convex_Real_Convergence_curve_AO_noma = Convex_Real_Convergence_curve_AO_noma; % <--- Add
 ANResults.feasible_record = feasible_record;
+ANResults.feasible_record_noma = feasible_record_noma; % <--- Add
 
 % Processed data
 ANResults.valid_records_Qtd = valid_records_Qtd;
+ANResults.valid_records_Qtd_noma = valid_records_Qtd_noma; % <--- Add
 ANResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
+ANResults.Convex_min_Rk_noma_mean = Convex_min_Rk_noma_mean; % <--- Add
 ANResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
+ANResults.Convex_Convergence_curve_AO_noma_mean = Convex_Convergence_curve_AO_noma_mean; % <--- Add
 ANResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
+ANResults.Convex_Fake_Convergence_curve_AO_noma_mean = Convex_Fake_Convergence_curve_AO_noma_mean; % <--- Add
 ANResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
+ANResults.Convex_Real_Convergence_curve_AO_noma_mean = Convex_Real_Convergence_curve_AO_noma_mean; % <--- Add
 
 % Save
 save('A_NResults.mat', 'ANResults', '-v7.3');
