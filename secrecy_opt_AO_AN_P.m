@@ -586,14 +586,17 @@ phi_St = wrapToPi(angle(b0)).';
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
 
-[~, sc_p_lk_noma, ~, ~, ~, R_k_noma,sinr_c_k_noma, sinr_p_k_noma, ~] = compute_sinr_sc_an_noma(...
-        Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
-        Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-        zeta_k_St, Active_Gain_dB,AN_P_ratio, X_noma);
+[sc_lk_noma,R_k_noma, sinr_k_noma, sinr_l_noma] = compute_sinr_sc_an_noma(...
+    Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X);
 
 prev_cost = min(min(R_sec_prev));
+prev_cost_noma = min(min(R_sec_prev_noma));
+
 best_fake_secrecy = prev_cost;
 best_real_secrecy = min(min(sc_p_lk(nF+1:end,:)));
+
+best_fake_secrecy_noma = prev_cost_noma;
+best_real_secrecy_noma = min(min(sc_lk_noma(nF+1:end,:)));
 
 Ck = max(0, Rmin - rate_p);
 
@@ -602,6 +605,8 @@ feasible_ao = true;      % track feasibility of this realization
 for ao = 1:max_AO_iter
 
     prev_fake = prev_cost;
+
+    prev_fake_noma = prev_cost_noma;
   
 
    
@@ -615,6 +620,8 @@ for ao = 1:max_AO_iter
     [phi_St_noma,cost_opt_noma] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
 
     b0 = exp(1i*phi_St(:));
+
+    b0_noma = exp(1i*phi_St_noma(:));
 
     % [R_sec_next,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     % 

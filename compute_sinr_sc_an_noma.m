@@ -1,7 +1,5 @@
-function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_k, sinr_c_l, sinr_p_l] = compute_sinr_sc_an_noma(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,Rmin,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,x)
-    %
-    % phi=[];
-    % alpha=[];
+function [sc_lk_noma,R_k_noma, sinr_k_noma, sinr_l_noma] = compute_sinr_sc_an_noma(Pe,P,Q_j,L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,x)
+ 
     alpha = x(1:K);
     phi_St = wrapToPi(x(K+1:K+Nr));
     phi_Sr=0;
@@ -47,6 +45,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_k, si
 
     Nc_k = zeros(K,1);
     Nc_k_AN = zeros(K,1);
+    interf_coeff = zeros(K,1);
 
 
     for k = 1:K
@@ -63,7 +62,7 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_k, si
     % Sort users: weakest to strongest channel (important for SIC)
     [~, order] = sort(Nc_k);   
     alpha_sorted = alpha(order);     
-    sinr_k = zeros(K,1);
+    sinr_k_noma = zeros(K,1);
 
     % --- Legitimate Users ---
     for j = 1:K  
@@ -71,20 +70,19 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_k, si
         k = order(j);
        
        if j < K
-            interf_coeff = sum(alpha_sorted(j+1:end));   
+            interf_coeff(k) = sum(alpha_sorted(j+1:end));   
         else
-            interf_coeff = 0; % Strongest user cancels all intra-cluster interference
+            interf_coeff(k) = 0; % Strongest user cancels all intra-cluster interference
         end
 
        % Private message only sees OTHER private messages as interference (after SIC)
         signal= alpha(k) * Nc_k(k);
-        interf = interf_coeff * Nc_k(k)+AN_P_ratio*Nc_k_AN(k);  % Use precomputed
-        sinr_k(k) = signal / (interf + sigma2/Pw + ris_noise_term);
+        interf = interf_coeff(k) * Nc_k(k)+AN_P_ratio*Nc_k_AN(k);  % Use precomputed
+        sinr_k_noma(k) = signal / (interf + sigma2/Pw + ris_noise_term);
     end
 
     % --- Eavesdroppers ---
-    sinr_c_l = zeros(L,1);
-    sinr_p_l = zeros(L,K);
+    sinr_l_noma = zeros(L,K);
 
     for l=1:L
         reflect_coeff = reflect(K+l);
@@ -93,51 +91,30 @@ function [sc_c_lk,sc_p_lk,sc_p_kk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_k, si
         [Nc_l] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,1),PLj(K+l,1),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,1),h_jq(:,:,K+l,1),h_e(:,K+l,1),'vectorized');
         [Nc_l_AN] = compute_OTFS_static_channel(1,Pe,P,Q_j,Plos(K+l,2),PLj(K+l,2),Nr,HB(:,:,:,K+l),HA(:,:,:,:,K+l),g_pq(:,:,K+l),beta_r,Nsymb,h_rp(:,:,2),h_jq(:,:,K+l,2),h_e(:,K+l,2),'vectorized');
 
-        signal_c_l = alpha_c * Nc_l;
-        interf_c_l = sum_alpha_pi * Nc_l + AN_P_ratio*Nc_l_AN;
-        sinr_c_l(l) = signal_c_l / (interf_c_l + sigma2/Pw + ris_noise_term);
-
-        %sinr_c_l(l) = (alpha_c * Nc_l) / ((1 - alpha_c) * Nc_l + b_e);
+       
         for k=1:K
-            signal_p_kl = alpha_pi_v(k) * Nc_l;
-            interf_p_kl = (sum_alpha_pi - alpha_pi_v(k))  * Nc_l + AN_P_ratio*Nc_l_AN;  % Use precomputed
-            sinr_p_l(l,k) = (signal_p_kl) / (interf_p_kl + sigma2/Pw + ris_noise_term);
+            signal_p_kl = alpha(k) * Nc_l;
+            interf_p_kl = interf_coeff(k)  * Nc_l + AN_P_ratio*Nc_l_AN;  % Use precomputed
+            sinr_l_noma(l,k) = (signal_p_kl) / (interf_p_kl + sigma2/Pw + ris_noise_term);
         end
     end
 
-    % --- RSMA Rate Calculation ---
-    rate_c_min = min(log2(1 + sinr_c_k)); % The common rate is limited by the worst user
-    rate_p_vec = log2(1 + sinr_k);      % Private rates for each user
+   
+    rate_vec = log2(1 + sinr_k_noma);      % Private rates for each user
 
     % --- Secrecy Capacities ---
-    sc_c_lk = zeros(L,1); 
-    for l = 1:L
-        % Common Secrecy: Shared rate minus what the eavesdropper can see
-        sc_c_lk(l) = rate_c_min - log2(1 + sinr_c_l(l));
-    end
+  
     
-    sc_p_lk = zeros(L,K);
+    sc_lk_noma = zeros(L,K);
     for l = 1:L
         for k = 1:K
             %sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
-            sc_p_lk(l,k) = rate_p_vec(k) - log2(1 + sinr_p_l(l,k));
+            sc_lk_noma(l,k) = rate_vec(k) - log2(1 + sinr_l_noma(l,k));
         end
     end
 
-     C_k = zeros(K,1);
-        rate_c_available = rate_c_min;
-        for k = 1:K
-            deficit = max(Rmin - rate_p_vec(k), 0);
-            C_k(k) = min(deficit, rate_c_available);
-            rate_c_available = max(rate_c_available - C_k(k), 0);
-        end
+   
         
-        R_k = rate_p_vec(:) + C_k;
-
-        for k = 1:K
-            for kp = 1:K
-                %sc_p_lk(l,k) = max(rate_p_vec(k) - log2(1 + sinr_p_l(l,k)), 0);
-                sc_p_kk(l,k) = rate_p_vec(k) - rate_p_vec(kp);
-            end
-        end
+        R_k_noma = rate_vec(:);
+     
 end
