@@ -70,8 +70,8 @@ while sca_iter > 0
         maximize( t - lambda_penalty * penalty_term )
 
         subject to
-            sum(vecAlpha) <= 1;
-            %vecAlpha >= 0;
+            sum(vecAlpha) == 1;
+            vecAlpha >= 0.1;
 
             % USER-LEVEL CONSTRAINTS
             for k = 1:K

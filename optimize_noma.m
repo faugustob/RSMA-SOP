@@ -45,7 +45,7 @@ end
 %% ========================= INITIALIZATION =========================
 tol = 1e-6;
 obj_prev = -inf;
-lambda_penalty = 10; 
+lambda_penalty = 500; 
 
 % Robust handling if alpha_prev comes from an RSMA setup (size K+1)
 alpha_prev = alpha_prev(:);
@@ -79,7 +79,8 @@ while sca_iter > 0
         maximize( t - lambda_penalty * penalty_term )
         
         subject to
-            sum(vecAlpha) <= 1;
+            sum(vecAlpha) == 1;
+             vecAlpha >= 0.1;
             
             % USER-LEVEL NOMA CONSTRAINTS
             for k = 1:K

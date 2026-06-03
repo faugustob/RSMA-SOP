@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 2; % number of samples for Monte Carlo simulation
+Ns = 20; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -458,7 +458,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 8;
+Max_iteration = 5;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
@@ -639,7 +639,7 @@ for ao = 1:max_AO_iter
     [phi_St,cost_opt] = optimize_phi_manopt_fixed_alpha(...
         Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
 
-    [phi_St_noma,cost_opt_noma] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio);
+    [phi_St_noma,cost_opt_noma] = optimize_phi_noma(Rmin,L_node,E_node,problem,b0_noma,alpha_noma,K, nF, sigma2, Pw, AN_P_ratio);
 
     b0 = exp(1i*phi_St(:));
 
@@ -654,7 +654,7 @@ for ao = 1:max_AO_iter
         K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
     [cost_noma,alpha_prev_noma,feasible_flag_noma,xi_val_noma] = optimize_noma(...
-        Rmin,alpha_prev_noma,L_node,E_node,phi_St, phi_Sr, zeta_k_St, ...
+        Rmin,alpha_prev_noma,L_node,E_node,phi_St_noma, phi_Sr, zeta_k_St, ...
     K, nF, reflect, delta_f, Active_Gain_dB,AN_P_ratio, max_SCA);
 
     alpha = alpha_prev;
