@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 100; % number of samples for Monte Carlo simulation
+Ns = 50; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -339,7 +339,7 @@ for k=1:K
 
     for p=1:P
         for q=1:Q_j
-            HA(:,:,p,q,k,1) =  compute_Hp(taus_kq(k,p,q), nus_kq(k,p,q), M, N, T, delta_f, 'blocked',transmissionType);
+            HA(:,:,p,q,k,1) =  compute_Hp(taus_kq(k,p,q,1), nus_kq(k,p,q,1), M, N, T, delta_f, 'blocked',transmissionType);
              HA(:,:,p,q,k,2) =  compute_Hp(taus_kq(k,p,q,2), nus_kq(k,p,q,2), M, N, T, delta_f, 'blocked',transmissionType);
         end
     end
