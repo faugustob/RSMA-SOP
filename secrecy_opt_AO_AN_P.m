@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 20; % number of samples for Monte Carlo simulation
+Ns = 200; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -688,6 +688,8 @@ for ao = 1:max_AO_iter
 
     rate_noma= log2(1 + sinr_k_noma);
 
+ 
+
     % ================================================================
     % Handle feasibility properly
     % ================================================================
@@ -754,7 +756,7 @@ for ao = 1:max_AO_iter
              'max(xi)=%.2e | AN_P_ratio = %2.1f | Ns=%2d\n'], ...
             ao, feasible_flag_noma, best_fake_secrecy_noma, ...
             best_fake_secrecy_noma - prev_fake_noma, max(xi_val_noma), AN_P_ratio, mc_iter);
-    % 
+
     % if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
     %     break;
     % end
@@ -772,7 +774,7 @@ end
 
 
 
-fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
+% fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
  feasible_record(mc_iter,AN_idx) = feasible_flag;
  feasible_record_noma(mc_iter,AN_idx) = feasible_flag_noma;
 
@@ -787,6 +789,10 @@ fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secre
  Convex_Fake_Convergence_curve_AO(mc_iter,AN_idx) = best_fake_secrecy;
  Convex_Real_Convergence_curve_AO(mc_iter,AN_idx) = best_real_secrecy;
 
+% fprintf('alpha=[%.4f %.4f %.4f] AN_idx=%d iter=%d\n', alpha, AN_idx,mc_iter);
+% fprintf('alpha_noma=[%.4f %.4f] AN_idx=%d\n', alpha_noma, AN_idx);
+
+ 
 end
 end
 
