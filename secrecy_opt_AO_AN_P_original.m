@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 20; % number of samples for Monte Carlo simulation
+Ns = 100; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
