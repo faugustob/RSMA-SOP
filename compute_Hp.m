@@ -76,14 +76,14 @@ end
                     c = l  + k *M + 1;
     
                     % ---- h_{P,1} ----
-                    pref1 = factor_common_exp * (1/M) * (1 - tau/T) * (1/N) * S_n;
+                    pref1 = factor_common_exp * (1/sqrt(M*N)) * (1 - tau/T) * S_n;
                     term_exp1 = exp(1j*pi * ((tau/T + 1) * (delta + nu/Deltaf)));
                     phase1 = exp(1j*2*pi * ( (Mmat*lp)/M - (Mprime*l)/M - Mprime*(tau/T) ));
                     sinc1 = sinc((delta + nu/Deltaf)*(1 - tau/T));
                     hP1 = pref1 * sum( (term_exp1 .* phase1 .* sinc1), 'all' );
     
                     % ---- h_{P,2} ----
-                    pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/M) * (tau/T) * (1/N) * S_n;
+                    pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/sqrt(M*N)) * (tau/T) * S_n;
                     term_exp2 = exp(1j*2*pi * ( (Mmat*lp)/M - (Mprime*l)/M - Mprime*(tau/T) ));
                     phase2 = exp(1j*pi*(tau/T)*(delta + nu/Deltaf));
                     sinc2 = sinc((delta + nu/Deltaf)*(tau/T));
@@ -143,8 +143,8 @@ end
             alpha_n = (kp-k)/N - nu/Deltaf;
             S_n = sum(exp(-j2pi * (nvec.' * alpha_n)));
     
-            pref1 = factor_common_exp * (1/M) * (1 - tau/T) * (1/N) * S_n;
-            pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/M) * (tau/T) * (1/N) * S_n;
+            pref1 = factor_common_exp * (1/sqrt(M*N)) * (1 - tau/T) * S_n;
+            pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/sqrt(M*N)) * (tau/T) * S_n;
     
             % --- Build MxM block for all (l',l) ---
     
