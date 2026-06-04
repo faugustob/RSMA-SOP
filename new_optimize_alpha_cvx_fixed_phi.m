@@ -29,14 +29,17 @@ for l = 1:nF
 end
 
 %% ========================= INITIALIZATION =========================
-tol = 1e-6;
+tol = 1e-3;
 obj_prev = -inf;
 alpha_prev = alpha_prev.';                  % column vector
-lambda_penalty = 10;
+lambda_penalty = 1e4;
 A_pos = diag(ones(size(alpha_prev)));
 A_neg = 1 - A_pos;
 A_neg_pi = A_neg;
 A_neg_pi(1,:) = 0;
+
+trust_region = 0.1; % Start with a 5% trust region radius
+
 
 %% ========================= ADAPTIVE RANGE-CENTERING =========================
 all_terms = [Pk(:); Ak(:); Pl(:); Al(:); noise];
@@ -47,6 +50,21 @@ else
     scale = 1;
 end
 noise = noise * scale; Pk = Pk*scale; Pl = Pl*scale; Ak = Ak*scale; Al = Al*scale;
+
+% ===== DEBUG =====
+% disp('Pk =');
+% disp(Pk.');
+% 
+% disp('Ak =');
+% disp(Ak.');
+% 
+% disp('Pl =');
+% disp(Pl.');
+% 
+% disp('Al =');
+% disp(Al.');
+% % =================
+
 
 
 %% ========================= SCA LOOP (safe retry version) =========================
@@ -71,8 +89,7 @@ while sca_iter > 0
 
         subject to
             sum(vecAlpha) <= 1;
-            %vecAlpha >= 0;
-
+            norm(vecAlpha - alpha_prev, 2) <= trust_region;
             % USER-LEVEL CONSTRAINTS
             for k = 1:K
                 I_c_prev = Pk(k)*A_neg(:,1).'*alpha_prev + AN_P_ratio * Ak(k)+noise;
@@ -125,8 +142,13 @@ while sca_iter > 0
         continue;
     end
     
- 
-    
+ % fprintf('Rc      = %.4f\n', double(Rc));
+ % fprintf('sum(Ck) = %.4f\n', sum(double(Ck)));
+ % fprintf('min Rk  = %.4f\n', min(double(Rk)));
+ % fprintf('max xi  = %.3e\n', max(double(xi)));
+
+ % fprintf('t = %.6f\n', double(t));
+ % 
 
     % ---------- successful solve → convergence check & update ----------
     current_obj = double(t);

@@ -174,20 +174,93 @@ taus_ku = zeros(Pe,K);
 nus_ku = zeros(Pe,K);
 
 
-% ELEVATION (UNCHANGED)
-el = pi/2 - (0.05)*max_alpha * rand(1, K);
+% % ELEVATION (UNCHANGED)
+% el = pi/2 - (0.05)*max_alpha * rand(1, K);
+% 
+% 
+% az = (2*pi) * rand(1, K);
+% 
+% 
+% % RADIUS (FIXED ON EARTH SURFACE)
+% r = R_earth * ones(1, K);
+% 
+% % SPHERICAL → CARTESIAN
+% [x, y, z] = sph2cart(az, el, r);
+% 
+% ground_users_cart = [x; y; z];   % 3 x K
 
+%% ============================================================
+% Legitimate User Locations
+%
+% Users are uniformly distributed inside the HAP coverage area.
+%
+% Geometry:
+%   - Earth-centered coordinate system.
+%   - HAP/STAR-RIS located above the North Pole:
+%
+%       R_xyz = [0;0;R_earth+HAP_altitude]
+%
+%   - HAP nadir point on Earth:
+%
+%       [0;0;R_earth]
+%
+% Users are generated uniformly over a circular footprint
+% on the Earth's surface.
+%
+% This is a realistic model for HAP-assisted communications.
+%% ============================================================
 
-az = (2*pi) * rand(1, K);
+% Coverage radius of HAP cell [m]
+coverage_radius = 20e3;      % 20 km
 
+% ------------------------------------------------------------
+% Uniform distribution over a disk
+%
+% sqrt(rand) is important:
+% without sqrt(), users cluster near the center.
+% ------------------------------------------------------------
+r_user = coverage_radius * sqrt(rand(1,K));
 
-% RADIUS (FIXED ON EARTH SURFACE)
-r = R_earth * ones(1, K);
+% Random angle
+theta_user = 2*pi*rand(1,K);
 
-% SPHERICAL → CARTESIAN
-[x, y, z] = sph2cart(az, el, r);
+% ------------------------------------------------------------
+% Local East-North coordinates relative to HAP nadir
+%
+% Since the HAP is located above the North Pole in the current
+% coordinate system, the tangent plane at the nadir is the
+% global x-y plane.
+% ------------------------------------------------------------
+x_local = r_user .* cos(theta_user);
+y_local = r_user .* sin(theta_user);
 
-ground_users_cart = [x; y; z];   % 3 x K
+% ------------------------------------------------------------
+% Project users onto Earth's surface
+%
+% x^2 + y^2 + z^2 = R_earth^2
+% ------------------------------------------------------------
+z_local = sqrt(R_earth^2 - x_local.^2 - y_local.^2);
+
+% Earth-centered coordinates
+ground_users_cart = [x_local;
+                     y_local;
+                     z_local];
+
+% Optional sanity check
+%
+% Verify users are within desired footprint
+%
+% footprint_distance = sqrt(x_local.^2 + y_local.^2);
+% fprintf('Max user distance from nadir = %.2f km\n', ...
+%          max(footprint_distance)/1000);
+% 
+% d_HAP_user = vecnorm(ground_users_cart - R_xyz);
+% 
+% fprintf('Min HAP-user distance = %.2f km\n', min(d_HAP_user)/1000);
+% fprintf('Max HAP-user distance = %.2f km\n', max(d_HAP_user)/1000);
+% 
+% disp(R_xyz')
+% disp(ground_users_cart')
 
 %% Eavesdroppers position
 x = 1000*rand(1, L)+1000;
@@ -205,7 +278,7 @@ z_f = R_earth + 50 + 950*rand(1, nF);
 eavesdroppers_xyz =  [x; y; z];
 fake_eavesdroppers_xyz =  [x_f; y_f; z_f];
 
-rho_j_xyz = [ground_users_cart,eavesdroppers_xyz,fake_eavesdroppers_xyz];
+rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
@@ -260,7 +333,7 @@ for k =1:K
   
 
      % direction in xy (away from ris)
-    if User_k_loc(1)==R_xyz(1) && User_k_loc(2)==R_xyz(2)
+    if norm(User_k_loc(1:2)-R_xyz(1:2)) < 1e-6
         d_ru = [R_xyz(1)+1;R_xyz(1)+1];
     else
         d_ru = User_k_loc(1:2) - R_xyz(1:2);
@@ -305,14 +378,14 @@ for k =1:K
    
      
     for q = 1:Q_j
-        h_jq(:, q,k,1) = sqrt(gamrnd(m_q(k,q), omega_q(q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
-        h_jq(:, q,k,2) = sqrt(gamrnd(m_q(k,q), omega_q(q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+        h_jq(:, q,k,1) = sqrt(gamrnd(m_q(k,q), omega_q(k,q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+        h_jq(:, q,k,2) = sqrt(gamrnd(m_q(k,q), omega_q(k,q)/m_q(k,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
     end
 
     
     for u = 1:Pe
-        h_e(u,k,1) = sqrt(gamrnd(m_e(k,u), omega_e(u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Data carrying channel
-        h_e(u,k,2) = sqrt(gamrnd(m_e(k,u), omega_e(u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Noise carrying channel
+        h_e(u,k,1) = sqrt(gamrnd(m_e(k,u), omega_e(k,u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Data carrying channel
+        h_e(u,k,2) = sqrt(gamrnd(m_e(k,u), omega_e(k,u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Noise carrying channel
     end
             
 end
@@ -402,14 +475,14 @@ for l=1:nF+L
     
         
         for q = 1:Q_j
-            h_jq(:, q,K+l,1) = sqrt(gamrnd(m_q(K+l,q), omega_q(q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
-            h_jq(:, q,K+l,2) = sqrt(gamrnd(m_q(K+l,q), omega_q(q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+            h_jq(:, q,K+l,1) = sqrt(gamrnd(m_q(K+l,q), omega_q(K+l,q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
+            h_jq(:, q,K+l,2) = sqrt(gamrnd(m_q(K+l,q), omega_q(K+l,q)/m_q(K+l,q), [Nr, 1])) .* exp(1i*2*pi*rand(Nr,1));
         end
     
         
         for u = 1:Pe
-            h_e(u,K+l,1) = sqrt(gamrnd(m_e(K+l,u), omega_e(u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
-            h_e(u,K+l,2) = sqrt(gamrnd(m_e(K+l,u), omega_e(u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
+            h_e(u,K+l,1) = sqrt(gamrnd(m_e(K+l,u), omega_e(K+l,u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
+            h_e(u,K+l,2) = sqrt(gamrnd(m_e(K+l,u), omega_e(K+l,u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
         end
     
 
@@ -573,7 +646,7 @@ phi_St = wrapToPi(angle(b0)).';
         X = [alpha, phi_St(:).'];
     end
 
-[~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+[~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
@@ -632,7 +705,7 @@ for ao = 1:max_AO_iter
     % ================================================================
     % Final evaluation
     % ================================================================
-    [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+    [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);

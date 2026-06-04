@@ -242,7 +242,7 @@ z_f = R_earth + 50 + 950*rand(1, nF);
 eavesdroppers_xyz =  [x; y; z];
 fake_eavesdroppers_xyz =  [x_f; y_f; z_f];
 
-rho_j_xyz = [ground_users_cart,eavesdroppers_xyz,fake_eavesdroppers_xyz];
+rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
@@ -297,7 +297,7 @@ for k =1:K
   
 
      % direction in xy (away from ris)
-    if User_k_loc(1)==R_xyz(1) && User_k_loc(2)==R_xyz(2)
+    if norm(User_k_loc(1:2)-R_xyz(1:2)) < 1e-6
         d_ru = [R_xyz(1)+1;R_xyz(1)+1];
     else
         d_ru = User_k_loc(1:2) - R_xyz(1:2);
@@ -348,8 +348,8 @@ for k =1:K
 
     
     for u = 1:Pe
-        h_e(u,k,1) = sqrt(gamrnd(m_e(k,u), omega_e(u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Data carrying channel
-        h_e(u,k,2) = sqrt(gamrnd(m_e(k,u), omega_e(u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Noise carrying channel
+        h_e(u,k,1) = sqrt(gamrnd(m_e(k,u), omega_e(k,u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Data carrying channel
+        h_e(u,k,2) = sqrt(gamrnd(m_e(k,u), omega_e(k,u)/m_e(k,u))) .* exp(1i*2*pi*rand());% Direct Noise carrying channel
     end
             
 end
@@ -445,8 +445,8 @@ for l=1:nF+L
     
         
         for u = 1:Pe
-            h_e(u,K+l,1) = sqrt(gamrnd(m_e(K+l,u), omega_e(u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
-            h_e(u,K+l,2) = sqrt(gamrnd(m_e(K+l,u), omega_e(u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
+            h_e(u,K+l,1) = sqrt(gamrnd(m_e(K+l,u), omega_e(K+l,u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
+            h_e(u,K+l,2) = sqrt(gamrnd(m_e(K+l,u), omega_e(K+l,u)/m_e(K+l,u))) .* exp(1i*2*pi*rand());
         end
     
 
@@ -610,7 +610,7 @@ phi_St = wrapToPi(angle(b0)).';
         X = [alpha, phi_St(:).'];
     end
 
-[~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+[~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
@@ -669,7 +669,7 @@ for ao = 1:max_AO_iter
     % ================================================================
     % Final evaluation
     % ================================================================
-    [~, sc_p_lk, ~, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+    [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
