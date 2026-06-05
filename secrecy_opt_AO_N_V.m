@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-% --- Choose how many workers (cores) you want ---
+%--- Choose how many workers (cores) you want ---
 numWorkers = 10;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 10000; % number of samples for Monte Carlo simulation
+Ns = 20000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -108,14 +108,12 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % note: this code assumes surface is on x-y plane (surface normal points in
 % z-axis direction)
 
-nV_vec = 16:1:26;
-
 
 
 %N_V = 20; % number of rows of regularly arranged unit cells of RIS
 N_H = 20; % number of columns of regularly arranged unit cells of RIS
 
-nV_vec = 16:1:26;
+nV_vec = 16:2:26;
 
 
 %% ===================== PRE-ALLOCATION =====================
@@ -547,7 +545,7 @@ end
  
 %% Sine-Cosine optimization
 
-display('SCA is optimizing your problem');
+%display('SCA is optimizing your problem');
 
 Num_agents  = 100;
 Max_iteration = 5;
@@ -604,7 +602,7 @@ AN_P_ratio = 1;
 
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
-display('Convex Approximation with AO');
+%display('Convex Approximation with AO');
 
 max_AO_iter = Max_iteration;           % Outer AO iterations
 max_SCA = 3;         % Inner SCA iterations for alpha subproblem
@@ -624,7 +622,7 @@ end
 
 Convergence_curve_AO = zeros(1, max_AO_iter);
 
-fprintf('\n=== Starting Convex AO ===\n');
+%fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
 problem  = struct('M', manifold);
@@ -796,7 +794,7 @@ for ao = 1:max_AO_iter
     % Convergence
     % ================================================================
     if feasible_flag && abs(best_fake_secrecy - prev_fake) < tol && ao >= 5
-        fprintf('→ AO Converged at iteration %d\n', ao);
+        % fprintf('→ AO Converged at iteration %d\n', ao);
         break;
     end
 
@@ -804,7 +802,7 @@ end
 
 
 
-fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
+% fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
    % Track feasibility
  feasible_record(mc_iter,nV_idx) = feasible_flag;
 
