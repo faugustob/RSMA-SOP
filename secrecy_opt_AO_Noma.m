@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 200; % number of samples for Monte Carlo simulation
+Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -446,8 +446,8 @@ end
 %     max(taus_ku(:,:,2),[],'all')/T);
 
 
-M = 33;
-N = 5;
+M = 16;
+N = 8;
 
 Nsymb = M*N; 
 

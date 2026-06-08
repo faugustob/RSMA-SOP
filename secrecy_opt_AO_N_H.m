@@ -400,8 +400,8 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M = 18;
-N = 18;
+M = 16;
+N = 16;
 
 Nsymb = M*N; 
 

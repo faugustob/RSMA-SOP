@@ -108,8 +108,8 @@ delta_f_vec = 10e3:10e3:100e3;
 
 
 
-N_V = 20; % number of rows of regularly arranged unit cells of RIS
-N_H = 20; % number of columns of regularly arranged unit cells of RIS
+N_V = 30; % number of rows of regularly arranged unit cells of RIS
+N_H = 30; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 
@@ -439,8 +439,8 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M = 18;
-N = 18;
+M = 16;
+N = 16;
 
 Nsymb = M*N; 
 

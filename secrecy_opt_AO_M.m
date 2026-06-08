@@ -110,8 +110,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 
 
 
-N_V = 20; % number of rows of regularly arranged unit cells of RIS
-N_H = 20; % number of columns of regularly arranged unit cells of RIS
+N_V = 30; % number of rows of regularly arranged unit cells of RIS
+N_H = 30; % number of columns of regularly arranged unit cells of RIS
 
 M_vec = 16:1:26;
 
@@ -425,7 +425,7 @@ end
 for M_idx = 1:num_M
     
 M = M_vec(M_idx);
-N = 18;
+N = 16;
 
 Nsymb = M*N; 
 
