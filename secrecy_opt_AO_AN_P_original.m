@@ -171,6 +171,8 @@ h_jq = zeros(Nr, Q_j,K+nF+L,nSat);
 h_e = zeros(Pe,K+nF+L,nSat);
 taus_ku = zeros(Pe,K,nSat);
 nus_ku = zeros(Pe,K,nSat);
+taus_kq = zeros(K,P,Q_j,nSat);
+nus_kq  = zeros(K,P,Q_j,nSat);
 
 
 % % ELEVATION (UNCHANGED)
@@ -694,7 +696,7 @@ for ao = 1:max_AO_iter
 
    [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
-    cost_opt = min(min(R_sec_next2));
+    
 
     % ================================================================
     % Build X

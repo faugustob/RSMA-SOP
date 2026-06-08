@@ -716,8 +716,7 @@ for ao = 1:max_AO_iter
 
    [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
     
-    cost_opt = min(min(R_sec_next2));
-
+    
     % ================================================================
     % Build X
     % ================================================================

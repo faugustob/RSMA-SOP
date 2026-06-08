@@ -186,6 +186,8 @@ h_jq = zeros(Nr, Q_j,K+nF+L,nSat);
 h_e = zeros(Pe,K+nF+L,nSat);
 taus_ku = zeros(Pe,K,nSat);
 nus_ku = zeros(Pe,K,nSat);
+taus_kq = zeros(K,P,Q_j,nSat);
+nus_kq  = zeros(K,P,Q_j,nSat);
 
 
 % % ELEVATION (UNCHANGED)

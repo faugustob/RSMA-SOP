@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 2000; % number of samples for Monte Carlo simulation
+Ns = 200; % number of samples for Monte Carlo simulation
 %rng(2);
 
 transmissionType = 'mc';
@@ -173,6 +173,8 @@ h_jq = zeros(Nr, Q_j,K+nF+L,nSat);
 h_e = zeros(Pe,K+nF+L,nSat);
 taus_ku = zeros(Pe,K,nSat);
 nus_ku = zeros(Pe,K,nSat);
+taus_kq = zeros(K,P,Q_j,nSat);
+nus_kq  = zeros(K,P,Q_j,nSat);
 
 % % ELEVATION (UNCHANGED)
 % el = pi/2 - (0.05)*max_alpha * rand(1, K);
@@ -403,8 +405,8 @@ end
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
 
-M=18;
-N=18;
+M=32;
+N=32;
 
 
 
@@ -695,11 +697,7 @@ for ao = 1:max_AO_iter
     alpha = alpha_prev;
 
     % Track feasibility
-    feasible_record(mc_iter,ao) = feasible_flag;
-
-   [R_sec_next2,~] = get_Secrecy_matrix(b0, L_node, E_node, alpha, K, nF, sigma2, Pw, AN_P_ratio);
-    
-    cost_opt = -min(min(R_sec_next2));
+    feasible_record(mc_iter,ao) = feasible_flag; 
 
     % ================================================================
     % Build X

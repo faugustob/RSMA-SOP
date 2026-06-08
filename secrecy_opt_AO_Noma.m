@@ -416,34 +416,34 @@ end
 % max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
 % max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
 
-tau_ref = min([taus_kq(:); taus_ku(:)]);
-
-taus_kq_rel = taus_kq - tau_ref;
-taus_ku_rel = taus_ku - tau_ref;
-
-fprintf('\nSatellite S\n');
-fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
-    min(taus_kq(:,:,:,1),[],'all')/T);
-fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
-    max(taus_kq(:,:,:,1),[],'all')/T);
-
-fprintf('\nSatellite AN\n');
-fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
-    min(taus_kq(:,:,:,2),[],'all')/T);
-fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
-    max(taus_kq(:,:,:,2),[],'all')/T);
-
-fprintf('\nDirect S\n');
-fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
-    min(taus_ku(:,:,1),[],'all')/T);
-fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
-    max(taus_ku(:,:,1),[],'all')/T);
-
-fprintf('\nDirect AN\n');
-fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
-    min(taus_ku(:,:,2),[],'all')/T);
-fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
-    max(taus_ku(:,:,2),[],'all')/T);
+% tau_ref = min([taus_kq(:); taus_ku(:)]);
+% 
+% taus_kq_rel = taus_kq - tau_ref;
+% taus_ku_rel = taus_ku - tau_ref;
+% 
+% fprintf('\nSatellite S\n');
+% fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
+%     min(taus_kq(:,:,:,1),[],'all')/T);
+% fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
+%     max(taus_kq(:,:,:,1),[],'all')/T);
+% 
+% fprintf('\nSatellite AN\n');
+% fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
+%     min(taus_kq(:,:,:,2),[],'all')/T);
+% fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
+%     max(taus_kq(:,:,:,2),[],'all')/T);
+% 
+% fprintf('\nDirect S\n');
+% fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
+%     min(taus_ku(:,:,1),[],'all')/T);
+% fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
+%     max(taus_ku(:,:,1),[],'all')/T);
+% 
+% fprintf('\nDirect AN\n');
+% fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
+%     min(taus_ku(:,:,2),[],'all')/T);
+% fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
+%     max(taus_ku(:,:,2),[],'all')/T);
 
 
 M = 33;
@@ -848,14 +848,14 @@ for ao = 1:max_AO_iter
     % Logging
     % ================================================================
     fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | AN_P_ratio = %2.1f | Ns=%2d\n'], ...
+             'max(xi)=%.2e | K_h = %2.1f | Ns=%2d\n'], ...
             ao, feasible_flag, best_fake_secrecy, ...
-            best_fake_secrecy - prev_fake, max(xi_val), AN_P_ratio, mc_iter);
+            best_fake_secrecy - prev_fake, max(xi_val), K_h, mc_iter);
 
       fprintf(['NOMA: AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | AN_P_ratio = %2.1f | Ns=%2d\n'], ...
+             'max(xi)=%.2e | K_h = %2.1f | Ns=%2d\n'], ...
             ao, feasible_flag_noma, best_fake_secrecy_noma, ...
-            best_fake_secrecy_noma - prev_fake_noma, max(xi_val_noma), AN_P_ratio, mc_iter);
+            best_fake_secrecy_noma - prev_fake_noma, max(xi_val_noma), K_h , mc_iter);
 
     % if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
     %     break;
