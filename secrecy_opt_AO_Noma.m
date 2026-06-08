@@ -101,25 +101,29 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 N_H = 20; % number of rows of regularly arranged unit cells of RIS
 N_V = 20; % number of columns of regularly arranged unit cells of RIS
 
-AN_vec = 0.2:0.2:2;
+Kh_vec = 1:1:5;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
-N_AN = length(AN_vec);
-feasible_record = zeros(Ns, N_AN);
-feasible_record_noma = zeros(Ns, N_AN);
-Convex_min_Rk = zeros(Ns, N_AN);
-Convex_min_Rk_noma = zeros(Ns, N_AN);
+N_Kh = length(Kh_vec);
+feasible_record = zeros(Ns, N_Kh);
+feasible_record_noma = zeros(Ns, N_Kh);
+Convex_min_Rk = zeros(Ns, N_Kh);
+Convex_min_Rk_noma = zeros(Ns, N_Kh);
 
-Convex_Convergence_curve_AO = zeros(Ns, N_AN);
-Convex_Fake_Convergence_curve_AO = zeros(Ns, N_AN);
-Convex_Real_Convergence_curve_AO = zeros(Ns, N_AN);
+Convex_Convergence_curve_AO = zeros(Ns, N_Kh);
+Convex_Fake_Convergence_curve_AO = zeros(Ns, N_Kh);
+Convex_Real_Convergence_curve_AO = zeros(Ns, N_Kh);
 
-Convex_Convergence_curve_AO_noma = zeros(Ns, N_AN);
-Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_AN);
-Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_AN);
+Convex_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
+Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
+Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 
 
 for mc_iter = 1:Ns
+for kh_idx = 1:length(Kh_vec)
 
+
+K_h = Kh_vec(kh_idx);
+K = K_h+K_s;
 
 Nr = N_V * N_H; % total number of unit cells of RIS
 
@@ -148,7 +152,7 @@ omega_p = (1/P)*ones(1,P); % spread parameter
 
 % from STAR-RIS to users and eavesdroppers (one value for each path and 
 % each receiver, and assume same for each RIS element):
-m_q = 1*ones(K+nF+L,Q_j); % shape parameter
+m_q = ones(K+nF+L,Q_j); % shape parameter
 omega_q = (1/Q_j)*ones(K+nF+L,Q_j); % spread parameter
 % note: m_j_1(1:K,:) and omega_j_q(1:K,:) are for legit users
 % and m_j_1(K+1:end,:) and omega_j_q(K+1:end,:) are for eavesdroppers
@@ -169,7 +173,7 @@ Rs = norm(S_xyz);
 omega_orb = (S_v / Rs) * orbit_normal;
 
 % Satellite velocity (ECI)
-vS  = cross(omega_orb, S_xyz);
+vS = cross(omega_orb, S_xyz);
 vAN = cross(omega_orb, AN_xyz);
 
 % RIS velocity due to Earth rotation (ECI)
@@ -186,6 +190,8 @@ h_jq = zeros(Nr, Q_j,K+nF+L,nSat);
 h_e = zeros(Pe,K+nF+L,nSat);
 taus_ku = zeros(Pe,K,nSat);
 nus_ku = zeros(Pe,K,nSat);
+taus_kq = zeros(K, P, Q_j, nSat);
+nus_kq = zeros(K, P, Q_j, nSat);
 
 
 % % ELEVATION (UNCHANGED)
@@ -304,6 +310,7 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 [taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
 
+
 [taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
     c, AN_xyz, vAN, R_xyz, vR, f_c, P, sigma_ang);
 
@@ -361,7 +368,8 @@ for k =1:K
     % RIS to legitimate users delays and doppler coefficients.
     [taus_k, nus_k, u_paths_k] = compute_delay_and_doppler( ...
     c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, sigma_ang);
-  
+
+
 
      for p=1:P
         for q=1:Q_j
@@ -408,10 +416,38 @@ end
 % max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
 % max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
 
+tau_ref = min([taus_kq(:); taus_ku(:)]);
+
+taus_kq_rel = taus_kq - tau_ref;
+taus_ku_rel = taus_ku - tau_ref;
+
+fprintf('\nSatellite S\n');
+fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
+    min(taus_kq(:,:,:,1),[],'all')/T);
+fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
+    max(taus_kq(:,:,:,1),[],'all')/T);
+
+fprintf('\nSatellite AN\n');
+fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
+    min(taus_kq(:,:,:,2),[],'all')/T);
+fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
+    max(taus_kq(:,:,:,2),[],'all')/T);
+
+fprintf('\nDirect S\n');
+fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
+    min(taus_ku(:,:,1),[],'all')/T);
+fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
+    max(taus_ku(:,:,1),[],'all')/T);
+
+fprintf('\nDirect AN\n');
+fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
+    min(taus_ku(:,:,2),[],'all')/T);
+fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
+    max(taus_ku(:,:,2),[],'all')/T);
 
 
-M = 18;
-N = 18;
+M = 33;
+N = 5;
 
 Nsymb = M*N; 
 
@@ -515,12 +551,6 @@ end
 
 
 
-% if gpuDeviceCount > 0
-%     % GPU is available
-%     HA = gpuArray(HA); HB = gpuArray(HB);  % After precompute  
-%     h_rp = gpuArray(h_rp); h_jq = gpuArray(h_jq); g_pq = gpuArray(g_pq); h_e = gpuArray(h_e);
-% end
- 
 %% Sine-Cosine optimization
 
 display('SCA is optimizing your problem');
@@ -569,9 +599,9 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-for AN_idx = 1:length(AN_vec)
 
-AN_P_ratio = AN_vec(AN_idx);  
+
+AN_P_ratio = 0.5;  
 
 
 
@@ -622,6 +652,7 @@ reflect, h_rp, h_jq, h_e,  Active_Gain_dB);
 beta = zeros(Nr,num_agents);
 
 min_Rsec = zeros(num_agents,1);
+min_Rsec_noma = zeros(num_agents,1);
 for i = 1:num_agents
     beta(:,i) = manifold.rand();
    [R_sec,~] = get_Secrecy_matrix(beta(:,i), L_node, E_node, alpha(1,:), K, nF, sigma2, Pw, AN_P_ratio);
@@ -785,8 +816,9 @@ for ao = 1:max_AO_iter
         current_fake_noma = 0;
         current_real_noma = 0;
         prev_min_Rk_noma=0;        
-    end
+     end
 
+     
     % ================================================================
     % Update best solution
     % ================================================================
@@ -843,19 +875,19 @@ end
 
 
 % fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
- feasible_record(mc_iter,AN_idx) = feasible_flag;
- feasible_record_noma(mc_iter,AN_idx) = feasible_flag_noma;
+ feasible_record(mc_iter,kh_idx) = feasible_flag;
+ feasible_record_noma(mc_iter,kh_idx) = feasible_flag_noma;
 
- Convex_min_Rk(mc_iter,AN_idx) = prev_min_Rk;
- Convex_min_Rk_noma(mc_iter,AN_idx) = prev_min_Rk_noma;
+ Convex_min_Rk(mc_iter,kh_idx) = prev_min_Rk;
+ Convex_min_Rk_noma(mc_iter,kh_idx) = prev_min_Rk_noma;
 
- Convex_Convergence_curve_AO_noma(mc_iter,AN_idx) = prev_cost_noma;
- Convex_Fake_Convergence_curve_AO_noma(mc_iter,AN_idx) = best_fake_secrecy_noma;
- Convex_Real_Convergence_curve_AO_noma(mc_iter,AN_idx) = best_real_secrecy_noma;
+ Convex_Convergence_curve_AO_noma(mc_iter,kh_idx) = prev_cost_noma;
+ Convex_Fake_Convergence_curve_AO_noma(mc_iter,kh_idx) = best_fake_secrecy_noma;
+ Convex_Real_Convergence_curve_AO_noma(mc_iter,kh_idx) = best_real_secrecy_noma;
 
- Convex_Convergence_curve_AO(mc_iter,AN_idx) = prev_cost;
- Convex_Fake_Convergence_curve_AO(mc_iter,AN_idx) = best_fake_secrecy;
- Convex_Real_Convergence_curve_AO(mc_iter,AN_idx) = best_real_secrecy;
+ Convex_Convergence_curve_AO(mc_iter,kh_idx) = prev_cost;
+ Convex_Fake_Convergence_curve_AO(mc_iter,kh_idx) = best_fake_secrecy;
+ Convex_Real_Convergence_curve_AO(mc_iter,kh_idx) = best_real_secrecy;
 
 % fprintf('alpha=[%.4f %.4f %.4f] AN_idx=%d iter=%d\n', alpha, AN_idx,mc_iter);
 % fprintf('alpha_noma=[%.4f %.4f] AN_idx=%d\n', alpha_noma, AN_idx);
@@ -897,11 +929,11 @@ Convex_Fake_Convergence_curve_AO_noma_mean = sum(Convex_Fake_Convergence_curve_A
 Convex_Real_Convergence_curve_AO_noma_mean = sum(Convex_Real_Convergence_curve_AO_noma.*feasible_record_noma,1)./valid_records_Qtd_noma;
 
 hold on;
-plot(AN_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(3,:))
+plot(Kh_vec,Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(3,:))
 
 
 %title('Convergence Curve','FontWeight','bold','FontSize',12);
-xlabel('$\alpha_{AN}$','FontWeight','bold','FontSize',12);
+xlabel('$K_h$','FontWeight','bold','FontSize',12);
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12);
 %legend('Convex-Manifold','Location','best','FontSize',10);
 
@@ -925,19 +957,19 @@ hold on;
 
 
 % Convex + Manopt
-plot(AN_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(1,:));
-plot(AN_vec,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(3,:));
-plot(AN_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(AN_vec), 'MarkerFaceColor',colors(3,:));
+plot(Kh_vec,Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(1,:));
+plot(Kh_vec,Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(3,:));
+plot(Kh_vec,Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(3,:));
 
-plot(AN_vec, Convex_min_Rk_noma_mean, 'Color', colors(2,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'x');
-plot(AN_vec, Convex_Fake_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'x');
-plot(AN_vec, Convex_Real_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), 'LineStyle', '-', 'LineWidth', 1.5, 'Marker', 'd');
+plot(Kh_vec, Convex_min_Rk_noma_mean, 'Color', colors(2,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'x');
+plot(Kh_vec, Convex_Fake_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'x');
+plot(Kh_vec, Convex_Real_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), 'LineStyle', '-', 'LineWidth', 1.5, 'Marker', 'd');
 
 legend('Min Rate (RSMA)', 'Virtual SC (RSMA)', 'Real SC (RSMA)', ...
        'Min Rate (NOMA)', 'Virtual SC (NOMA)', 'Real SC (NOMA)', ...
        'Location', 'best', 'FontSize', 11);
 
-xlabel('$\alpha_{AN}$','FontWeight','bold','FontSize',12,'Interpreter','latex');
+xlabel('$K_h$','FontWeight','bold','FontSize',12,'Interpreter','latex');
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
 
 grid on;

@@ -193,6 +193,8 @@ omega_orb = (S_v / Rs) * orbit_normal;
 
 % Satellite velocity (ECI)
 vS = cross(omega_orb, S_xyz);
+vAN = cross(omega_orb, AN_xyz);
+
 
 % RIS velocity due to Earth rotation (ECI)
 vR = [0;0;0];
@@ -204,7 +206,7 @@ sigma_ang = deg2rad(30);   % angular spread
 g_pq   = zeros(P, Q_j, K+nF+L, nSat);
 Plos   = zeros(K+nF+L, nSat);
 PLj    = zeros(K+nF+L, nSat);
-h_rp   = zeros(Nr, P, 2, nSat);      % note: your original h_rp had 3rd dim as K+nF+L, but code uses only 1,2
+h_rp   = zeros(Nr, P,nSat);     
 h_jq   = zeros(Nr, Q_j, K+nF+L);
 h_e    = zeros(Pe, K+nF+L, nSat);
 taus_ku= zeros(Pe, K, nSat);
@@ -330,7 +332,7 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
 
 [taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
+    c, AN_xyz, vAN, R_xyz, vR, f_c, P, sigma_ang);
 
 %Channels
 for p = 1:P
@@ -404,7 +406,7 @@ for k =1:K
     c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, sigma_ang);
 
     [taus_u_AN, nus_u_AN, u_paths_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vS, User_k_loc, v_l, f_c, Pe, sigma_ang);
+    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, sigma_ang);
 
     g_pq(:,:,k,1) = exp(1i*2*pi*(taus_R*nus_k'));    
     g_pq(:,:,k,2) = exp(1i*2*pi*(taus_R_AN*nus_k'));    
@@ -509,7 +511,7 @@ for l=1:nF+L
 
            % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l_AN, nus_u_l_AN, u_paths_u_AN] = compute_delay_and_doppler( ...
-        c, AN_xyz, vS, User_l_loc, v_l, f_c, Pe, sigma_ang);
+        c, AN_xyz, vAN, User_l_loc, v_l, f_c, Pe, sigma_ang);
     
         
         for q = 1:Q_j

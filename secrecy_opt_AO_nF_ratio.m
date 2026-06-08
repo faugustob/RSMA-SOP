@@ -36,11 +36,8 @@ K = K_h+K_s; % number of legit users
 
 
 % --- OTFS System Parameters ---
-delta_f = 100e3;      % Subcarrier spacing (Hz)
+delta_f = 850;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
-B = 10e6;        % [Hz] ← Use this
-Tf      = 14*T;      % 14-symbol frame (~1 ms)
-
 
 L_tau = 8;   % 8 delay taps over max_tau (covers multipath + RIS)
 L_nu  = 8;   % 8 Doppler taps over [-max_nu, max_nu]
@@ -147,7 +144,7 @@ parfor mc_iter = 1:Ns
     g_pq   = zeros(P, Q_j, 1, nSat);   % will be resized inside loop
     Plos   = zeros(1, nSat);
     PLj    = zeros(1, nSat);
-    h_rp   = zeros(Nr, P, 2, nSat);
+    h_rp   = zeros(Nr, P,nSat);
     h_jq   = zeros(Nr, Q_j, nSat);
     h_e    = zeros(Pe, 1, nSat);
     taus_ku= zeros(Pe, K, nSat);
@@ -194,6 +191,8 @@ omega_orb = (S_v / Rs) * orbit_normal;
 
 % Satellite velocity (ECI)
 vS = cross(omega_orb, S_xyz);
+vAN = cross(omega_orb, AN_xyz);
+
 
 % RIS velocity due to Earth rotation (ECI)
 vR = [0;0;0];
@@ -255,7 +254,7 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
     c, S_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
 
 [taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vS, R_xyz, vR, f_c, P, sigma_ang);
+    c, AN_xyz, vAN, R_xyz, vR, f_c, P, sigma_ang);
 
 %Channels
 for p = 1:P
@@ -329,7 +328,7 @@ for k =1:K
     c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, sigma_ang);
 
     [taus_u_AN, nus_u_AN, u_paths_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vS, User_k_loc, v_l, f_c, Pe, sigma_ang);
+    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, sigma_ang);
 
     g_pq(:,:,k,1) = exp(1i*2*pi*(taus_R*nus_k'));    
     g_pq(:,:,k,2) = exp(1i*2*pi*(taus_R_AN*nus_k'));    
@@ -435,7 +434,7 @@ for l=1:nF+L
 
            % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l_AN, nus_u_l_AN, u_paths_u_AN] = compute_delay_and_doppler( ...
-        c, AN_xyz, vS, User_l_loc, v_l, f_c, Pe, sigma_ang);
+        c, AN_xyz, vAN, User_l_loc, v_l, f_c, Pe, sigma_ang);
     
         
         for q = 1:Q_j
