@@ -25,11 +25,8 @@ nF = 4; % Number of fake eavesdroppers
 L = 2; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
-delta_f = 850;      % Subcarrier spacing (Hz)
+delta_f = 15e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
-
-L_tau = 8;   % 8 delay taps over max_tau (covers multipath + RIS)
-L_nu  = 8;   % 8 Doppler taps over [-max_nu, max_nu]
 
 R = 10;
 
@@ -160,7 +157,7 @@ vAN = cross(omega_orb, AN_xyz);
 % RIS velocity due to Earth rotation (ECI)
 vR = [0;0;0];
 
-%sigma_ang = deg2rad(30);   % angular spread
+sigma_ang = deg2rad(30);   % angular spread
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;

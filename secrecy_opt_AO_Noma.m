@@ -25,7 +25,7 @@ nF = 4; % Number of fake eavesdroppers
 L = 2; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
-delta_f = 10e3;      % Subcarrier spacing (Hz)
+delta_f = 15e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
 
 L_tau = 8;   % 8 delay taps over max_tau (covers multipath + RIS)
@@ -176,10 +176,8 @@ vAN = cross(omega_orb, AN_xyz);
 % RIS velocity due to Earth rotation (ECI)
 vR = [0;0;0];
 
-%sigma_ang = deg2rad(30);   % angular spread
+sigma_ang = deg2rad(30);   % angular spread
 
-delay_res = 1/(M*delta_f);
-tau_rms = 0.25*delay_res;
 
 g_pq = zeros(P,Q_j,K+nF+L,nSat);
 Plos = zeros(K+nF+L,nSat);
@@ -303,16 +301,20 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
+M = 8;
+N = 8;
 
+delay_res = 1/(M*delta_f);
+tau_rms = 0.25*delay_res;
 
 
 % Satellite to RIS delays and doppler coefficients.
 [taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
-    c, S_xyz, vS, R_xyz, vR, f_c, P, tau_rms);
+    c, S_xyz, vS, R_xyz, vR, f_c, P, tau_rms, sigma_ang);
 
 
 [taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vAN, R_xyz, vR, f_c, P, tau_rms);
+    c, AN_xyz, vAN, R_xyz, vR, f_c, P, tau_rms, sigma_ang);
 
 %Channels
 for p = 1:P
@@ -367,7 +369,7 @@ for k =1:K
 
     % RIS to legitimate users delays and doppler coefficients.
     [taus_k, nus_k, u_paths_k] = compute_delay_and_doppler( ...
-    c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, tau_rms);
+    c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, tau_rms, sigma_ang);
 
 
 
@@ -384,10 +386,10 @@ for k =1:K
 
     % sat to legitimate users delays and doppler coefficients.
     [taus_u, nus_u, u_paths_u] = compute_delay_and_doppler( ...
-    c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, tau_rms);
+    c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, tau_rms, sigma_ang);
 
     [taus_u_AN, nus_u_AN, u_paths_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, tau_rms);
+    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, tau_rms, sigma_ang);
 
     g_pq(:,:,k,1) = exp(1i*2*pi*(taus_R*nus_k'));    
     g_pq(:,:,k,2) = exp(1i*2*pi*(taus_R_AN*nus_k'));    
@@ -418,37 +420,32 @@ end
 
 
 
-taus_kq_rel = taus_kq - 0;
-taus_ku_rel = taus_ku - 0;
-
-fprintf('\nSatellite S\n');
-fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
-    min(taus_kq(:,:,:,1),[],'all')/T);
-fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
-    max(taus_kq(:,:,:,1),[],'all')/T);
-
-fprintf('\nSatellite AN\n');
-fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
-    min(taus_kq(:,:,:,2),[],'all')/T);
-fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
-    max(taus_kq(:,:,:,2),[],'all')/T);
-
-fprintf('\nDirect S\n');
-fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
-    min(taus_ku(:,:,1),[],'all')/T);
-fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
-    max(taus_ku(:,:,1),[],'all')/T);
-
-fprintf('\nDirect AN\n');
-fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
-    min(taus_ku(:,:,2),[],'all')/T);
-fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
-    max(taus_ku(:,:,2),[],'all')/T);
-
-
-M = 8;
-N = 8;
-
+% taus_kq_rel = taus_kq - 0;
+% taus_ku_rel = taus_ku - 0;
+% 
+% fprintf('\nSatellite S\n');
+% fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
+%     min(taus_kq(:,:,:,1),[],'all')/T);
+% fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
+%     max(taus_kq(:,:,:,1),[],'all')/T);
+% 
+% fprintf('\nSatellite AN\n');
+% fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
+%     min(taus_kq(:,:,:,2),[],'all')/T);
+% fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
+%     max(taus_kq(:,:,:,2),[],'all')/T);
+% 
+% fprintf('\nDirect S\n');
+% fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
+%     min(taus_ku(:,:,1),[],'all')/T);
+% fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
+%     max(taus_ku(:,:,1),[],'all')/T);
+% 
+% fprintf('\nDirect AN\n');
+% fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
+%     min(taus_ku(:,:,2),[],'all')/T);
+% fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
+%     max(taus_ku(:,:,2),[],'all')/T);
 
 
 Nsymb = M*N; 
@@ -512,15 +509,15 @@ for l=1:nF+L
     
         % RIS to eavesdropper users delays and doppler coefficients.
         [taus_l, nus_l, u_paths_l] = compute_delay_and_doppler( ...
-        c, R_xyz, vR, User_l_loc, v_l, f_c, Q_j, tau_rms);
+        c, R_xyz, vR, User_l_loc, v_l, f_c, Q_j, tau_rms, sigma_ang);
     
         % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l, nus_u_l, u_paths_u] = compute_delay_and_doppler( ...
-        c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, tau_rms);    
+        c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, tau_rms, sigma_ang);    
 
            % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l_AN, nus_u_l_AN, u_paths_u_AN] = compute_delay_and_doppler( ...
-        c, AN_xyz, vAN, User_l_loc, v_l, f_c, Pe, tau_rms);
+        c, AN_xyz, vAN, User_l_loc, v_l, f_c, Pe, tau_rms, sigma_ang);
     
         
         for q = 1:Q_j

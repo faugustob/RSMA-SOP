@@ -1,5 +1,5 @@
 function [taus, nus, u_paths] = compute_delay_and_doppler( ...
-    c, r_tx, v_tx, r_rx, v_rx, f_c, P, tau_rms)
+    c, r_tx, v_tx, r_rx, v_rx, f_c, P, tau_rms,sigma_ang)
 
 % ============================================================
 % General delay–Doppler model for any TX → RX link

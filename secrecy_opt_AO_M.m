@@ -37,12 +37,8 @@ nF = 4; % Number of fake eavesdroppers
 L = 2; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
-delta_f = 850;      % Subcarrier spacing (Hz)
+delta_f = 15e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
-
-L_tau = 8;   % 8 delay taps over max_tau (covers multipath + RIS)
-L_nu  = 8;   % 8 Doppler taps over [-max_nu, max_nu]
-
 R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
