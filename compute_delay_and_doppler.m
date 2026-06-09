@@ -1,5 +1,5 @@
 function [taus, nus, u_paths] = compute_delay_and_doppler( ...
-    c, r_tx, v_tx, r_rx, v_rx, f_c, P, sigma_ang)
+    c, r_tx, v_tx, r_rx, v_rx, f_c, P, tau_rms)
 
 % ============================================================
 % General delay–Doppler model for any TX → RX link
@@ -35,7 +35,9 @@ function [taus, nus, u_paths] = compute_delay_and_doppler( ...
     d_LOS = norm(r_rx - r_tx);
     u_LOS = (r_rx - r_tx) / d_LOS;
 
-    taus(1)      = d_LOS / c;
+    taus_Los     = d_LOS / c;
+
+    taus(1)      = 0;
     nus(1)       = -(f_c / c) * dot(v_tx - v_rx, u_LOS);
     u_paths(:,1) = u_LOS;
 
@@ -45,8 +47,8 @@ function [taus, nus, u_paths] = compute_delay_and_doppler( ...
     for p = 2:P
 
         % --- Excess delay ---
-        Delta_tau = 1e-9 + 1e-5 * rand();
-        taus(p) = taus(1) + Delta_tau;
+        tau_rms = 100e-9;  % 100 ns        
+        taus(p) = exprnd(tau_rms);
 
         % --- Direction (clustered around LOS) ---
         delta = sigma_ang * randn(3,1);
