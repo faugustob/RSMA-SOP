@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 20000; % number of samples for Monte Carlo simulation
+Ns = 10000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -547,7 +547,7 @@ end
 %display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 5;
+Max_iteration = 2;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
