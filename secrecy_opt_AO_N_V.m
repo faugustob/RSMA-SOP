@@ -547,7 +547,7 @@ end
 %display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 2;
+Max_iteration = 5;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
