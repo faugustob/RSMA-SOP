@@ -307,8 +307,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M = 32;
-N = 16;
+M = 8;
+N = 8;
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
