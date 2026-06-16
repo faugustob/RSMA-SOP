@@ -4,6 +4,8 @@ function Hp = compute_Hp(tau, nu, M, N, T, Deltaf, method,OTFStype)
         OTFStype = 'MC';
     end
     switch lower(OTFStype)
+        case 'ofdm'
+            Hp = compute_Hp_ofdm(tau, nu, M, N, T, Deltaf, method);
         case 'mc'
             Hp = compute_Hp_mc(tau, nu, M, N, T, Deltaf,method);
         case 'zakr'
@@ -13,6 +15,59 @@ function Hp = compute_Hp(tau, nu, M, N, T, Deltaf, method,OTFStype)
     end 
 
 
+end
+
+    function Hp = compute_Hp_ofdm(tau, nu, M, N, T, Deltaf, method)
+    % OFDM / TF-domain version (your derivation)
+    if nargin < 7
+        method = 'loop';
+    end
+    
+    switch lower(method)
+        case 'loop'
+            Hp = Hp_loop_ofdm(tau, nu, M, N, T, Deltaf);
+        case 'blocked'
+            Hp = Hp_blocked_ofdm(tau, nu, M, N, T, Deltaf);
+        otherwise
+            error('Unknown method for OFDM.');
+    end
+    end
+
+    function Hp = Hp_loop_ofdm(tau, nu, M, N, T, Deltaf)
+    MN = M * N;
+    Hp = complex(zeros(MN, MN));
+    j2pi = 1j * 2 * pi;
+    alpha = tau / T;
+    
+    for n = 0:N-1
+        for m = 0:M-1
+            row = n*M + m + 1;
+            for np = 0:N-1
+                for mp = 0:M-1
+                    col = np*M + mp + 1;
+                    k = mp - m;
+                    eps = nu / Deltaf;
+                    omega = 2 * pi * (k * Deltaf + nu);
+                    
+                    outer = exp(-j2pi * mp * Deltaf * tau) * exp(-j2pi * nu * tau);
+                    
+                    if np == n  % I1
+                        phase_inner = exp(1j * omega * (tau + 2*n*T + T)/2);
+                        Ival = (1 - alpha) * phase_inner * ...
+                               sinc( (k + eps) * (1 - alpha) );
+                    elseif np == n-1 && n > 0  % I2
+                        phase_inner = exp(1j * omega * (n*T + tau/2));
+                        Ival = alpha * phase_inner * ...
+                               sinc( (k + eps) * alpha );
+                    else
+                        Ival = 0;
+                    end
+                    
+                    Hp(row, col) = outer * Ival;
+                end
+            end
+        end
+    end
 end
 
  function Hp = compute_Hp_mc(tau, nu, M, N, T, Deltaf, method)
