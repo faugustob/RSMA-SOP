@@ -15,6 +15,21 @@ function Hp = compute_Hp(tau, nu, M, N, T, Deltaf, method,OTFStype)
     end 
 
 
+    % =========================================================================
+    % UNIVERSAL INLINE MATRIX NORMALIZATION
+    % =========================================================================
+    % Ensures that the structural matrix represents a pure small-scale fading 
+    % profile with an expected average power gain of 1.0, protecting the 
+    % absolute physical link budget (Plos, PLj, Pw, sigma2) in the main script.
+    % =========================================================================
+    MN = M * N;
+    matrix_norm = norm(Hp, 'fro');
+    
+    if matrix_norm > 1e-12
+        Hp = Hp / (matrix_norm / sqrt(MN));
+    end
+
+
 end
 
     function Hp = compute_Hp_ofdm(tau, nu, M, N, T, Deltaf, method)
@@ -66,6 +81,63 @@ end
                     Hp(row, col) = outer * Ival;
                 end
             end
+        end
+    end
+    end
+
+    function Hp = Hp_blocked_ofdm(tau, nu, M, N, T, Deltaf)
+    % Hp_blocked_ofdm  Build Hp (MN x MN) for OFDM / TF-domain version
+    % Uses block lower-bidiagonal exploitation and vectorized subcarrier grids.
+    
+    MN = M * N;
+    Hp = complex(zeros(MN, MN));
+    j2pi = 1j * 2 * pi;
+    alpha = tau / T;
+    eps = nu / Deltaf;
+    
+    % Preconstruct subcarrier matrices (M x M) for grid indices m, m'
+    mvec = 0:(M-1);
+    mprimevec = 0:(M-1);
+    [Mmat, Mprime] = meshgrid(mvec, mprimevec);
+    Mmat = Mmat.';       % Mmat(i,j) = m (row index)
+    Mprime = Mprime.';   % Mprime(i,j) = m' (column index)
+    Kmat = Mprime - Mmat; % k = m' - m
+    
+    % Precompute frequency-domain grids independent of the time-slot loop (n)
+    omega_mat = 2 * pi * (Kmat * Deltaf + nu);
+    sinc1_mat = sinc((Kmat + eps) * (1 - alpha));
+    sinc2_mat = sinc((Kmat + eps) * alpha);
+    
+    % The outer phase depends only on m' (columns) and constants
+    outer_vec = exp(-j2pi * mprimevec * Deltaf * tau) * exp(-j2pi * nu * tau);
+    outer_mat = ones(M, 1) * outer_vec; % Broadcaster matrix (M x M)
+    
+    % Loop over time slots (N). We only compute the non-zero block bands.
+    for n = 0:N-1
+        row_start = n * M + 1;
+        
+        % -----------------------------------------------------------------
+        % 1) Main Block-Diagonal Band: I1 (where np == n)
+        % -----------------------------------------------------------------
+        col_start_diag = n * M + 1;
+        
+        phase_inner1 = exp(1j * omega_mat * (tau + 2*n*T + T) / 2);
+        Ival1_mat = (1 - alpha) * phase_inner1 .* sinc1_mat;
+        Block_diag = Ival1_mat .* outer_mat;
+        
+        Hp(row_start:row_start+M-1, col_start_diag:col_start_diag+M-1) = Block_diag;
+        
+        % -----------------------------------------------------------------
+        % 2) First Sub-Block-Diagonal Band: I2 (where np == n-1 and n > 0)
+        % -----------------------------------------------------------------
+        if n > 0
+            col_start_sub = (n - 1) * M + 1;
+            
+            phase_inner2 = exp(1j * omega_mat * (n*T + tau/2));
+            Ival2_mat = alpha * phase_inner2 .* sinc2_mat;
+            Block_sub = Ival2_mat .* outer_mat;
+            
+            Hp(row_start:row_start+M-1, col_start_sub:col_start_sub+M-1) = Block_sub;
         end
     end
 end
