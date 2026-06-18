@@ -39,9 +39,6 @@ L = 2; % number of eavesdroppers
 delta_f = 15e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
 
-L_tau = 8;   % 8 delay taps over max_tau (covers multipath + RIS)
-L_nu  = 8;   % 8 Doppler taps over [-max_nu, max_nu]
-
 R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
@@ -575,8 +572,7 @@ end
 
 display('SCA is optimizing your problem');
 
-Num_agents  = 100;
-Max_iteration = 10;
+num_agents  = 1;
 Rmin=0;
 
 % Check if more than one STAR-RIS side is being used.
@@ -594,11 +590,11 @@ zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
 
 
 % zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
-phi_Sr = 2*pi*rand(Num_agents,Nr);
-phi_St = 2*pi*rand(Num_agents,Nr);% transmission phases
+phi_Sr = 2*pi*rand(num_agents,Nr);
+phi_St = 2*pi*rand(num_agents,Nr);% transmission phases
 
 
-alpha = rand(Num_agents, K+1); 
+alpha = rand(num_agents, K+1); 
 % random values
 alpha = alpha ./ sum(alpha, 2);      % divide each row by its row sum
 
@@ -607,7 +603,7 @@ alpha = alpha - (sum(alpha,2)-1)/(K+1);
 alpha = alpha - (sum(alpha,2)-1)/(K+1);
 
 
-alpha_noma = rand(Num_agents, K); 
+alpha_noma = rand(num_agents, K); 
 % random values
 alpha_noma = alpha_noma ./ sum(alpha_noma, 2);      % divide each row by its row sum
 
@@ -624,8 +620,8 @@ AN_P_ratio = 1;
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 display('Convex Approximation with AO');
 
-max_AO_iter = Max_iteration;           % Outer AO iterations
-max_SCA = 3;         % Inner SCA iterations for alpha subproblem
+max_AO_iter = 3;           % Outer AO iterations
+max_SCA = 2;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
 Active_Gain_dB = 0; 
@@ -646,7 +642,6 @@ fprintf('\n=== Starting Convex AO ===\n');
 
 manifold = complexcirclefactory(Nr,1);
 problem  = struct('M', manifold);
-num_agents  = 1;
 
 
 
