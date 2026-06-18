@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-Ns = 50; % number of samples for Monte Carlo simulation
+Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -158,6 +158,11 @@ vAN = cross(omega_orb, AN_xyz);
 vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
+
+M = 8;
+N = 8;
+
+Nsymb = M*N; 
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
@@ -399,11 +404,6 @@ end
 % % Compute M and N based on the parameters
 % [M, N] = computeOTFSgrid(max_tau, max_nu, 'numerology', B, delta_f, T, Tf);
 % M = max(M, 64); N = max(N, 20);  % Minimum practical size
-
-M = 16;
-N = 16;
-
-Nsymb = M*N; 
 
 HA = zeros(Nsymb,Nsymb,P,Q_j,K+nF+L,nSat); % Relay link
 HB = zeros(Nsymb,Nsymb,Pe,K+nF+L,nSat);
