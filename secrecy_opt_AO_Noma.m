@@ -638,8 +638,6 @@ end
 
 Convergence_curve_AO = zeros(1, max_AO_iter);
 
-fprintf('\n=== Starting Convex AO ===\n');
-
 manifold = complexcirclefactory(Nr,1);
 problem  = struct('M', manifold);
 
