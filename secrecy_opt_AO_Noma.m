@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 200; % number of samples for Monte Carlo simulation
+Ns = 60; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -103,10 +103,10 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 25; % number of rows of regularly arranged unit cells of RIS
-N_V = 25; % number of columns of regularly arranged unit cells of RIS
+N_H = 40; % number of rows of regularly arranged unit cells of RIS
+N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:5;
+Kh_vec = 1:1:6;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);
@@ -318,8 +318,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M = 12;
-N = 12;
+M=16;
+N=16;
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
@@ -611,14 +611,14 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-AN_P_ratio = 0.8;  
+AN_P_ratio = 0.7;  
 
 
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 
 max_AO_iter = 3;           % Outer AO iterations
-max_SCA = 2;         % Inner SCA iterations for alpha subproblem
+max_SCA = 3;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
 Active_Gain_dB = 0; 
@@ -982,30 +982,30 @@ ax.LineWidth = 1.1;
 box on;
 
 % Store in struct
-ANResults = struct();
+A_NomaResults = struct();
 % Original data
-ANResults.Convex_min_Rk = Convex_min_Rk;
-ANResults.Convex_min_Rk_noma = Convex_min_Rk_noma; 
-ANResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
-ANResults.Convex_Convergence_curve_AO_noma = Convex_Convergence_curve_AO_noma; 
-ANResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
-ANResults.Convex_Fake_Convergence_curve_AO_noma = Convex_Fake_Convergence_curve_AO_noma; 
-ANResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
-ANResults.Convex_Real_Convergence_curve_AO_noma = Convex_Real_Convergence_curve_AO_noma; 
-ANResults.feasible_record = feasible_record;
-ANResults.feasible_record_noma = feasible_record_noma; 
+A_NomaResults.Convex_min_Rk = Convex_min_Rk;
+A_NomaResults.Convex_min_Rk_noma = Convex_min_Rk_noma; 
+A_NomaResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
+A_NomaResults.Convex_Convergence_curve_AO_noma = Convex_Convergence_curve_AO_noma; 
+A_NomaResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
+A_NomaResults.Convex_Fake_Convergence_curve_AO_noma = Convex_Fake_Convergence_curve_AO_noma; 
+A_NomaResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
+A_NomaResults.Convex_Real_Convergence_curve_AO_noma = Convex_Real_Convergence_curve_AO_noma; 
+A_NomaResults.feasible_record = feasible_record;
+A_NomaResults.feasible_record_noma = feasible_record_noma; 
 
 % Processed data
-ANResults.valid_records_Qtd = valid_records_Qtd;
-ANResults.valid_records_Qtd_noma = valid_records_Qtd_noma; 
-ANResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
-ANResults.Convex_min_Rk_noma_mean = Convex_min_Rk_noma_mean; 
-ANResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
-ANResults.Convex_Convergence_curve_AO_noma_mean = Convex_Convergence_curve_AO_noma_mean; 
-ANResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
-ANResults.Convex_Fake_Convergence_curve_AO_noma_mean = Convex_Fake_Convergence_curve_AO_noma_mean; 
-ANResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
-ANResults.Convex_Real_Convergence_curve_AO_noma_mean = Convex_Real_Convergence_curve_AO_noma_mean; 
+A_NomaResults.valid_records_Qtd = valid_records_Qtd;
+A_NomaResults.valid_records_Qtd_noma = valid_records_Qtd_noma; 
+A_NomaResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
+A_NomaResults.Convex_min_Rk_noma_mean = Convex_min_Rk_noma_mean; 
+A_NomaResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
+A_NomaResults.Convex_Convergence_curve_AO_noma_mean = Convex_Convergence_curve_AO_noma_mean; 
+A_NomaResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
+A_NomaResults.Convex_Fake_Convergence_curve_AO_noma_mean = Convex_Fake_Convergence_curve_AO_noma_mean; 
+A_NomaResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
+A_NomaResults.Convex_Real_Convergence_curve_AO_noma_mean = Convex_Real_Convergence_curve_AO_noma_mean; 
 
 % Save
-save('A_NResults.mat', 'ANResults', '-v7.3');
+save('A_NomaResults.mat', 'A_NomaResults', '-v7.3');
