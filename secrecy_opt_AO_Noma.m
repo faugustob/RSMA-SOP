@@ -570,8 +570,6 @@ end
 
 %% Sine-Cosine optimization
 
-display('SCA is optimizing your problem');
-
 num_agents  = 1;
 Rmin=0;
 
@@ -618,7 +616,6 @@ AN_P_ratio = 1;
 
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
-display('Convex Approximation with AO');
 
 max_AO_iter = 3;           % Outer AO iterations
 max_SCA = 2;         % Inner SCA iterations for alpha subproblem
