@@ -611,7 +611,7 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-AN_P_ratio = 1;  
+AN_P_ratio = 0.8;  
 
 
 

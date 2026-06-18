@@ -32,8 +32,8 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 30; % number of rows of regularly arranged unit cells of RIS
-N_H = 30; % number of columns of regularly arranged unit cells of RIS
+N_V = 40; % number of rows of regularly arranged unit cells of RIS
+N_H = 40; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
@@ -278,8 +278,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M=12;
-N=12;
+M=16;
+N=16;
 
 Nsymb = M*N; 
 
@@ -570,7 +570,7 @@ AN_P_ratio = 1;
 display('Convex Approximation with AO');
 
 max_AO_iter = Max_iteration;           % Outer AO iterations
-max_SCA = 6;         % Inner SCA iterations for alpha subproblem
+max_SCA = 3;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
 Active_Gain_dB = 0; 
