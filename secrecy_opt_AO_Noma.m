@@ -611,13 +611,13 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-AN_P_ratio = 1;  
+AN_P_ratio = 0.9;  
 
 
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 
-max_AO_iter = 10;           % Outer AO iterations
+max_AO_iter = 5;           % Outer AO iterations
 max_SCA = 3;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
