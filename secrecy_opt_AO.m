@@ -20,9 +20,9 @@ K_h = 1;  % number of high speed legit users % 50 km/h
 K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 4; % Number of fake eavesdroppers
+nF = 2; % Number of fake eavesdroppers
 
-L = 1; % number of eavesdroppers
+L = 2; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
 delta_f = 15e3;      % Subcarrier spacing (Hz)
@@ -32,8 +32,8 @@ R = 10;
 
 m_rician = (R+1)^2/(2*R+1);
 
-N_V = 25; % number of rows of regularly arranged unit cells of RIS
-N_H = 25; % number of columns of regularly arranged unit cells of RIS
+N_V = 30; % number of rows of regularly arranged unit cells of RIS
+N_H = 30; % number of columns of regularly arranged unit cells of RIS
 Nr = N_V * N_H; % total number of unit cells of RIS
 
 d_x = floor(lambda/2 * 1000) / 1000; % horizontal size of RIS element
@@ -278,8 +278,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M=8;
-N=8;
+M=12;
+N=12;
 
 Nsymb = M*N; 
 
