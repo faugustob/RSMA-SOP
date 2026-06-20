@@ -2,7 +2,7 @@ clear; clc;
 cvx_clear;
 
 % %--- Choose how many workers (cores) you want ---
-numWorkers =10;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
 pool = gcp('nocreate');
