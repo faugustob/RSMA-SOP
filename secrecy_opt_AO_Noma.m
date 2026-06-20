@@ -796,7 +796,7 @@ for ao = 1:max_AO_iter
         current_real = min(min(sc_p_lk(nF+1:end,:)));
     else
         % Treat as outage
-        Rk = zeros(K,1);
+        R_k = zeros(K,1);
         current_fake = 0;
         current_real = 0;
         prev_min_Rk=0;        
