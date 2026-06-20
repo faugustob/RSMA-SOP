@@ -31,7 +31,7 @@ K_h = 1;  % number of high speed legit users % 50 km/h
 K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 4; % Number of fake eavesdroppers
+nF = 2; % Number of fake eavesdroppers
 
 L = 2; % number of eavesdroppers
 
@@ -107,7 +107,7 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 %N_V = 20; % number of rows of regularly arranged unit cells of RIS
 N_H = 20; % number of columns of regularly arranged unit cells of RIS
 
-nV_vec = 16:2:26;
+nV_vec = 16:2:30;
 
 
 %% ===================== PRE-ALLOCATION =====================
@@ -312,8 +312,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M = 8;
-N = 8;
+M = 16;
+N = 16;
 
 Nsymb = M*N; 
 
