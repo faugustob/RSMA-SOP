@@ -826,7 +826,6 @@ for ao = 1:max_AO_iter
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
-    rate_p_vec = log2(1 + sinr_p_k);
 
 
     [~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
@@ -846,7 +845,7 @@ for ao = 1:max_AO_iter
         current_real = min(min(sc_p_lk(nF+1:end,:)));
     else
         % Treat as outage
-        Rk = zeros(K,1);
+        R_k = zeros(K,1);
         current_fake = 0;
         current_real = 0;
         prev_min_Rk=0;        

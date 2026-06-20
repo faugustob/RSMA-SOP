@@ -779,13 +779,11 @@ for ao = 1:max_AO_iter
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
-    rate_p_vec = log2(1 + sinr_p_k);
 
 
     [sc_lk_noma,Rk_noma, sinr_k_noma, sinr_l_noma] = compute_sinr_sc_an_noma(...
     Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X_noma);
 
-    rate_noma= log2(1 + sinr_k_noma);
 
 
     % ================================================================

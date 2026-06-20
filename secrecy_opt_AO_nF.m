@@ -710,19 +710,15 @@ for ao = 1:max_AO_iter
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
-    rate_p_vec = log2(1 + sinr_p_k);
-
     % ================================================================
     % Handle feasibility properly
     % ================================================================
     if feasible_flag
-        Rk = rate_p_vec(:) + Ck;
-
         current_fake = min(min(sc_p_lk(1:nF,:)));
         current_real = min(min(sc_p_lk(nF+1:end,:)));
     else
         % Treat as outage
-        Rk = zeros(K,1);
+        R_k = zeros(K,1);
         current_fake = 0;
         current_real = 0;
         prev_min_Rk=0;        
@@ -736,7 +732,7 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost;
-        prev_min_Rk = min(Rk);
+        prev_min_Rk = min(R_k);
     end
 
  
