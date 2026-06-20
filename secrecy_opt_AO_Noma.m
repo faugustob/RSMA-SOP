@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 20; % number of samples for Monte Carlo simulation
+Ns = 60; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
