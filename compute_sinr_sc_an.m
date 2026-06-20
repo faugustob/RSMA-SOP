@@ -133,13 +133,23 @@ function [sc_c_lk,sc_p_lk,rate_c_min,rate_p_vec,R_k,sinr_c_k, sinr_p_k, sinr_c_l
     end
 
      C_k = zeros(K,1);
-        rate_c_available = rate_c_min;
-        for k = 1:K
-            deficit = max(Rmin - rate_p_vec(k), 0);
-            C_k(k) = min(deficit, rate_c_available);
-            rate_c_available = max(rate_c_available - C_k(k), 0);
-        end
+    rate_c_available = rate_c_min;
+    
+    % Step 1: Satisfy QoS / Rmin deficits
+    for k = 1:K
+        deficit = max(Rmin - rate_p_vec(k), 0);
+        C_k(k) = min(deficit, rate_c_available);
+        rate_c_available = max(rate_c_available - C_k(k), 0);
+    end
+    
+    % Step 2: Distribute remaining common rate to maximize sum-rate
+    if rate_c_available > 0
+        % You can split it equally among K users:
+        C_k = C_k + (rate_c_available / K); 
         
-        R_k = rate_p_vec(:) + C_k;
+        % OR give it entirely to the user with the best channel to max out sum-rate.
+    end
+    
+    R_k = rate_p_vec(:) + C_k;
       
 end

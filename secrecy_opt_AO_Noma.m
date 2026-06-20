@@ -2,17 +2,17 @@ clear; clc;
 cvx_clear;
 
 % %--- Choose how many workers (cores) you want ---
-numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
-                          % Recommended: feature('numcores') or feature('numcores')-1
+% numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+%                           % Recommended: feature('numcores') or feature('numcores')-1
+% 
+% pool = gcp('nocreate');
+% if ~isempty(pool)
+%     delete(pool);   % Stop existing pool
+% end
+% 
+% parpool('local', numWorkers);  % Start new one with desired workers
 
-pool = gcp('nocreate');
-if ~isempty(pool)
-    delete(pool);   % Stop existing pool
-end
-
-parpool('local', numWorkers);  % Start new one with desired workers
-
-Ns = 2000; % number of samples for Monte Carlo simulation
+Ns = 20; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -106,7 +106,7 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 N_H = 40; % number of rows of regularly arranged unit cells of RIS
 N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:6;
+Kh_vec = 1:1:5;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);
@@ -122,7 +122,7 @@ Convex_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
@@ -581,15 +581,6 @@ dim = K+1+Nr;
 ub=[ones(1,K+1),2*pi*ones(1,Nr)];
 alpha_min = 1e-4;
 lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
-zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
-
-Active_Gain_dB = 0; 
-zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
-
-
-% zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
-phi_Sr = 2*pi*rand(num_agents,Nr);
-phi_St = 2*pi*rand(num_agents,Nr);% transmission phases
 
 
 alpha = rand(num_agents, K+1); 
@@ -801,8 +792,6 @@ for ao = 1:max_AO_iter
     % Handle feasibility properly
     % ================================================================
     if feasible_flag
-        Rk = rate_p_vec(:) + Ck;
-
         current_fake = min(min(sc_p_lk(1:nF,:)));
         current_real = min(min(sc_p_lk(nF+1:end,:)));
     else
@@ -836,7 +825,7 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost;
-        prev_min_Rk = min(Rk);
+        prev_min_Rk = min(R_k);
     end
 
     if feasible_flag_noma && cost_noma > prev_cost_noma 
