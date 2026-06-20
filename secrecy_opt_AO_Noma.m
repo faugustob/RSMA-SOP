@@ -2,15 +2,15 @@ clear; clc;
 cvx_clear;
 
 %--- Choose how many workers (cores) you want ---
-numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
-                          % Recommended: feature('numcores') or feature('numcores')-1
-
-pool = gcp('nocreate');
-if ~isempty(pool)
-    delete(pool);   % Stop existing pool
-end
-
-parpool('local', numWorkers);  % Start new one with desired workers
+% numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+%                           % Recommended: feature('numcores') or feature('numcores')-1
+% 
+% pool = gcp('nocreate');
+% if ~isempty(pool)
+%     delete(pool);   % Stop existing pool
+% end
+% 
+% parpool('local', numWorkers);  % Start new one with desired workers
 
 Ns = 60; % number of samples for Monte Carlo simulation
 %rng(3);
@@ -122,7 +122,7 @@ Convex_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
