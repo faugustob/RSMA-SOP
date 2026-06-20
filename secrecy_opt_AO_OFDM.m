@@ -750,7 +750,7 @@ phi_St_ofdm = wrapToPi(angle(b0_ofdm)).';
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
 
-[~, sc_p_lk_ofdm, ~, ~, R_k_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
+[~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB_ofdm, HA_ofdm, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm);
@@ -829,7 +829,7 @@ for ao = 1:max_AO_iter
     rate_p_vec = log2(1 + sinr_p_k);
 
 
-    [~, sc_p_lk_ofdm, ~, ~, R_k_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
+    [~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
     Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB_ofdm, HA_ofdm, g_pq, ...
     Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
     zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm);
@@ -842,8 +842,6 @@ for ao = 1:max_AO_iter
     % Handle feasibility properly
     % ================================================================
     if feasible_flag
-        Rk = rate_p_vec(:) + Ck;
-
         current_fake = min(min(sc_p_lk(1:nF,:)));
         current_real = min(min(sc_p_lk(nF+1:end,:)));
     else
@@ -856,7 +854,6 @@ for ao = 1:max_AO_iter
 
    
     if feasible_flag_ofdm        
-        Rk_ofdm = rate_p_vec_ofdm(:) + Ck_ofdm; 
         current_fake_ofdm = min(min(sc_p_lk_ofdm(1:nF,:)));
         current_real_ofdm = min(min(sc_p_lk_ofdm(nF+1:end,:)));
     else
@@ -876,7 +873,7 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost;
-        prev_min_Rk = min(Rk);
+        prev_min_Rk = min(R_k);
     end
 
  
