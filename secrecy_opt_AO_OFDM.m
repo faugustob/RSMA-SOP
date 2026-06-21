@@ -1,18 +1,18 @@
 clear; clc;
 cvx_clear;
 
-% %--- Choose how many workers (cores) you want ---
-numWorkers =5;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
-                          % Recommended: feature('numcores') or feature('numcores')-1
+% % %--- Choose how many workers (cores) you want ---
+% numWorkers =5;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+%                           % Recommended: feature('numcores') or feature('numcores')-1
+% 
+% pool = gcp('nocreate');
+% if ~isempty(pool)
+%     delete(pool);   % Stop existing pool
+% end
+% 
+% parpool('local', numWorkers);  % Start new one with desired workers
 
-pool = gcp('nocreate');
-if ~isempty(pool)
-    delete(pool);   % Stop existing pool
-end
-
-parpool('local', numWorkers);  % Start new one with desired workers
-
-Ns = 200; % number of samples for Monte Carlo simulation
+Ns = 20; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -31,7 +31,7 @@ K_h = 1;  % number of high speed legit users % 50 km/h
 K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 4; % Number of fake eavesdroppers
+nF = 2; % Number of fake eavesdroppers
 
 L = 2; % number of eavesdroppers
 
@@ -39,8 +39,6 @@ L = 2; % number of eavesdroppers
 delta_f = 15e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
 
-L_tau = 8;   % 8 delay taps over max_tau (covers multipath + RIS)
-L_nu  = 8;   % 8 Doppler taps over [-max_nu, max_nu]
 
 R = 10;
 
@@ -106,42 +104,28 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 30; % number of rows of regularly arranged unit cells of RIS
-N_V = 30; % number of columns of regularly arranged unit cells of RIS
+N_H = 40; % number of rows of regularly arranged unit cells of RIS
+N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:10;
+SV_vec = 0:800:8000;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
-N_Kh = length(Kh_vec);
-feasible_record = zeros(Ns, N_Kh);
-Convex_min_Rk = zeros(Ns, N_Kh);
+N_SV = length(SV_vec);
+feasible_record = zeros(Ns, N_SV);
+Convex_min_Rk = zeros(Ns, N_SV);
 
-Convex_Convergence_curve_AO = zeros(Ns, N_Kh);
-Convex_Fake_Convergence_curve_AO = zeros(Ns, N_Kh);
-Convex_Real_Convergence_curve_AO = zeros(Ns, N_Kh);
+Convex_Convergence_curve_AO = zeros(Ns, N_SV);
+Convex_Fake_Convergence_curve_AO = zeros(Ns, N_SV);
+Convex_Real_Convergence_curve_AO = zeros(Ns, N_SV);
 
-feasible_record_ofdm = zeros(Ns, N_Kh);
-Convex_min_Rk_ofdm = zeros(Ns, N_Kh);
-Convex_Convergence_curve_AO_ofdm = zeros(Ns, N_Kh);
-Convex_Fake_Convergence_curve_AO_ofdm = zeros(Ns, N_Kh);
-Convex_Real_Convergence_curve_AO_ofdm = zeros(Ns, N_Kh);
-
-
-parfor mc_iter = 1:Ns
-
-    % ================================================================
-% INITIALIZE TEMPORARIES (fixes uninitialized warnings)
-% ================================================================
-taus_u     = zeros(Pe, 1);
-nus_u      = zeros(Pe, 1);
-taus_u_AN  = zeros(Pe, 1);
-nus_u_AN   = zeros(Pe, 1);
-feasible_flag = false;
-feasible_flag_ofdm = false;
-for kh_idx = 1:N_Kh
+feasible_record_ofdm = zeros(Ns, N_SV);
+Convex_min_Rk_ofdm = zeros(Ns, N_SV);
+Convex_Convergence_curve_AO_ofdm = zeros(Ns, N_SV);
+Convex_Fake_Convergence_curve_AO_ofdm = zeros(Ns, N_SV);
+Convex_Real_Convergence_curve_AO_ofdm = zeros(Ns, N_SV);
 
 
-K_h = Kh_vec(kh_idx);
-K = K_h+K_s;
+
+
 
 Nr = N_V * N_H; % total number of unit cells of RIS
 
@@ -187,6 +171,24 @@ omega_e = (1/Pe)*ones(K+nF+L,Pe); % spread parameter
 % Orbit geometry
 orbit_normal = [1; 0; 0];
 Rs = norm(S_xyz);
+
+
+for mc_iter = 1:Ns
+
+    % ================================================================
+% INITIALIZE TEMPORARIES (fixes uninitialized warnings)
+% ================================================================
+taus_u     = zeros(Pe, 1);
+nus_u      = zeros(Pe, 1);
+taus_u_AN  = zeros(Pe, 1);
+nus_u_AN   = zeros(Pe, 1);
+feasible_flag = false;
+feasible_flag_ofdm = false;
+
+
+for sv_idx = 1:N_SV
+
+S_v = SV_vec(sv_idx);
 
 omega_orb = (S_v / Rs) * orbit_normal;
 
@@ -893,15 +895,15 @@ for ao = 1:max_AO_iter
     % Logging
     % ================================================================
       fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | K_h = %2.1f | Ns=%2d\n'], ...
+             'max(xi)=%.2e | V_s = %2.1f | Ns=%2d\n'], ...
             ao, feasible_flag, best_fake_secrecy, ...
-            best_fake_secrecy - prev_fake, max(xi_val), K_h, mc_iter);
+            best_fake_secrecy - prev_fake, max(xi_val), S_v, mc_iter);
 
 
         fprintf(['OFDM: AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
-             'max(xi)=%.2e | K_h = %2.1f | Ns=%2d\n'], ...
+             'max(xi)=%.2e | V_s = %2.1f | Ns=%2d\n'], ...
             ao, feasible_flag_ofdm, best_fake_secrecy_ofdm, ...
-            best_fake_secrecy_ofdm - prev_fake_ofdm, max(xi_val_ofdm), K_h , mc_iter);
+            best_fake_secrecy_ofdm - prev_fake_ofdm, max(xi_val_ofdm), S_v , mc_iter);
 
     % if ~feasible_flag || abs(best_fake_secrecy)<1e-8 
     %     break;
@@ -921,20 +923,20 @@ end
 
 
 % fprintf('\nConvex AO Finished! Best Fake Secrecy Rate = %.8f\n', best_fake_secrecy);
- feasible_record(mc_iter,kh_idx) = feasible_flag;
- feasible_record_ofdm(mc_iter,kh_idx) = feasible_flag_ofdm;
+ feasible_record(mc_iter,sv_idx) = feasible_flag;
+ feasible_record_ofdm(mc_iter,sv_idx) = feasible_flag_ofdm;
 
- Convex_min_Rk(mc_iter,kh_idx) = prev_min_Rk;
- Convex_min_Rk_ofdm(mc_iter,kh_idx) = prev_min_Rk_ofdm;
+ Convex_min_Rk(mc_iter,sv_idx) = prev_min_Rk;
+ Convex_min_Rk_ofdm(mc_iter,sv_idx) = prev_min_Rk_ofdm;
 
 
- Convex_Convergence_curve_AO(mc_iter,kh_idx) = prev_cost;
- Convex_Fake_Convergence_curve_AO(mc_iter,kh_idx) = best_fake_secrecy;
- Convex_Real_Convergence_curve_AO(mc_iter,kh_idx) = best_real_secrecy;
+ Convex_Convergence_curve_AO(mc_iter,sv_idx) = prev_cost;
+ Convex_Fake_Convergence_curve_AO(mc_iter,sv_idx) = best_fake_secrecy;
+ Convex_Real_Convergence_curve_AO(mc_iter,sv_idx) = best_real_secrecy;
 
- Convex_Convergence_curve_AO_ofdm(mc_iter,kh_idx) = prev_cost_ofdm;
- Convex_Fake_Convergence_curve_AO_ofdm(mc_iter,kh_idx) = best_fake_secrecy_ofdm;
- Convex_Real_Convergence_curve_AO_ofdm(mc_iter,kh_idx) = best_real_secrecy_ofdm;
+ Convex_Convergence_curve_AO_ofdm(mc_iter,sv_idx) = prev_cost_ofdm;
+ Convex_Fake_Convergence_curve_AO_ofdm(mc_iter,sv_idx) = best_fake_secrecy_ofdm;
+ Convex_Real_Convergence_curve_AO_ofdm(mc_iter,sv_idx) = best_real_secrecy_ofdm;
 
 
 % fprintf('alpha=[%.4f %.4f %.4f] AN_idx=%d iter=%d\n', alpha, AN_idx,mc_iter);
@@ -977,12 +979,12 @@ Convex_Fake_Convergence_curve_AO_ofdm_mean = sum(Convex_Fake_Convergence_curve_A
 Convex_Real_Convergence_curve_AO_ofdm_mean = sum(Convex_Real_Convergence_curve_AO_ofdm.*feasible_record_ofdm,1)./valid_records_Qtd_ofdm;
 
 hold on;
-plot(Kh_vec, Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(1,:))
-plot(Kh_vec, Convex_Convergence_curve_AO_ofdm_mean(1:end), 'Color', colors(5,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(5,:))
+plot(SV_vec, Convex_Convergence_curve_AO_mean(1:end), 'Color', colors(1,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','o', 'MarkerIndices',1:markerInterval:length(SV_vec), 'MarkerFaceColor',colors(1,:))
+plot(SV_vec, Convex_Convergence_curve_AO_ofdm_mean(1:end), 'Color', colors(5,:), 'LineStyle','-.', 'LineWidth',2, 'Marker','s', 'MarkerIndices',1:markerInterval:length(SV_vec), 'MarkerFaceColor',colors(5,:))
 
-xlabel('$K_h$','FontWeight','bold','FontSize',12,'Interpreter','latex');
+xlabel('$v_s$','FontWeight','bold','FontSize',12,'Interpreter','latex');
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
-legend('RSMA', 'NOMA', 'OFDM', 'Location','best','FontSize',10);
+legend('OTFS', 'OFDM', 'Location','best','FontSize',10);
 grid on;
 ax = gca;
 ax.GridAlpha = 0.3; % Lighter grid
@@ -994,21 +996,20 @@ figure('Color','w');
 
 hold on;
 % RSMA Curves
-plot(Kh_vec, Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(1,:));
-plot(Kh_vec, Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(3,:));
-plot(Kh_vec, Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(Kh_vec), 'MarkerFaceColor',colors(3,:));
+plot(SV_vec, Convex_min_Rk_mean(1:end), 'Color', colors(1,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(SV_vec), 'MarkerFaceColor',colors(1,:));
+plot(SV_vec, Convex_Fake_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','--', 'LineWidth',1.5, 'Marker','s', 'MarkerIndices',1:markerInterval:length(SV_vec), 'MarkerFaceColor',colors(3,:));
+plot(SV_vec, Convex_Real_Convergence_curve_AO_mean(1:end), 'Color', colors(3,:), 'LineStyle','-', 'LineWidth',1.5, 'Marker','^', 'MarkerIndices',1:markerInterval:length(SV_vec), 'MarkerFaceColor',colors(3,:));
 
 
 % OFDM Curves
-plot(Kh_vec, Convex_min_Rk_ofdm_mean, 'Color', colors(5,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'o');
-plot(Kh_vec, Convex_Fake_Convergence_curve_AO_ofdm_mean, 'Color', colors(5,:), 'LineStyle', ':', 'LineWidth', 1.5, 'Marker', 'o');
-plot(Kh_vec, Convex_Real_Convergence_curve_AO_ofdm_mean, 'Color', colors(5,:), 'LineStyle', '-', 'LineWidth', 1.5, 'Marker', 'p', 'MarkerFaceColor',colors(5,:));
+plot(SV_vec, Convex_min_Rk_ofdm_mean, 'Color', colors(5,:), 'LineStyle', '--', 'LineWidth', 1.5, 'Marker', 'o');
+plot(SV_vec, Convex_Fake_Convergence_curve_AO_ofdm_mean, 'Color', colors(5,:), 'LineStyle', ':', 'LineWidth', 1.5, 'Marker', 'o');
+plot(SV_vec, Convex_Real_Convergence_curve_AO_ofdm_mean, 'Color', colors(5,:), 'LineStyle', '-', 'LineWidth', 1.5, 'Marker', 'p', 'MarkerFaceColor',colors(5,:));
 
-legend('Min Rate (RSMA)', 'Virtual SC (RSMA)', 'Real SC (RSMA)', ...
-       'Min Rate (NOMA)', 'Virtual SC (NOMA)', 'Real SC (NOMA)', ...
+legend('Min Rate (OTFS)', 'Virtual SC (OTFS)', 'Real SC (OTFS)', ...
        'Min Rate (OFDM)', 'Virtual SC (OFDM)', 'Real SC (OFDM)', ...
        'Location', 'best', 'FontSize', 11);
-xlabel('$K_h$','FontWeight','bold','FontSize',12,'Interpreter','latex');
+xlabel('$v_s (m/s)$','FontWeight','bold','FontSize',12,'Interpreter','latex');
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
 grid on;
 ax = gca;
@@ -1017,30 +1018,30 @@ ax.LineWidth = 1.1;
 box on;
 
 % Store in struct
-ANResults = struct();
+OFDMResults = struct();
 % Original data
-ANResults.Convex_min_Rk = Convex_min_Rk;
-ANResults.Convex_min_Rk_ofdm = Convex_min_Rk_ofdm; % <--- Add
-ANResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
-ANResults.Convex_Convergence_curve_AO_ofdm = Convex_Convergence_curve_AO_ofdm; % <--- Add
-ANResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
-ANResults.Convex_Fake_Convergence_curve_AO_ofdm = Convex_Fake_Convergence_curve_AO_ofdm; % <--- Add
-ANResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
-ANResults.Convex_Real_Convergence_curve_AO_ofdm = Convex_Real_Convergence_curve_AO_ofdm; % <--- Add
-ANResults.feasible_record = feasible_record;
-ANResults.feasible_record_ofdm = feasible_record_ofdm; % <--- Add
+OFDMResults.Convex_min_Rk = Convex_min_Rk;
+OFDMResults.Convex_min_Rk_ofdm = Convex_min_Rk_ofdm; % <--- Add
+OFDMResults.Convex_Convergence_curve_AO = Convex_Convergence_curve_AO;
+OFDMResults.Convex_Convergence_curve_AO_ofdm = Convex_Convergence_curve_AO_ofdm; % <--- Add
+OFDMResults.Convex_Fake_Convergence_curve_AO = Convex_Fake_Convergence_curve_AO;
+OFDMResults.Convex_Fake_Convergence_curve_AO_ofdm = Convex_Fake_Convergence_curve_AO_ofdm; % <--- Add
+OFDMResults.Convex_Real_Convergence_curve_AO = Convex_Real_Convergence_curve_AO;
+OFDMResults.Convex_Real_Convergence_curve_AO_ofdm = Convex_Real_Convergence_curve_AO_ofdm; % <--- Add
+OFDMResults.feasible_record = feasible_record;
+OFDMResults.feasible_record_ofdm = feasible_record_ofdm; % <--- Add
 
 % Processed data
-ANResults.valid_records_Qtd = valid_records_Qtd;
-ANResults.valid_records_Qtd_ofdm = valid_records_Qtd_ofdm; % <--- Add
-ANResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
-ANResults.Convex_min_Rk_ofdm_mean = Convex_min_Rk_ofdm_mean; % <--- Add
-ANResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
-ANResults.Convex_Convergence_curve_AO_ofdm_mean = Convex_Convergence_curve_AO_ofdm_mean; % <--- Add
-ANResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
-ANResults.Convex_Fake_Convergence_curve_AO_ofdm_mean = Convex_Fake_Convergence_curve_AO_ofdm_mean; % <--- Add
-ANResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
-ANResults.Convex_Real_Convergence_curve_AO_ofdm_mean = Convex_Real_Convergence_curve_AO_ofdm_mean; % <--- Add
+OFDMResults.valid_records_Qtd = valid_records_Qtd;
+OFDMResults.valid_records_Qtd_ofdm = valid_records_Qtd_ofdm; % <--- Add
+OFDMResults.Convex_min_Rk_mean = Convex_min_Rk_mean;
+OFDMResults.Convex_min_Rk_ofdm_mean = Convex_min_Rk_ofdm_mean; % <--- Add
+OFDMResults.Convex_Convergence_curve_AO_mean = Convex_Convergence_curve_AO_mean;
+OFDMResults.Convex_Convergence_curve_AO_ofdm_mean = Convex_Convergence_curve_AO_ofdm_mean; % <--- Add
+OFDMResults.Convex_Fake_Convergence_curve_AO_mean = Convex_Fake_Convergence_curve_AO_mean;
+OFDMResults.Convex_Fake_Convergence_curve_AO_ofdm_mean = Convex_Fake_Convergence_curve_AO_ofdm_mean; % <--- Add
+OFDMResults.Convex_Real_Convergence_curve_AO_mean = Convex_Real_Convergence_curve_AO_mean;
+OFDMResults.Convex_Real_Convergence_curve_AO_ofdm_mean = Convex_Real_Convergence_curve_AO_ofdm_mean; % <--- Add
 
 % Save
-save('A_NResults.mat', 'ANResults', '-v7.3');
+save('OFDMResults.mat', 'OFDMResults', '-v7.3');
