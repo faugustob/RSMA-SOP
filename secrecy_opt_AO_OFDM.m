@@ -2,17 +2,17 @@ clear; clc;
 cvx_clear;
 
 % % %--- Choose how many workers (cores) you want ---
-% numWorkers =5;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
-%                           % Recommended: feature('numcores') or feature('numcores')-1
-% 
-% pool = gcp('nocreate');
-% if ~isempty(pool)
-%     delete(pool);   % Stop existing pool
-% end
-% 
-% parpool('local', numWorkers);  % Start new one with desired workers
+numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+                          % Recommended: feature('numcores') or feature('numcores')-1
 
-Ns = 20; % number of samples for Monte Carlo simulation
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   % Stop existing pool
+end
+
+parpool('local', numWorkers);  % Start new one with desired workers
+
+Ns = 200; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -173,7 +173,7 @@ orbit_normal = [1; 0; 0];
 Rs = norm(S_xyz);
 
 
-for mc_iter = 1:Ns
+parfor mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
