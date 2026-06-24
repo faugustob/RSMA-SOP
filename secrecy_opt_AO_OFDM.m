@@ -1,7 +1,7 @@
 clear; clc;
 cvx_clear;
 
-% % %--- Choose how many workers (cores) you want ---
+% %--- Choose how many workers (cores) you want ---
 numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 500; % number of samples for Monte Carlo simulation
+Ns = 100; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -173,7 +173,7 @@ orbit_normal = [1; 0; 0];
 Rs = norm(S_xyz);
 
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
@@ -788,7 +788,7 @@ for ao = 1:max_AO_iter
         Rmin,L_node,E_node,problem,b0,alpha,K, nF, sigma2, Pw, AN_P_ratio,Ck);
 
     [phi_St_ofdm,cost_opt_ofdm] = optimize_phi_manopt_fixed_alpha(...
-        Rmin,L_node_ofdm,E_node_ofdm,problem,b0_ofdm,alpha_ofdm,K, nF, sigma2, Pw, AN_P_ratio,Ck);
+        Rmin,L_node_ofdm,E_node_ofdm,problem,b0_ofdm,alpha_ofdm,K, nF, sigma2, Pw, AN_P_ratio,Ck_ofdm);
 
     b0 = exp(1i*phi_St(:));
     b0_ofdm = exp(1i*phi_St_ofdm(:));
