@@ -22,8 +22,8 @@ function Hp = compute_Hp(tau, nu, M, N, T, Deltaf, method,OTFStype)
     % profile with an expected average power gain of 1.0, protecting the 
     % absolute physical link budget (Plos, PLj, Pw, sigma2) in the main script.
     % =========================================================================
-    MN = M * N
-    matrix_norm = norm(Hp, 'fro')
+    % MN = M * N
+    % matrix_norm = norm(Hp, 'fro')
     % 
     % if matrix_norm > 1e-12
     %     Hp = Hp / (matrix_norm / MN);
