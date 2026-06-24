@@ -173,7 +173,7 @@ orbit_normal = [1; 0; 0];
 Rs = norm(S_xyz);
 
 
-for mc_iter = 1:Ns
+parfor mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
@@ -746,7 +746,7 @@ phi_St_ofdm = wrapToPi(angle(b0_ofdm)).';
 
 
 
-[~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+[~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an_ofdm(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
@@ -823,7 +823,7 @@ for ao = 1:max_AO_iter
     % ================================================================
     % Final evaluation
     % ================================================================
-    [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+    [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an_ofdm(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
