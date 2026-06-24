@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 100; % number of samples for Monte Carlo simulation
+Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -106,7 +106,7 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 N_H = 40; % number of rows of regularly arranged unit cells of RIS
 N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:8;
+Kh_vec = 1:1:7;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);
@@ -969,7 +969,6 @@ plot(Kh_vec, Convex_Real_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), '
 
 legend('Min Rate (RSMA)', 'Virtual SC (RSMA)', 'Real SC (RSMA)', ...
        'Min Rate (NOMA)', 'Virtual SC (NOMA)', 'Real SC (NOMA)', ...
-       'Min Rate (OFDM)', 'Virtual SC (OFDM)', 'Real SC (OFDM)', ...
        'Location', 'best', 'FontSize', 11);
 xlabel('$K_h$','FontWeight','bold','FontSize',12,'Interpreter','latex');
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
