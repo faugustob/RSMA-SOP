@@ -1,8 +1,8 @@
 clear; clc;
 cvx_clear;
 
-% --- Choose how many workers (cores) you want ---
-numWorkers = 8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+% %--- Choose how many workers (cores) you want ---
+numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
 pool = gcp('nocreate');
@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 60; % number of samples for Monte Carlo simulation
+Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -106,7 +106,7 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 N_H = 40; % number of rows of regularly arranged unit cells of RIS
 N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:5;
+Kh_vec = 1:1:7;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);
@@ -318,8 +318,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M=16;
-N=16;
+M=8;
+N=8;
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
@@ -581,6 +581,15 @@ dim = K+1+Nr;
 ub=[ones(1,K+1),2*pi*ones(1,Nr)];
 alpha_min = 1e-4;
 lb = [alpha_min * ones(1,K+1),zeros(1,Nr)];
+zeta_k_St = ones(1,Nr); % RIS amplitude coefficients, we may use it to boost for active RIS
+
+Active_Gain_dB = 0; 
+zeta_k_St = (10^(Active_Gain_dB/10)) * ones(1, Nr);
+
+
+% zeta_k_Sr = rand(Num_agents,Nr); % reflection coefficients
+phi_Sr = 2*pi*rand(num_agents,Nr);
+phi_St = 2*pi*rand(num_agents,Nr);% transmission phases
 
 
 alpha = rand(num_agents, K+1); 
@@ -602,13 +611,13 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-AN_P_ratio = 0.9;  
+AN_P_ratio = 1;  
 
 
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 
-max_AO_iter = 5;           % Outer AO iterations
+max_AO_iter = 10;           % Outer AO iterations
 max_SCA = 3;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
@@ -779,11 +788,13 @@ for ao = 1:max_AO_iter
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
+    rate_p_vec = log2(1 + sinr_p_k);
 
 
     [sc_lk_noma,Rk_noma, sinr_k_noma, sinr_l_noma] = compute_sinr_sc_an_noma(...
     Pe,P,Q_j,nF+L,K,delta_f,Plos,PLj,Nr,HB,HA,g_pq,Nsymb,reflect,h_rp,h_jq,h_e,zeta_k_St,Active_Gain_dB,AN_P_ratio,X_noma);
 
+    rate_noma= log2(1 + sinr_k_noma);
 
 
     % ================================================================
@@ -794,7 +805,7 @@ for ao = 1:max_AO_iter
         current_real = min(min(sc_p_lk(nF+1:end,:)));
     else
         % Treat as outage
-        R_k = zeros(K,1);
+        Rk = zeros(K,1);
         current_fake = 0;
         current_real = 0;
         prev_min_Rk=0;        
@@ -958,7 +969,6 @@ plot(Kh_vec, Convex_Real_Convergence_curve_AO_noma_mean, 'Color', colors(4,:), '
 
 legend('Min Rate (RSMA)', 'Virtual SC (RSMA)', 'Real SC (RSMA)', ...
        'Min Rate (NOMA)', 'Virtual SC (NOMA)', 'Real SC (NOMA)', ...
-       'Min Rate (OFDM)', 'Virtual SC (OFDM)', 'Real SC (OFDM)', ...
        'Location', 'best', 'FontSize', 11);
 xlabel('$K_h$','FontWeight','bold','FontSize',12,'Interpreter','latex');
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');

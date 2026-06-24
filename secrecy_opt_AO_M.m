@@ -3,7 +3,7 @@ cvx_clear;
 
 
 % --- Choose how many workers (cores) you want ---
-numWorkers = 5;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+numWorkers = 3;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
 pool = gcp('nocreate');
@@ -13,7 +13,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 10; % number of samples for Monte Carlo simulation
+Ns = 100; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -106,8 +106,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 
 
 
-N_V = 30; % number of rows of regularly arranged unit cells of RIS
-N_H = 30; % number of columns of regularly arranged unit cells of RIS
+N_V = 20; % number of rows of regularly arranged unit cells of RIS
+N_H = 20; % number of columns of regularly arranged unit cells of RIS
 
 M_vec = 16:1:26;
 
@@ -121,6 +121,16 @@ Convex_Real_Convergence_curve_AO = zeros(Ns, num_M);
 
 %tic;
 parfor mc_iter = 1:Ns
+
+% ================================================================
+% INITIALIZE TEMPORARIES (fixes uninitialized warnings)
+% ================================================================
+taus_u     = zeros(Pe, 1);
+nus_u      = zeros(Pe, 1);
+taus_u_AN  = zeros(Pe, 1);
+nus_u_AN   = zeros(Pe, 1);
+feasible_flag = false;
+prev_min_Rk   = 0;
 
 Nr = N_V * N_H; % total number of unit cells of RIS
 
@@ -177,7 +187,13 @@ vAN = cross(omega_orb, AN_xyz);
 % RIS velocity due to Earth rotation (ECI)
 vR = [0;0;0];
 
-%sigma_ang = deg2rad(30);   % angular spread
+sigma_ang = deg2rad(30);   % angular spread
+
+for M_idx = 1:num_M
+    
+M = M_vec(M_idx);
+N = 16;
+
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
@@ -308,10 +324,10 @@ reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
 % Satellite to RIS delays and doppler coefficients.
 [taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
-    c, S_xyz, vS, R_xyz, vR, f_c, P, tau_rms);
+    c, S_xyz, vS, R_xyz, vR, f_c, P, tau_rms,sigma_ang);
 
 [taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vAN, R_xyz, vR, f_c, P, tau_rms);
+    c, AN_xyz, vAN, R_xyz, vR, f_c, P, tau_rms,sigma_ang);
 
 %Channels
 for p = 1:P
@@ -366,7 +382,7 @@ for k =1:K
 
     % RIS to legitimate users delays and doppler coefficients.
     [taus_k, nus_k, u_paths_k] = compute_delay_and_doppler( ...
-    c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, tau_rms);
+    c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, tau_rms,sigma_ang);
   
 
       for p=1:P
@@ -382,10 +398,10 @@ for k =1:K
 
     % sat to legitimate users delays and doppler coefficients.
     [taus_u, nus_u, u_paths_u] = compute_delay_and_doppler( ...
-    c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, tau_rms);
+    c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, tau_rms,sigma_ang);
 
     [taus_u_AN, nus_u_AN, u_paths_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, tau_rms);
+    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, tau_rms,sigma_ang);
 
     g_pq(:,:,k,1) = exp(1i*2*pi*(taus_R*nus_k'));    
     g_pq(:,:,k,2) = exp(1i*2*pi*(taus_R_AN*nus_k'));    
@@ -421,10 +437,6 @@ end
 
 
 
-for M_idx = 1:num_M
-    
-M = M_vec(M_idx);
-N = 16;
 
 Nsymb = M*N; 
 
@@ -487,15 +499,15 @@ for l=1:nF+L
     
         % RIS to eavesdropper users delays and doppler coefficients.
         [taus_l, nus_l, u_paths_l] = compute_delay_and_doppler( ...
-        c, R_xyz, vR, User_l_loc, v_l, f_c, Q_j, tau_rms);
+        c, R_xyz, vR, User_l_loc, v_l, f_c, Q_j, tau_rms,sigma_ang);
     
         % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l, nus_u_l, u_paths_u] = compute_delay_and_doppler( ...
-        c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, tau_rms);    
+        c, S_xyz, vS, User_l_loc, v_l, f_c, Pe, tau_rms,sigma_ang);    
 
            % sat to eavesdropper users users delays and doppler coefficients.
         [taus_u_l_AN, nus_u_l_AN, u_paths_u_AN] = compute_delay_and_doppler( ...
-        c, AN_xyz, vAN, User_l_loc, v_l, f_c, Pe, tau_rms);
+        c, AN_xyz, vAN, User_l_loc, v_l, f_c, Pe, tau_rms,sigma_ang);
     
         
         for q = 1:Q_j
