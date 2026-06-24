@@ -1,7 +1,7 @@
 clear; clc;
 %% Parameters
-M = 16;
-N = 16;
+M = 3;
+N = 3;
 MN = M*N;
 Deltaf = 15e3;
 T = 1/Deltaf;
@@ -37,11 +37,6 @@ fprintf('Matrix Dimensions: %d x %d (Passed)\n', MN, MN);
 fprintf('Raw OFDM Channel Average Power Gain: %.4f\n', gain_ofdm);
 fprintf('Raw MC-OTFS Channel Average Power Gain: %.4f\n', gain_otfs);
 fprintf('Raw Zak-OTFS Channel Average Power Gain: %.4f\n', gain_zak);
-
-% 3. Normalize matrices to ensure energy conservation and a valid test
-H_ofdm = H_ofdm / sqrt(gain_ofdm);
-H_otfs = H_otfs / sqrt(gain_otfs);
-H_zak  = H_zak  / sqrt(gain_zak);
 
 fprintf('\nPost-Normalization Gains (Target = 1.0):\n');
 fprintf('-> OFDM: %.4f | MC-OTFS: %.4f | Zak-OTFS: %.4f\n', ...

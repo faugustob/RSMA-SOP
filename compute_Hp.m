@@ -22,12 +22,12 @@ function Hp = compute_Hp(tau, nu, M, N, T, Deltaf, method,OTFStype)
     % profile with an expected average power gain of 1.0, protecting the 
     % absolute physical link budget (Plos, PLj, Pw, sigma2) in the main script.
     % =========================================================================
-    MN = M * N;
-    matrix_norm = norm(Hp, 'fro');
-    
-    if matrix_norm > 1e-12
-        Hp = Hp / (matrix_norm / sqrt(MN));
-    end
+    MN = M * N
+    matrix_norm = norm(Hp, 'fro')
+    % 
+    % if matrix_norm > 1e-12
+    %     Hp = Hp / (matrix_norm / MN);
+    % end
 
 
 end
@@ -203,14 +203,14 @@ end
                     c = l  + k *M + 1;
     
                     % ---- h_{P,1} ----
-                    pref1 = factor_common_exp * (1/sqrt(M*N)) * (1 - tau/T) * S_n;
+                    pref1 = factor_common_exp * (1/(M*N)) * (1 - tau/T) * S_n;
                     term_exp1 = exp(1j*pi * ((tau/T + 1) * (delta + nu/Deltaf)));
                     phase1 = exp(1j*2*pi * ( (Mmat*lp)/M - (Mprime*l)/M - Mprime*(tau/T) ));
                     sinc1 = sinc((delta + nu/Deltaf)*(1 - tau/T));
                     hP1 = pref1 * sum( (term_exp1 .* phase1 .* sinc1), 'all' );
     
                     % ---- h_{P,2} ----
-                    pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/sqrt(M*N)) * (tau/T) * S_n;
+                    pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/(M*N)) * (tau/T) * S_n;
                     term_exp2 = exp(1j*2*pi * ( (Mmat*lp)/M - (Mprime*l)/M - Mprime*(tau/T) ));
                     phase2 = exp(1j*pi*(tau/T)*(delta + nu/Deltaf));
                     sinc2 = sinc((delta + nu/Deltaf)*(tau/T));
@@ -234,7 +234,7 @@ end
     function Hp = Hp_blocked(tau, nu, M, N, T, Deltaf)
     % Hp_blocked  Build Hp (MN x MN) using block computation for each (k',k)
     
-    MN = M*N;
+    MN = (M*N);
     Hp = complex(zeros(MN, MN));
     
     nvec = 0:(N-1);
@@ -270,8 +270,8 @@ end
             alpha_n = (kp-k)/N - nu/Deltaf;
             S_n = sum(exp(-j2pi * (nvec.' * alpha_n)));
     
-            pref1 = factor_common_exp * (1/sqrt(M*N)) * (1 - tau/T) * S_n;
-            pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/sqrt(M*N)) * (tau/T) * S_n;
+            pref1 = factor_common_exp * (1/(M*N)) * (1 - tau/T) * S_n;
+            pref2 = factor_common_exp * exp(-j2pi*(k/N)) * (1/(M*N)) * (tau/T) * S_n;
     
             % --- Build MxM block for all (l',l) ---
     
