@@ -106,7 +106,7 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 N_H = 40; % number of rows of regularly arranged unit cells of RIS
 N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:7;
+Kh_vec = 1:1:8;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);

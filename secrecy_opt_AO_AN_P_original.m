@@ -20,7 +20,7 @@ K_h = 1;  % number of high speed legit users % 50 km/h
 K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 4; % Number of fake eavesdroppers
+nF = 2; % Number of fake eavesdroppers
 
 L = 2; % number of eavesdroppers
 
