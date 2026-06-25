@@ -312,8 +312,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M = 16;
-N = 16;
+M = 8;
+N = 8;
 
 Nsymb = M*N; 
 
@@ -547,7 +547,7 @@ end
 %display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 2;
+Max_iteration = 5;
 Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
