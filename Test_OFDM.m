@@ -1,7 +1,7 @@
 clear; clc;
 %% Parameters
-M = 3;
-N = 3;
+M = 64;
+N = 64;
 MN = M*N;
 Deltaf = 15e3;
 T = 1/Deltaf;
@@ -13,9 +13,9 @@ SNRdB = 0:2:30;
 Nframes = 500;
 
 %% Build channel matrices
-H_ofdm = compute_Hp(tau,nu,M,N,T,Deltaf,'loop','ofdm');
-H_otfs = compute_Hp(tau,nu,M,N,T,Deltaf,'loop','mc');
-H_zak  = compute_Hp(tau,nu,M,N,T,Deltaf,'loop','zakr');
+H_ofdm = compute_Hp(tau,nu,M,N,T,Deltaf,'blocked','ofdm');
+H_otfs = compute_Hp(tau,nu,M,N,T,Deltaf,'blocked','mc');
+H_zak  = compute_Hp(tau,nu,M,N,T,Deltaf,'blocked','zakr');
 
 %% =========================================================================
 %% SANITY CHECK & VALIDITY CORRECTION
