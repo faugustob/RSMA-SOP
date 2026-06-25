@@ -28,12 +28,12 @@ nSat = 2;
 
 %Number of nodes
 K_h = 1;  % number of high speed legit users % 50 km/h
-K_s = 1;  % number of slow speed legit users % 1.2 m/s
+K_s = 0;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
-nF = 2; % Number of fake eavesdroppers
+nF = 1; % Number of fake eavesdroppers
 
-L = 2; % number of eavesdroppers
+L = 1; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
 delta_f = 15e3;      % Subcarrier spacing (Hz)
