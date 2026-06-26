@@ -2,15 +2,15 @@ clear; clc;
 cvx_clear;
 
 % %--- Choose how many workers (cores) you want ---
-numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
-                          % Recommended: feature('numcores') or feature('numcores')-1
+% numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+%                           % Recommended: feature('numcores') or feature('numcores')-1
+% 
+% pool = gcp('nocreate');
+% if ~isempty(pool)
+%     delete(pool);   % Stop existing pool
+% end
 
-pool = gcp('nocreate');
-if ~isempty(pool)
-    delete(pool);   % Stop existing pool
-end
-
-parpool('local', numWorkers);  % Start new one with desired workers
+% parpool('local', numWorkers);  % Start new one with desired workers
 
 Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
@@ -103,8 +103,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 40; % number of rows of regularly arranged unit cells of RIS
-N_V = 40; % number of columns of regularly arranged unit cells of RIS
+N_H = 42; % number of rows of regularly arranged unit cells of RIS
+N_V = 42; % number of columns of regularly arranged unit cells of RIS
 
 Kh_vec = 1:1:6;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
@@ -122,7 +122,7 @@ Convex_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
@@ -318,8 +318,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M=8;
-N=8;
+M=16;
+N=16;
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
@@ -617,7 +617,7 @@ AN_P_ratio = 1;
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 
-max_AO_iter = 10;           % Outer AO iterations
+max_AO_iter = 5;           % Outer AO iterations
 max_SCA = 3;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
