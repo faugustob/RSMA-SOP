@@ -2,15 +2,15 @@ clear; clc;
 cvx_clear;
 
 % % %--- Choose how many workers (cores) you want ---
-% numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
-%                           % Recommended: feature('numcores') or feature('numcores')-1
-% 
-% pool = gcp('nocreate');
-% if ~isempty(pool)
-%     delete(pool);   % Stop existing pool
-% end
-% 
-% parpool('local', numWorkers);  % Start new one with desired workers
+numWorkers =2;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+                          % Recommended: feature('numcores') or feature('numcores')-1
+
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   % Stop existing pool
+end
+
+parpool('local', numWorkers);  % Start new one with desired workers
 
 Ns = 50; % number of samples for Monte Carlo simulation
 %rng(3);
@@ -104,8 +104,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 40; % number of rows of regularly arranged unit cells of RIS
-N_V = 40; % number of columns of regularly arranged unit cells of RIS
+N_H = 42; % number of rows of regularly arranged unit cells of RIS
+N_V = 42; % number of columns of regularly arranged unit cells of RIS
 
 SV_vec = 0:1600:8000;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
@@ -173,7 +173,7 @@ orbit_normal = [1; 0; 0];
 Rs = norm(S_xyz);
 
 
-for mc_iter = 1:Ns
+parfor mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
