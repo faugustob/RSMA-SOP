@@ -617,7 +617,7 @@ AN_P_ratio = 1;
 
 %% ===================== CONVEX ALTERNATING OPTIMIZATION (AO) =====================
 
-max_AO_iter = 5;           % Outer AO iterations
+max_AO_iter = 8;           % Outer AO iterations
 max_SCA = 3;         % Inner SCA iterations for alpha subproblem
 tol = 1e-3;
 
