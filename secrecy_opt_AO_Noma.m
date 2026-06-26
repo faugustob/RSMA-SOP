@@ -28,7 +28,7 @@ nSat = 2;
 
 %Number of nodes
 K_h = 1;  % number of high speed legit users % 50 km/h
-K_s = 0;  % number of slow speed legit users % 1.2 m/s
+K_s = 1;  % number of slow speed legit users % 1.2 m/s
 K = K_h+K_s; % number of legit users
 
 nF = 2; % Number of fake eavesdroppers
@@ -106,7 +106,7 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 N_H = 40; % number of rows of regularly arranged unit cells of RIS
 N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:8;
+Kh_vec = 1:1:6;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);
