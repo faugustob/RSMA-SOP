@@ -1,7 +1,7 @@
 clear; clc;
 %% Parameters
-M = 64;
-N = 64;
+M = 16;
+N = 16;
 MN = M*N;
 Deltaf = 15e3;
 T = 1/Deltaf;
