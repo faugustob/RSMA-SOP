@@ -1,4 +1,4 @@
-function [Nc, ICI] = compute_OTFS_static_channel_ofdm( ...
+function [Nc, ICI, Heff] = compute_OTFS_static_channel_ofdm( ...
     I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq, ...
     beta_r,Nsymb,h_rp,h_jq,h_e,method)
         if nargin < 16
@@ -7,12 +7,12 @@ function [Nc, ICI] = compute_OTFS_static_channel_ofdm( ...
         
         switch lower(method)
             case 'loop'
-                [Nc, ICI] = compute_loop( ...
+                [Nc, ICI, Heff] = compute_loop( ...
                     I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq, ...
                     beta_r,Nsymb,h_rp,h_jq,h_e);
         
             case 'vectorized'
-                [Nc, ICI] = compute_vectorized( ...
+                [Nc, ICI, Heff] = compute_vectorized( ...
                     I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq, ...
                     beta_r,Nsymb,h_rp,h_jq,h_e);
         
@@ -21,7 +21,7 @@ function [Nc, ICI] = compute_OTFS_static_channel_ofdm( ...
         end
 end
 
-function [Nc, ICI] = compute_loop(I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq,beta_r,Nsymb,h_rp,h_jq,h_e)
+function [Nc, ICI, Heff] = compute_loop(I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq,beta_r,Nsymb,h_rp,h_jq,h_e)
     %% ===================== Main Computation Loop =====================
     % ------------------ Construct Term1 ------------------
     term1 = zeros(Nsymb,Nsymb);
@@ -52,7 +52,7 @@ function [Nc, ICI] = compute_loop(I,Pe,P,Q_j,Plos,PLj,Nr,HB,HA,g_pq,beta_r,Nsymb
     Nc  = diag_norm_sq; 
 end
 
-function [Nc, ICI] = compute_vectorized(I, Pe, P, Q_j, Plos, PLj, Nr, HB, HA, g_pq, beta_r, Nsymb, h_rp, h_jq, h_e)
+function [Nc, ICI, Heff] = compute_vectorized(I, Pe, P, Q_j, Plos, PLj, Nr, HB, HA, g_pq, beta_r, Nsymb, h_rp, h_jq, h_e)
     % 1. Pre-process shapes on CPU first
     HA_proc = reshape(HA, Nsymb^2, []);
     HB_proc = reshape(HB, Nsymb^2, []);

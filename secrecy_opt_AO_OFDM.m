@@ -1,16 +1,16 @@
 clear; clc;
 cvx_clear;
 
-% %--- Choose how many workers (cores) you want ---
-numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
-                          % Recommended: feature('numcores') or feature('numcores')-1
-
-pool = gcp('nocreate');
-if ~isempty(pool)
-    delete(pool);   % Stop existing pool
-end
-
-parpool('local', numWorkers);  % Start new one with desired workers
+% % %--- Choose how many workers (cores) you want ---
+% numWorkers =8;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+%                           % Recommended: feature('numcores') or feature('numcores')-1
+% 
+% pool = gcp('nocreate');
+% if ~isempty(pool)
+%     delete(pool);   % Stop existing pool
+% end
+% 
+% parpool('local', numWorkers);  % Start new one with desired workers
 
 Ns = 200; % number of samples for Monte Carlo simulation
 %rng(3);
@@ -173,7 +173,7 @@ orbit_normal = [1; 0; 0];
 Rs = norm(S_xyz);
 
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
@@ -594,7 +594,7 @@ end
 display('SCA is optimizing your problem');
 
 Num_agents  = 100;
-Max_iteration = 5;
+Max_iteration = 10;
 Rmin=0;
 
 % Check if more than one STAR-RIS side is being used.
@@ -642,7 +642,7 @@ alpha_ofdm = alpha_ofdm - (sum(alpha_ofdm,2)-1)/(K+1);
 
 
 
-AN_P_ratio = 0.5;  
+AN_P_ratio = 1.5;  
 
 
 
@@ -746,13 +746,13 @@ phi_St_ofdm = wrapToPi(angle(b0_ofdm)).';
 
 
 
-[~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an_ofdm(...
+[~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
 
-[~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an_ofdm(...
+[~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB_ofdm, HA_ofdm, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
         zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm);
@@ -826,14 +826,24 @@ for ao = 1:max_AO_iter
     [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an_ofdm(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-        zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
+        zeta_k_St, Active_Gain_dB,AN_P_ratio, X,'mmse');
+
+       % [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
+       %  Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
+       %  Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+       %  zeta_k_St, Active_Gain_dB,AN_P_ratio, X);
 
 
 
     [~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an_ofdm(...
     Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB_ofdm, HA_ofdm, g_pq, ...
     Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-    zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm);
+    zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm,'mmse');
+
+    % [~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
+    % Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB_ofdm, HA_ofdm, g_pq, ...
+    % Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
+    % zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm);
 
     rate_p_vec_ofdm = log2(1 + sinr_p_k_ofdm);
 
@@ -894,7 +904,7 @@ for ao = 1:max_AO_iter
     % ================================================================
     % Logging
     % ================================================================
-      fprintf(['AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
+      fprintf(['OTFS: AO Iter %2d | Feasible = %d | Fake Sec = %.6f | Δ = %.6f | ' ...
              'max(xi)=%.2e | V_s = %2.1f | Ns=%2d\n'], ...
             ao, feasible_flag, best_fake_secrecy, ...
             best_fake_secrecy - prev_fake, max(xi_val), S_v, mc_iter);

@@ -1,12 +1,12 @@
 clear; clc;
 %% Parameters
-M = 16;
-N = 16;
+M = 8;
+N = 8;
 MN = M*N;
 Deltaf = 15e3;
 T = 1/Deltaf;
 tau = 0.2*T;
-nu  = 0.2*Deltaf;
+nu  = 0.4*Deltaf;
 Mqam = 4;                % QPSK
 bitsPerSym = log2(Mqam);
 SNRdB = 0:2:30;
@@ -64,7 +64,8 @@ for isnr = 1:length(SNRdB)
     Gzf_ofdm = pinv(H_ofdm);
     Gzf_otfs = pinv(H_otfs);
     Gzf_zak  = pinv(H_zak);
-    
+
+       % 
     Gmmse_ofdm = (H_ofdm'*H_ofdm + noiseVar*eye(MN)) \ H_ofdm';
     Gmmse_otfs = (H_otfs'*H_otfs + noiseVar*eye(MN)) \ H_otfs';
     Gmmse_zak  = (H_zak'*H_zak + noiseVar*eye(MN)) \ H_zak';
@@ -90,6 +91,10 @@ for isnr = 1:length(SNRdB)
         xhat_ofdm_zf = Gzf_ofdm*y_ofdm;
         xhat_otfs_zf = Gzf_otfs*y_otfs;
         xhat_zak_zf  = Gzf_zak*y_zak;
+
+        % xhat_ofdm_zf = y_ofdm;
+        % xhat_otfs_zf = y_otfs;
+        % xhat_zak_zf  = y_zak;
         
         bitshat_ofdm_zf = qamdemod(xhat_ofdm_zf, Mqam, 'OutputType','bit', 'UnitAveragePower',true);
         bitshat_otfs_zf = qamdemod(xhat_otfs_zf, Mqam, 'OutputType','bit', 'UnitAveragePower',true);
