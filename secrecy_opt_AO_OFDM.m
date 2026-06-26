@@ -12,7 +12,7 @@ cvx_clear;
 % 
 % parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 200; % number of samples for Monte Carlo simulation
+Ns = 50; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -104,10 +104,10 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 40; % number of rows of regularly arranged unit cells of RIS
-N_V = 40; % number of columns of regularly arranged unit cells of RIS
+N_H = 50; % number of rows of regularly arranged unit cells of RIS
+N_V = 50; % number of columns of regularly arranged unit cells of RIS
 
-SV_vec = 0:800:8000;
+SV_vec = 0:1600:8000;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_SV = length(SV_vec);
 feasible_record = zeros(Ns, N_SV);
@@ -324,8 +324,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M = 16;
-N = 16;
+M = 18;
+N = 18;
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
@@ -642,7 +642,7 @@ alpha_ofdm = alpha_ofdm - (sum(alpha_ofdm,2)-1)/(K+1);
 
 
 
-AN_P_ratio = 1.5;  
+AN_P_ratio = 1;  
 
 
 
@@ -826,7 +826,7 @@ for ao = 1:max_AO_iter
     [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an_ofdm(...
         Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
         Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-        zeta_k_St, Active_Gain_dB,AN_P_ratio, X,'mmse');
+        zeta_k_St, Active_Gain_dB,AN_P_ratio, X,'mrc');
 
        % [~, sc_p_lk, ~, ~, R_k,sinr_c_k, sinr_p_k, ~] = compute_sinr_sc_an(...
        %  Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB, HA, g_pq, ...
@@ -838,7 +838,7 @@ for ao = 1:max_AO_iter
     [~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an_ofdm(...
     Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB_ofdm, HA_ofdm, g_pq, ...
     Nsymb, reflect, Rmin, h_rp, h_jq, h_e, ...
-    zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm,'mmse');
+    zeta_k_St, Active_Gain_dB,AN_P_ratio, X_ofdm,'mrc');
 
     % [~, sc_p_lk_ofdm, ~, ~, Rk_ofdm,sinr_c_k_ofdm, sinr_p_k_ofdm, ~] = compute_sinr_sc_an(...
     % Pe, P, Q_j, nF+L, K, delta_f, Plos, PLj, Nr, HB_ofdm, HA_ofdm, g_pq, ...

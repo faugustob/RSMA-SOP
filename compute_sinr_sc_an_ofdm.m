@@ -34,7 +34,6 @@ N0_dBm = -174;
 sigma2 = 10^((N0_dBm + 10*log10(BW) - 30)/10);
 Pw_dBm = 46;
 Pw = 10^((Pw_dBm-30)/10);
-
 ris_noise_term = 0;
 
 alpha_c = alpha(1);
@@ -52,11 +51,11 @@ for k = 1:K
     reflect_coeff = reflect(k);
     beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
 
-    [~, ~, Heff_k]     = compute_OTFS_static_channel_ofdm(0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
+    [~, ~, Heff_k] = compute_OTFS_static_channel_ofdm(0, Pe, P, Q_j, Plos(k,1), PLj(k,1), Nr, ...
         HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), beta_r, Nsymb, ...
         h_rp(:,:,1), h_jq(:,:,k,1), h_e(:,k,1), 'vectorized');
 
-    [~, ~, Heff_k_AN]  = compute_OTFS_static_channel_ofdm(0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
+    [~, ~, Heff_k_AN] = compute_OTFS_static_channel_ofdm(0, Pe, P, Q_j, Plos(k,2), PLj(k,2), Nr, ...
         HB(:,:,:,k), HA(:,:,:,:,k), g_pq(:,:,k), beta_r, Nsymb, ...
         h_rp(:,:,2), h_jq(:,:,k,2), h_e(:,k,2), 'vectorized');
 
@@ -73,7 +72,7 @@ for l = 1:L
     reflect_coeff = reflect(K+l);
     beta_r = (reflect_coeff == 1) * beta_Sr + (reflect_coeff == -1) * beta_St;
 
-    [~, ~, Heff_l]    = compute_OTFS_static_channel_ofdm(1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
+    [~, ~, Heff_l] = compute_OTFS_static_channel_ofdm(1, Pe, P, Q_j, Plos(K+l,1), PLj(K+l,1), Nr, ...
         HB(:,:,:,K+l), HA(:,:,:,:,K+l), g_pq(:,:,K+l), beta_r, Nsymb, ...
         h_rp(:,:,1), h_jq(:,:,K+l,1), h_e(:,K+l,1), 'vectorized');
 
@@ -124,50 +123,67 @@ end
 
 function sinr = compute_post_eq_sinr(Heff, Heff_AN, alpha_sig, alpha_interf, ...
                                      AN_ratio, noise_var, ris_noise, Nsymb, eq_mode)
-    N = Nsymb;
-    total_noise = noise_var + ris_noise;
 
-    if strcmpi(eq_mode, 'none')
-        % === No Equalization: Evaluate average power per resource element ===
-        % Normalizing by N protects against non-physical dimension scaling
-        sig_pwr   = alpha_sig * mean(abs(Heff(:)).^2);
-        int_pwr   = alpha_interf * mean(abs(Heff(:)).^2) + AN_ratio * mean(abs(Heff_AN(:)).^2);
-        sinr      = sig_pwr / (int_pwr + total_noise + 1e-12);
-        return;
-    end
+N = Nsymb;
+total_noise = noise_var + ris_noise;
 
-    % ====================== ZF / MMSE Equalization ======================
-    if strcmpi(eq_mode, 'zf')
-        W = pinv(Heff);
-    elseif strcmpi(eq_mode, 'mmse')
-        W = (Heff' * Heff + total_noise * eye(N)) \ Heff';
-    else
-        error('Unknown eq_mode: %s', eq_mode);
-    end
+if strcmpi(eq_mode, 'none')
+    % No equalization - full matrix power (average per element)
+    sig_pwr = alpha_sig * mean(abs(Heff(:)).^2);
+    int_pwr = alpha_interf * mean(abs(Heff(:)).^2) + AN_ratio * mean(abs(Heff_AN(:)).^2);
+    sinr = sig_pwr / (int_pwr + total_noise);
+    return;
 
-    % Effective equalized channel matrices
-    Heff_eq    = W * Heff;
+elseif strcmpi(eq_mode, 'mrc')
+    % ====================== Maximum Ratio Combining ======================
+    % MRC combiner: W = Heff'  (matched filter)
+    W = Heff';                    % MRC beamformer / combiner
+    
+    % Effective channel after MRC
+    Heff_eq = W * Heff;
     Heff_AN_eq = W * Heff_AN;
+    
+    % Desired signal power (diagonal dominant)
+    signal_power = alpha_sig * mean(abs(diag(Heff_eq)).^2);
+    
+    % Residual interference + ISI
+    residual_isi = alpha_sig * (sum(abs(Heff_eq(:)).^2)/N - mean(abs(diag(Heff_eq)).^2));
+    
+    % Other data streams + AN interference
+    interf_data = alpha_interf * sum(abs(Heff_eq(:)).^2) / N;
+    interf_an   = AN_ratio * sum(abs(Heff_AN_eq(:)).^2) / N;
+    
+    % Noise enhancement (MRC has less noise enhancement than ZF)
+    noise_enhancement = sum(abs(W(:)).^2) / N;
+    enhanced_noise = total_noise * noise_enhancement;
+    
+    total_interf = residual_isi + interf_data + interf_an;
+    sinr = signal_power / (total_interf + enhanced_noise );
+    return;
 
-    % Extract desired signal (Main Diagonal components only)
-    diag_main    = diag(Heff_eq);
-    signal_power = alpha_sig * mean(abs(diag_main).^2);
+elseif strcmpi(eq_mode, 'zf')
+    W = pinv(Heff);
+elseif strcmpi(eq_mode, 'mmse')
+    W = (Heff' * Heff + total_noise * eye(N)) \ Heff';
+else
+    error('Unknown eq_mode: %s. Use ''none'', ''mrc'', ''zf'', or ''mmse''.', eq_mode);
+end
 
-    % Residual ISI/ICI (Off-diagonal energy of the desired stream)
-    total_sig_stream_power = alpha_sig * sum(abs(Heff_eq(:)).^2) / N;
-    residual_isi_power     = total_sig_stream_power - signal_power;
+% ====================== ZF / MMSE (unchanged) ======================
+Heff_eq = W * Heff;
+Heff_AN_eq = W * Heff_AN;
 
-    % Co-channel RSMA Interference Power (Incoherent)
-    interf_data_power = alpha_interf * sum(abs(Heff_eq(:)).^2) / N;
+signal_power = alpha_sig * mean(abs(diag(Heff_eq)).^2);
 
-    % Artificial Noise Power (Incoherent)
-    interf_an_power   = AN_ratio * sum(abs(Heff_AN_eq(:)).^2) / N;
+total_sig_stream = alpha_sig * sum(abs(Heff_eq(:)).^2) / N;
+residual_isi_power = total_sig_stream - signal_power;
 
-    % Noise Enhancement Calculation (Average per symbol)
-    noise_enhancement = sum(abs(W(:)).^2) / N; 
-    enhanced_noise    = total_noise * noise_enhancement;
+interf_data_power = alpha_interf * sum(abs(Heff_eq(:)).^2) / N;
+interf_an_power   = AN_ratio * sum(abs(Heff_AN_eq(:)).^2) / N;
 
-    % Total SINR calculation
-    total_interference = residual_isi_power + interf_data_power + interf_an_power;
-    sinr = signal_power / (total_interference + enhanced_noise + 1e-12);
+noise_enhancement = sum(abs(W(:)).^2) / N;
+enhanced_noise = total_noise * noise_enhancement;
+
+total_interference = residual_isi_power + interf_data_power + interf_an_power;
+sinr = signal_power / (total_interference + enhanced_noise );
 end
