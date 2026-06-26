@@ -104,8 +104,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 50; % number of rows of regularly arranged unit cells of RIS
-N_V = 50; % number of columns of regularly arranged unit cells of RIS
+N_H = 40; % number of rows of regularly arranged unit cells of RIS
+N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
 SV_vec = 0:1600:8000;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
@@ -324,8 +324,8 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M = 18;
-N = 18;
+M = 16;
+N = 16;
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;

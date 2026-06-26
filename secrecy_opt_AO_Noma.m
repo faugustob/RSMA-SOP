@@ -571,7 +571,7 @@ end
 %% Sine-Cosine optimization
 
 num_agents  = 1;
-Rmin=0;
+Rmin=1e-5;
 
 % Check if more than one STAR-RIS side is being used.
 any_reflect = any(reflect > 0) && any(reflect < 0);
