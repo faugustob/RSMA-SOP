@@ -103,10 +103,10 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 42; % number of rows of regularly arranged unit cells of RIS
-N_V = 42; % number of columns of regularly arranged unit cells of RIS
+N_H = 30; % number of rows of regularly arranged unit cells of RIS
+N_V = 30; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:6;
+Kh_vec = 1:1:7;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);
@@ -122,9 +122,12 @@ Convex_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
 
-    % ================================================================
+
+parfor kh_idx = 1:N_Kh
+
+% ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
 % ================================================================
 taus_u     = zeros(Pe, 1);
@@ -133,7 +136,6 @@ taus_u_AN  = zeros(Pe, 1);
 nus_u_AN   = zeros(Pe, 1);
 feasible_flag = false;
 feasible_flag_noma = false;
-for kh_idx = 1:N_Kh
 
 
 K_h = Kh_vec(kh_idx);
@@ -431,38 +433,6 @@ for k =1:K
             
 end
 
-% % % % Max tau and nu
-% max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
-% max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
-
-
-
-% taus_kq_rel = taus_kq - 0;
-% taus_ku_rel = taus_ku - 0;
-% 
-% fprintf('\nSatellite S\n');
-% fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
-%     min(taus_kq(:,:,:,1),[],'all')/T);
-% fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
-%     max(taus_kq(:,:,:,1),[],'all')/T);
-% 
-% fprintf('\nSatellite AN\n');
-% fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
-%     min(taus_kq(:,:,:,2),[],'all')/T);
-% fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
-%     max(taus_kq(:,:,:,2),[],'all')/T);
-% 
-% fprintf('\nDirect S\n');
-% fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
-%     min(taus_ku(:,:,1),[],'all')/T);
-% fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
-%     max(taus_ku(:,:,1),[],'all')/T);
-% 
-% fprintf('\nDirect AN\n');
-% fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
-%     min(taus_ku(:,:,2),[],'all')/T);
-% fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
-%     max(taus_ku(:,:,2),[],'all')/T);
 
 
 Nsymb = M*N; 
@@ -801,8 +771,8 @@ for ao = 1:max_AO_iter
     % Handle feasibility properly
     % ================================================================
     if feasible_flag
-        current_fake = mean(mean(sc_p_lk(1:nF,:)));
-        current_real = mean(mean(sc_p_lk(nF+1:end,:)));
+        current_fake = min(min(sc_p_lk(1:nF,:)));
+        current_real = min(min(sc_p_lk(nF+1:end,:)));
     else
         % Treat as outage
         Rk = zeros(K,1);
@@ -814,8 +784,8 @@ for ao = 1:max_AO_iter
      if feasible_flag_noma
         
 
-        current_fake_noma = mean(mean(sc_lk_noma(1:nF,:)));
-        current_real_noma = mean(mean(sc_lk_noma(nF+1:end,:)));
+        current_fake_noma = min(min(sc_lk_noma(1:nF,:)));
+        current_real_noma = min(min(sc_lk_noma(nF+1:end,:)));
     else
         % Treat as outage
         Rk_noma = zeros(K,1);
@@ -834,7 +804,7 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost;
-        prev_min_Rk = mean(R_k);
+        prev_min_Rk = min(R_k);
     end
 
     if feasible_flag_noma && cost_noma > prev_cost_noma 
@@ -842,7 +812,7 @@ for ao = 1:max_AO_iter
         best_real_secrecy_noma = current_real_noma;
         Destination_position_noma = X_noma;
         prev_cost_noma = cost_noma;
-        prev_min_Rk_noma = mean(Rk_noma);
+        prev_min_Rk_noma = min(Rk_noma);
     end
 
  
