@@ -2,7 +2,7 @@ clear; clc;
 cvx_clear;
 
 % %--- Choose how many workers (cores) you want ---
-numWorkers =4;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+numWorkers =6;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
 pool = gcp('nocreate');
@@ -122,7 +122,7 @@ Convex_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 
-for mc_iter = 1:Ns
+parfor mc_iter = 1:Ns
 
     % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
@@ -133,7 +133,7 @@ taus_u_AN  = zeros(Pe, 1);
 nus_u_AN   = zeros(Pe, 1);
 feasible_flag = false;
 feasible_flag_noma = false;
-parfor kh_idx = 1:N_Kh
+for kh_idx = 1:N_Kh
 
 
 K_h = Kh_vec(kh_idx);
