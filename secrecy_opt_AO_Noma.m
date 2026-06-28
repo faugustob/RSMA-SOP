@@ -611,7 +611,7 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-AN_P_ratio = 1;  
+AN_P_ratio = 0.7;  
 
 
 
@@ -911,14 +911,14 @@ end
 
 %% Plot
 % Convergence Curve with Markers
-figure('Color','w'); % White background
+fig1 = figure('Color','w'); % Assigned to handle fig1
 
 % Define color palette 
-colors = [0, 0.4470, 0.7410;      % 1: Blue
-          0.8500, 0.3250, 0.0980; % 2: Orange/Red
-          0.4660, 0.6740, 0.1880; % 3: Green
-          0.4940, 0.1840, 0.5560; % 4: Purple
-          0.9290, 0.6940, 0.1250]; % 5: Yellow/Gold (Added for distinct OFDM representation)
+colors = [0, 0.4470, 0.7410;       % 1: Blue
+          0.8500, 0.3250, 0.0980;  % 2: Orange/Red
+          0.4660, 0.6740, 0.1880;  % 3: Green
+          0.4940, 0.1840, 0.5560;  % 4: Purple
+          0.9290, 0.6940, 0.1250]; % 5: Yellow/Gold
 
 % Marker interval
 markerInterval = 2;
@@ -946,15 +946,19 @@ plot(Kh_vec, Convex_Convergence_curve_AO_noma_mean(1:end), 'Color', colors(2,:),
 
 xlabel('$K_h$','FontWeight','bold','FontSize',12,'Interpreter','latex');
 ylabel('min. SC (b/s/Hz)','FontWeight','bold','FontSize',12,'Interpreter','latex');
-legend('RSMA', 'NOMA', 'OFDM', 'Location','best','FontSize',10);
+legend('RSMA', 'NOMA', 'Location','best','FontSize',10); % Removed OFDM
 grid on;
 ax = gca;
 ax.GridAlpha = 0.3; % Lighter grid
 ax.LineWidth = 1.1; % Thicker axes
 box on;
 
-% Fake & Real Secrecy Rate Curve with Markers
-figure('Color','w');
+% --- Save Figure 1 ---
+savefig(fig1, 'Convergence_Curve_Comparison.fig');
+
+
+%% Fake & Real Secrecy Rate Curve with Markers
+fig2 = figure('Color','w'); % Assigned to handle fig2
 
 hold on;
 % RSMA Curves
@@ -977,6 +981,9 @@ ax = gca;
 ax.GridAlpha = 0.3;
 ax.LineWidth = 1.1;
 box on;
+
+% --- Save Figure 2 ---
+savefig(fig2, 'Secrecy_Rate_Analysis.fig');
 
 % Store in struct
 A_NomaResults = struct();
