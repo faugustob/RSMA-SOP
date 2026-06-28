@@ -10,7 +10,7 @@ if ~isempty(pool)
     delete(pool);   % Stop existing pool
 end
 
-% parpool('local', numWorkers);  % Start new one with desired workers
+parpool('local', numWorkers);  % Start new one with desired workers
 
 Ns = 2000; % number of samples for Monte Carlo simulation
 %rng(3);
@@ -611,7 +611,7 @@ alpha_noma = alpha_noma - (sum(alpha_noma,2)-1)/(K);
 
 
 
-AN_P_ratio = 0.7;  
+AN_P_ratio = 0.5;  
 
 
 
