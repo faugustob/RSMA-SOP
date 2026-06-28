@@ -1,13 +1,13 @@
 clear; clc;
 
 %% Parameters
-M = 16;
-N = 16;
+M = 18;
+N = 18;
 MN = M*N;
 Deltaf = 15e3;
 T = 1/Deltaf;
 tau = 0.2*T;
-nu  = 0.4*Deltaf;
+nu  = 0.6*Deltaf;
 Mqam = 4;                % QPSK
 bitsPerSym = log2(Mqam);
 SNRdB = 0:2:30;
@@ -188,8 +188,8 @@ semilogy(SNRdB, BER_otfs_mmse, 'rs--', 'LineWidth', 2);
 semilogy(SNRdB, BER_zak_mmse,  'rd--',  'LineWidth', 2);
 
 % MRC (Dash-Dot Lines)
-semilogy(SNRdB, BER_ofdm_mrc,  'go-.', 'LineWidth', 2);
-semilogy(SNRdB, BER_otfs_mrc,  'gs-.',  'LineWidth', 2);
+semilogy(SNRdB, BER_ofdm_mrc,  'ko-.', 'LineWidth', 2);
+semilogy(SNRdB, BER_otfs_mrc,  'cs-.',  'LineWidth', 2);
 semilogy(SNRdB, BER_zak_mrc,   'gd-.', 'LineWidth', 2);
 
 grid on;

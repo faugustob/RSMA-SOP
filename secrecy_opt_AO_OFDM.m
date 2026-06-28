@@ -35,6 +35,9 @@ nF = 2; % Number of fake eavesdroppers
 
 L = 2; % number of eavesdroppers
 
+M = 16;
+N = 16;
+
 % --- OTFS System Parameters ---
 delta_f = 15e3;      % Subcarrier spacing (Hz)
 T = 1/delta_f;       % Symbol duration
@@ -186,19 +189,6 @@ feasible_flag = false;
 feasible_flag_ofdm = false;
 
 
-for sv_idx = 1:N_SV
-
-S_v = SV_vec(sv_idx);
-
-omega_orb = (S_v / Rs) * orbit_normal;
-
-% Satellite velocity (ECI)
-vS = cross(omega_orb, S_xyz);
-vAN = cross(omega_orb, AN_xyz);
-
-% RIS velocity due to Earth rotation (ECI)
-vR = [0;0;0];
-
 sigma_ang = deg2rad(30);   % angular spread
 
 
@@ -215,51 +205,9 @@ taus_kq = zeros(K, P, Q_j, nSat);
 nus_kq = zeros(K, P, Q_j, nSat);
 
 
-% % ELEVATION (UNCHANGED)
-% el = pi/2 - (0.05)*max_alpha * rand(1, K);
-% 
-% 
-% az = (2*pi) * rand(1, K);
-% 
-% 
-% % RADIUS (FIXED ON EARTH SURFACE)
-% r = R_earth * ones(1, K);
-% 
-% % SPHERICAL → CARTESIAN
-% [x, y, z] = sph2cart(az, el, r);
-% 
-% ground_users_cart = [x; y; z];   % 3 x K
-
-%% ============================================================
-% Legitimate User Locations
-%
-% Users are uniformly distributed inside the HAP coverage area.
-%
-% Geometry:
-%   - Earth-centered coordinate system.
-%   - HAP/STAR-RIS located above the North Pole:
-%
-%       R_xyz = [0;0;R_earth+HAP_altitude]
-%
-%   - HAP nadir point on Earth:
-%
-%       [0;0;R_earth]
-%
-% Users are generated uniformly over a circular footprint
-% on the Earth's surface.
-%
-% This is a realistic model for HAP-assisted communications.
-%% ============================================================
-
 % Coverage radius of HAP cell [m]
 coverage_radius = 20e3;      % 20 km
 
-% ------------------------------------------------------------
-% Uniform distribution over a disk
-%
-% sqrt(rand) is important:
-% without sqrt(), users cluster near the center.
-% ------------------------------------------------------------
 r_user = coverage_radius * sqrt(rand(1,K));
 
 % Random angle
@@ -287,21 +235,6 @@ ground_users_cart = [x_local;
                      y_local;
                      z_local];
 
-%% Optional sanity check
-%
-% Verify users are within desired footprint
-%
-% footprint_distance = sqrt(x_local.^2 + y_local.^2);
-% fprintf('Max user distance from nadir = %.2f km\n', ...
-%          max(footprint_distance)/1000);
-% 
-% d_HAP_user = vecnorm(ground_users_cart - R_xyz);
-% 
-% fprintf('Min HAP-user distance = %.2f km\n', min(d_HAP_user)/1000);
-% fprintf('Max HAP-user distance = %.2f km\n', max(d_HAP_user)/1000);
-% 
-% disp(R_xyz')
-% disp(ground_users_cart')
 
 %% Eavesdroppers position
 x = 1000*rand(1, L)+1000;
@@ -324,20 +257,10 @@ rho_j_xyz = [ground_users_cart,fake_eavesdroppers_xyz,eavesdroppers_xyz];
 % find out whether each receiver is on the reflect side or transmit side
 reflect = sign(RIS_normal.' * (rho_j_xyz - R_xyz));
 
-M = 16;
-N = 16;
+
 
 delay_res = 1/(M*delta_f);
 tau_rms = 0.25*delay_res;
-
-
-% Satellite to RIS delays and doppler coefficients.
-[taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
-    c, S_xyz, vS, R_xyz, vR, f_c, P, tau_rms, sigma_ang);
-
-
-[taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vAN, R_xyz, vR, f_c, P, tau_rms, sigma_ang);
 
 %Channels
 for p = 1:P
@@ -346,20 +269,9 @@ for p = 1:P
     h_rp(:, p,2) = sqrt(gamrnd(m_p(p), omega_p(p)/m_p(p), [Nr, 1])) .* exp(1i*2*pi*rand(Nr, 1)); % Noise carrying channel
 end
 
-
-
-
 %OTFS Per User channel conditions
 for k =1:K
-
   
-    if k <= K_h
-        vk_ms = 50 / 3.6;
-    else
-        vk_ms = 1.2;
-    end
-
-
     User_k_loc = rho_j_xyz(:,k);
 
     d_los = sqrt(sum((User_k_loc-S_xyz).^2));
@@ -378,50 +290,6 @@ for k =1:K
    
   
 
-     % direction in xy (away from ris)
-    if norm(User_k_loc(1:2)-R_xyz(1:2)) < 1e-6
-        d_ru = [R_xyz(1)+1;R_xyz(1)+1];
-    else
-        d_ru = User_k_loc(1:2) - R_xyz(1:2);
-    end
-    d_ru = d_ru / norm(d_ru);
-
-
-    % receiver velocity (guaranteed norm)
-    v_l  = vk_ms * [d_ru; 0];
-
-    % RIS to legitimate users delays and doppler coefficients.
-    [taus_k, nus_k, u_paths_k] = compute_delay_and_doppler( ...
-    c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, tau_rms, sigma_ang);
-
-
-
-     for p=1:P
-        for q=1:Q_j
-           taus_kq(k,p,q,1) = taus_R(p)+taus_k(q);
-           nus_kq(k,p,q,1) = nus_R(p)+nus_k(q);
-
-           taus_kq(k,p,q,2) = taus_R_AN(p)+taus_k(q);
-           nus_kq(k,p,q,2) = nus_R_AN(p)+nus_k(q);
-        end 
-      end
-    
-
-    % sat to legitimate users delays and doppler coefficients.
-    [taus_u, nus_u, u_paths_u] = compute_delay_and_doppler( ...
-    c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, tau_rms, sigma_ang);
-
-    [taus_u_AN, nus_u_AN, u_paths_AN] = compute_delay_and_doppler( ...
-    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, tau_rms, sigma_ang);
-
-    g_pq(:,:,k,1) = exp(1i*2*pi*(taus_R*nus_k'));    
-    g_pq(:,:,k,2) = exp(1i*2*pi*(taus_R_AN*nus_k'));    
-
-    taus_ku(:,k,1) = taus_u; 
-    nus_ku(:,k,1) = nus_u;   
-
-    taus_ku(:,k,2) = taus_u_AN; 
-    nus_ku(:,k,2) = nus_u_AN;  
    
      
     for q = 1:Q_j
@@ -437,38 +305,85 @@ for k =1:K
             
 end
 
-% % % % Max tau and nu
-% max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
-% max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
+
+for sv_idx = 1:N_SV
+
+S_v = SV_vec(sv_idx);
+
+omega_orb = (S_v / Rs) * orbit_normal;
+
+% Satellite velocity (ECI)
+vS = cross(omega_orb, S_xyz);
+vAN = cross(omega_orb, AN_xyz);
+
+% RIS velocity due to Earth rotation (ECI)
+vR = [0;0;0];
 
 
 
-% taus_kq_rel = taus_kq - 0;
-% taus_ku_rel = taus_ku - 0;
-% 
-% fprintf('\nSatellite S\n');
-% fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
-%     min(taus_kq(:,:,:,1),[],'all')/T);
-% fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
-%     max(taus_kq(:,:,:,1),[],'all')/T);
-% 
-% fprintf('\nSatellite AN\n');
-% fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
-%     min(taus_kq(:,:,:,2),[],'all')/T);
-% fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
-%     max(taus_kq(:,:,:,2),[],'all')/T);
-% 
-% fprintf('\nDirect S\n');
-% fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
-%     min(taus_ku(:,:,1),[],'all')/T);
-% fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
-%     max(taus_ku(:,:,1),[],'all')/T);
-% 
-% fprintf('\nDirect AN\n');
-% fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
-%     min(taus_ku(:,:,2),[],'all')/T);
-% fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
-%     max(taus_ku(:,:,2),[],'all')/T);
+
+% Satellite to RIS delays and doppler coefficients.
+[taus_R, nus_R, u_paths_R] = compute_delay_and_doppler( ...
+    c, S_xyz, vS, R_xyz, vR, f_c, P, tau_rms, sigma_ang);
+
+
+[taus_R_AN, nus_R_AN, u_paths_R_AN] = compute_delay_and_doppler( ...
+    c, AN_xyz, vAN, R_xyz, vR, f_c, P, tau_rms, sigma_ang);
+
+
+%OTFS Per User channel conditions
+for k =1:K
+
+  
+    if k <= K_h
+        vk_ms = 50 / 3.6;
+    else
+        vk_ms = 1.2;
+    end
+
+ 
+  
+
+     % direction in xy (away from ris)
+    if norm(User_k_loc(1:2)-R_xyz(1:2)) < 1e-6
+        d_ru = [R_xyz(1)+1;R_xyz(1)+1];
+    else
+        d_ru = User_k_loc(1:2) - R_xyz(1:2);
+    end
+    d_ru = d_ru / norm(d_ru);
+
+
+    % receiver velocity (guaranteed norm)
+    v_l  = vk_ms * [d_ru; 0];
+
+    % RIS to legitimate users delays and doppler coefficients.
+    [taus_k, nus_k, u_paths_k] = compute_delay_and_doppler( ...
+    c, R_xyz, vR, User_k_loc, v_l, f_c, Q_j, tau_rms, sigma_ang);     
+
+    % sat to legitimate users delays and doppler coefficients.
+    [taus_u, nus_u, u_paths_u] = compute_delay_and_doppler( ...
+    c, S_xyz, vS, User_k_loc, v_l, f_c, Pe, tau_rms, sigma_ang);
+
+    [taus_u_AN, nus_u_AN, u_paths_AN] = compute_delay_and_doppler( ...
+    c, AN_xyz, vAN, User_k_loc, v_l, f_c, Pe, tau_rms, sigma_ang);  
+
+    for p=1:P
+            for q=1:Q_j
+               taus_kq(k,p,q,1) = taus_R(p)+taus_k(q);
+               nus_kq(k,p,q,1)  = nus_R(p)+nus_k(q);
+               taus_kq(k,p,q,2) = taus_R_AN(p)+taus_k(q);
+               nus_kq(k,p,q,2)  = nus_R_AN(p)+nus_k(q);
+            end 
+     end
+    g_pq(:,:,k,1) = exp(1i*2*pi*(taus_R*nus_k'));    
+    g_pq(:,:,k,2) = exp(1i*2*pi*(taus_R_AN*nus_k'));    
+    
+    taus_ku(:,k,1) = taus_u; nus_ku(:,k,1) = nus_u;   
+    taus_ku(:,k,2) = taus_u_AN; nus_ku(:,k,2) = nus_u_AN;
+     
+              
+end
+
 
 
 Nsymb = M*N; 
