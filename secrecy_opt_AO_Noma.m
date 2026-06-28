@@ -801,8 +801,8 @@ for ao = 1:max_AO_iter
     % Handle feasibility properly
     % ================================================================
     if feasible_flag
-        current_fake = min(min(sc_p_lk(1:nF,:)));
-        current_real = min(min(sc_p_lk(nF+1:end,:)));
+        current_fake = mean(mean(sc_p_lk(1:nF,:)));
+        current_real = mean(mean(sc_p_lk(nF+1:end,:)));
     else
         % Treat as outage
         Rk = zeros(K,1);
@@ -814,8 +814,8 @@ for ao = 1:max_AO_iter
      if feasible_flag_noma
         
 
-        current_fake_noma = min(min(sc_lk_noma(1:nF,:)));
-        current_real_noma = min(min(sc_lk_noma(nF+1:end,:)));
+        current_fake_noma = mean(mean(sc_lk_noma(1:nF,:)));
+        current_real_noma = mean(mean(sc_lk_noma(nF+1:end,:)));
     else
         % Treat as outage
         Rk_noma = zeros(K,1);
@@ -834,7 +834,7 @@ for ao = 1:max_AO_iter
         best_real_secrecy = current_real;
         Destination_position = X;
         prev_cost = cost;
-        prev_min_Rk = min(R_k);
+        prev_min_Rk = mean(R_k);
     end
 
     if feasible_flag_noma && cost_noma > prev_cost_noma 
@@ -842,7 +842,7 @@ for ao = 1:max_AO_iter
         best_real_secrecy_noma = current_real_noma;
         Destination_position_noma = X_noma;
         prev_cost_noma = cost_noma;
-        prev_min_Rk_noma = min(Rk_noma);
+        prev_min_Rk_noma = mean(Rk_noma);
     end
 
  
