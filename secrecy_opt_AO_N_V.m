@@ -33,7 +33,7 @@ K = K_h+K_s; % number of legit users
 
 nF = 2; % Number of fake eavesdroppers
 
-L = 2; % number of eavesdroppers
+L = 1; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
 delta_f = 15e3;      % Subcarrier spacing (Hz)
