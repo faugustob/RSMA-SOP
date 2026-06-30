@@ -2,7 +2,7 @@ clear; clc;
 cvx_clear;
 
 % % %--- Choose how many workers (cores) you want ---
-numWorkers =2;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+numWorkers =4;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
 pool = gcp('nocreate');
@@ -33,7 +33,7 @@ K = K_h+K_s; % number of legit users
 
 nF = 2; % Number of fake eavesdroppers
 
-L = 2; % number of eavesdroppers
+L = 1; % number of eavesdroppers
 
 M = 16;
 N = 16;
@@ -107,8 +107,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 42; % number of rows of regularly arranged unit cells of RIS
-N_V = 42; % number of columns of regularly arranged unit cells of RIS
+N_H = 45; % number of rows of regularly arranged unit cells of RIS
+N_V = 45; % number of columns of regularly arranged unit cells of RIS
 
 SV_vec = 0:1600:8000;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
