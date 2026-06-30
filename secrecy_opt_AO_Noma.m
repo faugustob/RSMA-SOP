@@ -103,8 +103,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 45; % number of rows of regularly arranged unit cells of RIS
-N_V = 45; % number of columns of regularly arranged unit cells of RIS
+N_H = 40; % number of rows of regularly arranged unit cells of RIS
+N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
 Kh_vec = 1:1:5;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
