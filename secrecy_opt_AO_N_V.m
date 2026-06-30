@@ -119,7 +119,10 @@ Convex_Convergence_curve_AO  = zeros(Ns, num_NV);
 Convex_Fake_Convergence_curve_AO = zeros(Ns, num_NV);
 Convex_Real_Convergence_curve_AO = zeros(Ns, num_NV);
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
+
+    % ================================================================
+parfor nV_idx = 1:num_NV
 % ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
 % ================================================================
@@ -129,8 +132,6 @@ taus_u_AN  = zeros(Pe, 1);
 nus_u_AN   = zeros(Pe, 1);
 feasible_flag = false;
 prev_min_Rk   = 0;
-    % ================================================================
-for nV_idx = 1:num_NV
 N_V = nV_vec(nV_idx);
 Nr = N_V * N_H; % total number of unit cells of RIS
 
