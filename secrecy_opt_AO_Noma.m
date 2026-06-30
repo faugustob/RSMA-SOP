@@ -2,7 +2,7 @@ clear; clc;
 cvx_clear;
 
 % %--- Choose how many workers (cores) you want ---
-numWorkers =4;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
+numWorkers =6;          % ←←← CHANGE THIS TO YOUR PREFERRED NUMBER
                           % Recommended: feature('numcores') or feature('numcores')-1
 
 pool = gcp('nocreate');
@@ -103,10 +103,10 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 42; % number of rows of regularly arranged unit cells of RIS
-N_V = 42; % number of columns of regularly arranged unit cells of RIS
+N_H = 40; % number of rows of regularly arranged unit cells of RIS
+N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
-Kh_vec = 1:1:6;
+Kh_vec = 1:1:7;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
 N_Kh = length(Kh_vec);
 feasible_record = zeros(Ns, N_Kh);
@@ -122,9 +122,12 @@ Convex_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Fake_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 Convex_Real_Convergence_curve_AO_noma = zeros(Ns, N_Kh);
 
-parfor mc_iter = 1:Ns
+for mc_iter = 1:Ns
 
-    % ================================================================
+
+parfor kh_idx = 1:N_Kh
+
+% ================================================================
 % INITIALIZE TEMPORARIES (fixes uninitialized warnings)
 % ================================================================
 taus_u     = zeros(Pe, 1);
@@ -133,7 +136,6 @@ taus_u_AN  = zeros(Pe, 1);
 nus_u_AN   = zeros(Pe, 1);
 feasible_flag = false;
 feasible_flag_noma = false;
-for kh_idx = 1:N_Kh
 
 
 K_h = Kh_vec(kh_idx);
@@ -431,38 +433,6 @@ for k =1:K
             
 end
 
-% % % % Max tau and nu
-% max_tau = max([taus_kq(:);taus_ku(:)])-min([taus_kq(:);taus_ku(:)]); 
-% max_nu  = max([nus_kq(:);nus_ku(:)])-min([nus_kq(:);nus_ku(:)]);    
-
-
-
-% taus_kq_rel = taus_kq - 0;
-% taus_ku_rel = taus_ku - 0;
-% 
-% fprintf('\nSatellite S\n');
-% fprintf('min taus_kq(:,:,:,1) = %.3f us\n', ...
-%     min(taus_kq(:,:,:,1),[],'all')/T);
-% fprintf('max taus_kq(:,:,:,1) = %.3f us\n', ...
-%     max(taus_kq(:,:,:,1),[],'all')/T);
-% 
-% fprintf('\nSatellite AN\n');
-% fprintf('min taus_kq(:,:,:,2) = %.3f us\n', ...
-%     min(taus_kq(:,:,:,2),[],'all')/T);
-% fprintf('max taus_kq(:,:,:,2) = %.3f us\n', ...
-%     max(taus_kq(:,:,:,2),[],'all')/T);
-% 
-% fprintf('\nDirect S\n');
-% fprintf('min taus_ku(:,:,1) = %.3f us\n', ...
-%     min(taus_ku(:,:,1),[],'all')/T);
-% fprintf('max taus_ku(:,:,1) = %.3f us\n', ...
-%     max(taus_ku(:,:,1),[],'all')/T);
-% 
-% fprintf('\nDirect AN\n');
-% fprintf('min taus_ku(:,:,2) = %.3f us\n', ...
-%     min(taus_ku(:,:,2),[],'all')/T);
-% fprintf('max taus_ku(:,:,2) = %.3f us\n', ...
-%     max(taus_ku(:,:,2),[],'all')/T);
 
 
 Nsymb = M*N; 
