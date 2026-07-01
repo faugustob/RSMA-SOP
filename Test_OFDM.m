@@ -7,7 +7,7 @@ MN = M*N;
 Deltaf = 15e3;
 T = 1/Deltaf;
 tau = 0.2*T;
-nu  = 0.6*Deltaf;
+nu  = 0.8*Deltaf;
 Mqam = 4;                % QPSK
 bitsPerSym = log2(Mqam);
 SNRdB = 0:2:30;
@@ -102,9 +102,15 @@ for isnr = 1:length(SNRdB)
         y_zak  = H_zak*x  + n3;
         
         %% Zero Forcing (ZF) Detection
+        % xhat_ofdm_zf = Gzf_ofdm*y_ofdm;
+        % xhat_otfs_zf = Gzf_otfs*y_otfs;
+        % xhat_zak_zf  = Gzf_zak*y_zak;
+
+
         xhat_ofdm_zf = Gzf_ofdm*y_ofdm;
         xhat_otfs_zf = Gzf_otfs*y_otfs;
         xhat_zak_zf  = Gzf_zak*y_zak;
+        
         
         bitshat_ofdm_zf = qamdemod(xhat_ofdm_zf, Mqam, 'OutputType','bit', 'UnitAveragePower',true);
         bitshat_otfs_zf = qamdemod(xhat_otfs_zf, Mqam, 'OutputType','bit', 'UnitAveragePower',true);
