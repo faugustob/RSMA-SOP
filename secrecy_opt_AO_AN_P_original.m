@@ -22,7 +22,7 @@ K = K_h+K_s; % number of legit users
 
 nF = 2; % Number of fake eavesdroppers
 
-L = 2; % number of eavesdroppers
+L = 1; % number of eavesdroppers
 
 % --- OTFS System Parameters ---
 delta_f = 15e3;      % Subcarrier spacing (Hz)
@@ -159,8 +159,8 @@ vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
 
-M = 8;
-N = 8;
+M = 16;
+N = 16;
 
 Nsymb = M*N; 
 
