@@ -159,8 +159,8 @@ vR = [0;0;0];
 
 sigma_ang = deg2rad(30);   % angular spread
 
-M = 8;
-N = 8;
+M = 16;
+N = 16;
 
 Nsymb = M*N; 
 
