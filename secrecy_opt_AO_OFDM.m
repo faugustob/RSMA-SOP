@@ -12,7 +12,7 @@ end
 
 parpool('local', numWorkers);  % Start new one with desired workers
 
-Ns = 400; % number of samples for Monte Carlo simulation
+Ns = 1000; % number of samples for Monte Carlo simulation
 %rng(3);
 
 transmissionType = 'mc';
@@ -107,8 +107,8 @@ R_xyz = [0; 0; R_earth+HAP_altitude]; % location of STAR-RIS; code assumes this 
 % z-axis direction)
 
 
-N_H = 45; % number of rows of regularly arranged unit cells of RIS
-N_V = 45; % number of columns of regularly arranged unit cells of RIS
+N_H = 40; % number of rows of regularly arranged unit cells of RIS
+N_V = 40; % number of columns of regularly arranged unit cells of RIS
 
 SV_vec = 0:1600:8000;
 % ADD THIS RIGHT BEFORE: for mc_iter = 1:Ns
