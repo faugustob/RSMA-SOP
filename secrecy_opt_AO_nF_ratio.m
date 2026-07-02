@@ -2,12 +2,12 @@ clear; clc;
 cvx_clear;
 
 % --- Choose how many workers (cores) you want ---
-% numWorkers = 2;          
-% pool = gcp('nocreate');
-% if ~isempty(pool)
-%     delete(pool);   
-% end
-% parpool('local', numWorkers);  
+numWorkers = 2;          
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   
+end
+parpool('local', numWorkers);  
 
 Ns = 20000; % number of samples for Monte Carlo simulation
 transmissionType = 'mc';
@@ -278,7 +278,7 @@ for mc_iter = 1:Ns
     end
 
     %% ===================== INNER RATIO LOOP (ZERO ALLOCATIONS) =====================
-    for nFr_idx = 1:num_NF
+    parfor nFr_idx = 1:num_NF
         nF = nF_ratio_vec(nFr_idx) * L;    
         
         % Formulate slice matrix selectors
