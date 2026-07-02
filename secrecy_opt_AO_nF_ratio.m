@@ -2,12 +2,12 @@ clear; clc;
 cvx_clear;
 
 % --- Choose how many workers (cores) you want ---
-% numWorkers = 2;          
-% pool = gcp('nocreate');
-% if ~isempty(pool)
-%     delete(pool);   
-% end
-% parpool('local', numWorkers);  
+numWorkers = 4;          
+pool = gcp('nocreate');
+if ~isempty(pool)
+    delete(pool);   
+end
+parpool('local', numWorkers);  
 
 Ns = 20000; % number of samples for Monte Carlo simulation
 transmissionType = 'mc';
@@ -100,7 +100,7 @@ vR = [0;0;0];
 sigma_ang = deg2rad(30);   
 
 %% ===================== PARFOR ENGINE =====================
-for mc_iter = 1:Ns
+parfor mc_iter = 1:Ns
     % 1. Determine maximum dimensions for slicing
     max_nF = max(nF_ratio_vec) * L;
     total_nodes_max = K + max_nF + L;
