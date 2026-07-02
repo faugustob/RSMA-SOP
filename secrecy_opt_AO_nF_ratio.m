@@ -2,7 +2,7 @@ clear; clc;
 cvx_clear;
 
 % --- Choose how many workers (cores) you want ---
-numWorkers = 2;          
+numWorkers = 6;          
 pool = gcp('nocreate');
 if ~isempty(pool)
     delete(pool);   
